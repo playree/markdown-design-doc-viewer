@@ -15,7 +15,7 @@ export interface DiagramInfo {
   /** Exclusive end of the overview range (token index). Only meaningful when `paired`. */
   rangeEnd: number;
   messages: LinkedMessage[];
-  /** true when at least one message is linked and the diagram should be laid out side by side. */
+  /** true when the diagram has a `%% @seq-notes` marker and is top-level, so it is laid out side by side. */
   paired: boolean;
 }
 
@@ -62,34 +62,45 @@ export function headingText(inline: Token | undefined): string {
 }
 
 /**
- * Finds sequence diagrams and resolves their message → heading links.
- * Headings must already carry an `id` attribute.
+ * Finds sequence diagrams and resolves the message → heading links of the ones
+ * marked with `%% @seq-notes`. Headings must already carry an `id` attribute.
  *
  * Only top-level (level 0) fences are paired, so the overview range always
  * starts and ends on a top-level block boundary and can be rendered on its own.
  */
 export function linkDiagrams(tokens: Token[]): LinkResult {
-  const diagrams: DiagramInfo[] = [];
   const warnings: LinkWarning[] = [];
 
-  const sequenceFences = tokens
+  const diagrams: DiagramInfo[] = tokens
     .map((token, index) => ({ token, index }))
-    .filter(({ token }) => isSequenceFence(token));
+    .filter(({ token }) => isSequenceFence(token))
+    .map(({ token, index }, id) => {
+      const { messages, markerLine } = parseSequence(token.content, (token.map?.[0] ?? 0) + 1);
+      if (markerLine === undefined) {
+        for (const m of messages.filter((m) => m.ref !== undefined)) {
+          warnings.push({
+            line: m.refLine ?? m.line,
+            message: '@ref is ignored because the sequence diagram has no "%% @seq-notes" marker.',
+          });
+        }
+      } else if (token.level !== 0) {
+        warnings.push({
+          line: markerLine,
+          message: '@seq-notes is ignored for a sequence diagram inside a list or blockquote.',
+        });
+      }
+      const paired = markerLine !== undefined && token.level === 0;
+      return { id, fenceIndex: index, rangeEnd: index + 1, messages, paired };
+    });
 
-  for (const { token, index } of sequenceFences) {
-    const firstLine = (token.map?.[0] ?? 0) + 1;
-    const messages: LinkedMessage[] = parseSequence(token.content, firstLine);
-    const diagram: DiagramInfo = { id: diagrams.length, fenceIndex: index, rangeEnd: index + 1, messages, paired: false };
-    diagrams.push(diagram);
+  const pairedFences = new Set(diagrams.filter((d) => d.paired).map((d) => d.fenceIndex));
 
-    if (token.level !== 0) {
-      continue;
-    }
-
+  for (const diagram of diagrams.filter((d) => d.paired)) {
+    const index = diagram.fenceIndex;
     let end = index + 1;
     while (end < tokens.length) {
       const t = tokens[end];
-      if (t.level === 0 && (isSequenceFence(t) || (t.type === 'html_block' && END_MARKER_RE.test(t.content)))) {
+      if (pairedFences.has(end) || (t.level === 0 && t.type === 'html_block' && END_MARKER_RE.test(t.content))) {
         break;
       }
       end++;
@@ -108,7 +119,7 @@ export function linkDiagrams(tokens: Token[]): LinkResult {
       }
     }
 
-    for (const message of messages) {
+    for (const message of diagram.messages) {
       const target = headings.get(normalizeLabel(message.ref ?? message.text));
       if (target) {
         message.target = target;
@@ -119,8 +130,8 @@ export function linkDiagrams(tokens: Token[]): LinkResult {
         });
       }
     }
-    diagram.paired = messages.some((m) => m.target !== undefined);
   }
 
+  warnings.sort((a, b) => a.line - b.line);
   return { diagrams, warnings };
 }

@@ -11,6 +11,7 @@ const SAMPLE = doc(
   '# シーケンス',
   '',
   '```mermaid',
+  '%% @seq-notes',
   'sequenceDiagram',
   '    Auth->>DB: ユーザー情報を取得',
   '    %% @ref トークン発行処理',
@@ -45,9 +46,9 @@ describe('linkDiagrams', () => {
 
   it('stops the overview range at the next sequence diagram', () => {
     const src = doc(
-      '```mermaid', 'sequenceDiagram', 'A->>B: 一', '```',
+      '```mermaid', 'sequenceDiagram', '%% @seq-notes', 'A->>B: 一', '```',
       '## 一',
-      '```mermaid', 'sequenceDiagram', 'A->>B: 二', '```',
+      '```mermaid', 'sequenceDiagram', '%% @seq-notes', 'A->>B: 二', '```',
       '## 二',
     );
     const tokens = md.parse(src, {});
@@ -56,18 +57,47 @@ describe('linkDiagrams', () => {
     expect(diagrams[0].rangeEnd).toBe(diagrams[1].fenceIndex);
   });
 
-  it('does not pair diagrams without links and warns on unresolved @ref', () => {
-    const src = doc('```mermaid', 'sequenceDiagram', '%% @ref 無い見出し', 'A->>B: x', '```', '## y');
+  it('extends the overview range over unmarked diagrams', () => {
+    const src = doc(
+      '```mermaid', 'sequenceDiagram', '%% @seq-notes', 'A->>B: 一', '```',
+      '```mermaid', 'sequenceDiagram', 'A->>B: 二', '```',
+      '## 二',
+    );
+    const tokens = md.parse(src, {});
+    const { diagrams } = linkDiagrams(tokens);
+    expect(diagrams.map((d) => d.paired)).toEqual([true, false]);
+    expect(diagrams[0].rangeEnd).toBe(tokens.length);
+    expect(diagrams[0].messages[0].target).toBeUndefined();
+    expect(diagrams[1].messages[0].target).toBeUndefined();
+  });
+
+  it('pairs a marked diagram without links and warns on unresolved @ref', () => {
+    const src = doc('```mermaid', 'sequenceDiagram', '%% @seq-notes', '%% @ref 無い見出し', 'A->>B: x', '```', '## y');
+    const { diagrams, warnings } = linkDiagrams(md.parse(src, {}));
+    expect(diagrams[0].paired).toBe(true);
+    expect(warnings).toEqual([{ line: 3, message: expect.stringContaining('無い見出し') }]);
+  });
+
+  it('does not pair or link unmarked diagrams and warns on their @ref', () => {
+    const src = doc('```mermaid', 'sequenceDiagram', '%% @ref x', 'A->>B: x', 'A->>B: y', '```', '## x', '## y');
     const { diagrams, warnings } = linkDiagrams(md.parse(src, {}));
     expect(diagrams[0].paired).toBe(false);
-    expect(warnings).toEqual([{ line: 2, message: expect.stringContaining('無い見出し') }]);
+    expect(diagrams[0].messages.map((m) => m.target)).toEqual([undefined, undefined]);
+    expect(warnings).toEqual([{ line: 2, message: expect.stringContaining('@seq-notes') }]);
+  });
+
+  it('warns on a marked diagram nested in a list', () => {
+    const src = doc('- item', '', '  ```mermaid', '  sequenceDiagram', '  %% @seq-notes', '  A->>B: x', '  ```', '## x');
+    const { diagrams, warnings } = linkDiagrams(md.parse(src, {}));
+    expect(diagrams[0].paired).toBe(false);
+    expect(warnings).toEqual([{ line: 4, message: expect.stringContaining('list or blockquote') }]);
   });
 
   it('ignores headings before the diagram and non-sequence mermaid', () => {
-    const src = doc('## x', '```mermaid', 'flowchart TD', 'A-->B', '```', '```mermaid', 'sequenceDiagram', 'A->>B: x', '```');
+    const src = doc('## x', '```mermaid', 'flowchart TD', '%% @seq-notes', 'A-->B', '```', '```mermaid', 'sequenceDiagram', '%% @seq-notes', 'A->>B: x', '```');
     const { diagrams } = linkDiagrams(md.parse(src, {}));
     expect(diagrams).toHaveLength(1);
-    expect(diagrams[0].paired).toBe(false);
+    expect(diagrams[0].messages[0].target).toBeUndefined();
   });
 });
 
@@ -78,7 +108,7 @@ describe('renderDocument', () => {
     expect(pairStart).toBeGreaterThan(html.indexOf('<h1 id="sn-シーケンス"'));
     expect(html.indexOf('<div class="seqnotes-seq-col">')).toBeGreaterThan(pairStart);
     const overview = html.indexOf('<div class="seqnotes-overview-col">');
-    expect(html.indexOf('<h1 id="sn-処理概要" data-line="10">')).toBeGreaterThan(overview);
+    expect(html.indexOf('<h1 id="sn-処理概要" data-line="11">')).toBeGreaterThan(overview);
     // content after the end marker is outside the pair
     expect(html.lastIndexOf('</div>', html.indexOf('<h1 id="sn-補足"'))).toBeGreaterThan(overview);
     expect(html).toMatch(/<div class="seqnotes-mermaid" data-line="2" data-seqnotes-meta="\{&quot;id&quot;:0,/);
@@ -104,8 +134,8 @@ describe('renderDocument', () => {
   });
 
   it('puts warnings above the content without data-line', () => {
-    const html = renderDocument(md, doc('para', '', '```mermaid', 'sequenceDiagram', '%% @ref 無い', 'A->>B: x', '```'));
-    expect(html).toMatch(/^<div class="seqnotes-warnings"><p data-seqnotes-jump="4">/);
+    const html = renderDocument(md, doc('para', '', '```mermaid', 'sequenceDiagram', '%% @seq-notes', '%% @ref 無い', 'A->>B: x', '```'));
+    expect(html).toMatch(/^<div class="seqnotes-warnings"><p data-seqnotes-jump="5">/);
     expect(html.indexOf('data-line')).toBeGreaterThan(html.indexOf('</div>'));
   });
 });

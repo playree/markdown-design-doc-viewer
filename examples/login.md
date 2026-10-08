@@ -3,6 +3,7 @@
 ## シーケンス
 
 ```mermaid
+%% @seq-notes
 sequenceDiagram
     actor User as ユーザー
     participant FE as フロントエンド
@@ -73,5 +74,5 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    A->>B: 紐付けのないシーケンス図は通常表示
+    A->>B: @seq-notes のないシーケンス図は通常表示
 ```
