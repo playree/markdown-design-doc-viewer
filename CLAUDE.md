@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 概要
 
-VS Code 拡張「Markdown Sequence Side Notes」。設計書 Markdown 内の mermaid シーケンス図と、その後ろの処理概要（見出し）を横並びでプレビューし、矢印と見出しを相互に紐付ける。記法・挙動の仕様は [README.md](README.md) が正（英語・日本語の両方を同じ内容で保守する）。
+VS Code 拡張「Markdown Sequence Side Notes」。設計書 Markdown 内の mermaid シーケンス図と、その後ろの処理概要（見出し）を横並びでプレビューし、矢印と見出しを相互に紐付ける。記法・挙動の仕様は [README.md](README.md)（英語）と [README.ja.md](README.ja.md)（日本語）が正（両方を同じ内容で保守する）。
 
 ## コマンド
 

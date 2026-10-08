@@ -1,11 +1,11 @@
 # Markdown Sequence Side Notes
 
+English | [日本語](README.ja.md)
+
 Preview design documents written in Markdown with **mermaid sequence diagrams shown side by side with their step descriptions**.
 Each arrow in the diagram is linked to a heading in the description, so you can jump back and forth between them.
 
 ![Sequence diagram on the left, linked step descriptions on the right](images/screenshot.png)
-
-[日本語の説明はこちら](#日本語)
 
 ## Features
 
@@ -75,77 +75,3 @@ Rules:
 |---|---|---|
 | `seqNotes.splitMinWidth` | `1000` | Minimum preview width (px) for the side-by-side layout. |
 | `seqNotes.syncEditor` | `true` | Sync the preview with the editor and enable double-click to jump to the source. |
-
----
-
-## 日本語
-
-設計書としてのMarkdownを、**mermaidのシーケンス図と処理概要を横並びにして**プレビューする拡張機能です。
-図の矢印と処理概要の見出しが紐付き、相互にハイライト・スクロールできます。
-
-### 機能
-
-- **横並び表示**: プレビューの幅が十分にあるとき、左にシーケンス図（スクロールしても固定）、右に処理概要を表示します（紐付いた項目の間には区切り線が入ります）。幅が狭いときは通常の縦並びになります。
-- **矢印と見出しの紐付け**: 矢印にマウスを乗せる・クリックすると対応する処理概要がハイライトされ、見出しをクリックすると図の該当矢印へスクロールします。
-- **エディタとの同期**: エディタのスクロールとカーソルにプレビューが追従します（カーソルが矢印の行にあればその矢印をハイライト）。プレビューをダブルクリックするとエディタの該当行へ移動します。
-- **標準Markdownのまま**: 紐付けの記法はmermaidのコメントとHTMLコメントだけなので、GitHubや標準のMarkdownプレビューでもそのまま正しく表示されます。
-- **幅の調整**: 左右の境界をドラッグして幅を変えられます（ダブルクリックで元に戻ります）。
-
-### 使い方
-
-Markdownファイルを開いてエディタのタイトルバーにあるプレビューアイコンをクリックするか、コマンドパレットから次のコマンドを実行します。
-
-- `Markdown Sequence Side Notes: Sequence Side Notes プレビューを横に開く`
-- `Markdown Sequence Side Notes: Sequence Side Notes プレビューを開く`
-
-テキストエディタの代わりに開くこともできます。コマンド **エディターを再度開くアプリケーションの選択...**（タブ右上の「テキスト エディター」と表示されている部分）から **Sequence Side Notes プレビュー** を選んでください。Markdownファイルを常にこのプレビューで開くには、同じリストの「'*.md' の既定値を設定する」を選ぶか、設定に次を追加します。
-
-```json
-"workbench.editorAssociations": { "*.md": "seqNotes.editor", "*.markdown": "seqNotes.editor" }
-```
-
-### 書き方
-
-````markdown
-# シーケンス
-
-```mermaid
-%% @seq-notes
-sequenceDiagram
-    Auth->>DB: ユーザー情報を取得
-    %% @ref トークン発行
-    Auth-->>API: アクセストークンを返却
-```
-
-# 処理概要
-
-## ユーザー情報を取得
-
-ID をキーにユーザーを 1 件取得する。
-
-## トークン発行
-
-有効期限 1 時間の JWT を発行する。
-
-<!-- seq-notes:end -->
-````
-
-| 記法 | 意味 |
-|---|---|
-| `%% @seq-notes` | 必須。そのシーケンス図を処理概要と横並びで表示することを示します。mermaidブロック内のどこに書いても構いません。 |
-| 矢印の文言と見出しが同じ | `Auth->>DB: ユーザー情報を取得` は見出し「ユーザー情報を取得」に自動で紐付きます。 |
-| `%% @ref 見出し` | **直後の**矢印を指定した見出しに紐付けます（文言が見出しと違う場合に使用）。 |
-| `<!-- seq-notes:end -->` | 任意。右カラム（処理概要）の終わりを明示します。省略時は次の `%% @seq-notes` 付きのシーケンス図または文書末尾までが右カラムになります。 |
-
-- 紐付けの対象になるのは、シーケンス図より**後ろ**にあり、右カラムの範囲内にある見出しだけです。
-- 前後の空白・連続する空白は無視して比較し、矢印の文言中の `<br/>` は空白として扱います。
-- 横並びにするのは `%% @seq-notes` のあるシーケンス図だけです（紐付けが1件もなくても横並びにします）。それ以外の図は通常どおり表示し、その中の `@ref` は警告を表示します。
-- リストや引用の中にあるシーケンス図では `%% @seq-notes` は効かず、警告を表示します。
-- `@ref` で指定した見出しが見つからない場合は、プレビュー上部に警告を表示します。
-
-### 設定
-
-| 設定 | 既定値 | 説明 |
-|---|---|---|
-| `seqNotes.splitMinWidth` | `1000` | 横並び表示にする最小のプレビュー幅 (px) |
-| `seqNotes.syncEditor` | `true` | エディタとの同期、ダブルクリックでのジャンプを有効にする |
