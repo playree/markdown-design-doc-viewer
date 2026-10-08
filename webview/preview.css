@@ -177,6 +177,22 @@ body.seqnotes-wide .seqnotes-overview-col > .seqnotes-section ~ .seqnotes-sectio
 .seqnotes-section > :is(h1, h2, h3, h4, h5, h6) { cursor: pointer; margin-top: 0.5em; }
 .seqnotes-section > :is(h1, h2, h3, h4, h5, h6):hover { color: var(--seqnotes-accent); }
 
+/* `autonumber` numbers of the linked arrows, styled like the numbers in the diagram. */
+.seqnotes-step {
+  display: inline-block;
+  min-width: 1.6em;
+  margin-right: 0.5em;
+  padding: 0 0.45em;
+  border-radius: 0.8em;
+  background: var(--vscode-foreground, #333);
+  color: var(--vscode-editor-background, #fff);
+  font-size: 0.65em;
+  line-height: 1.6em;
+  text-align: center;
+  vertical-align: middle;
+  box-sizing: border-box;
+}
+
 /* Arrows without a step, and steps at the level of the linked ones without an arrow. */
 .messageText.seqnotes-unlinked:not(.seqnotes-current) { opacity: 0.55; }
 .seqnotes-unlinked:is(h1, h2, h3, h4, h5, h6)::after {

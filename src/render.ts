@@ -13,7 +13,7 @@ export type RenderEnv = Env & {
 export interface DiagramMeta {
   id: number;
   paired: boolean;
-  messages: { index: number; line: number; text: string; target?: string; unlinked?: boolean }[];
+  messages: { index: number; line: number; text: string; number?: number; numberInHeading?: boolean; target?: string; unlinked?: boolean }[];
 }
 
 const escapeHtml = (s: string): string =>
@@ -62,7 +62,7 @@ function mermaidFence(md: MarkdownIt): void {
       const meta: DiagramMeta = {
         id: diagram.id,
         paired: diagram.paired,
-        messages: diagram.messages.map(({ index, line, text, target, unlinked }) => ({ index, line, text, target, unlinked })),
+        messages: diagram.messages.map(({ index, line, text, number, numberInHeading, target, unlinked }) => ({ index, line, text, number, numberInHeading, target, unlinked })),
       };
       attrs += ` data-seqnotes-meta="${escapeHtml(JSON.stringify(meta))}"`;
     }

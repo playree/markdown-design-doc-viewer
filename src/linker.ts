@@ -1,5 +1,5 @@
 import type { Token } from 'markdown-it';
-import { isSequenceDiagram, normalizeLabel, parseSequence, type SequenceMessage } from './sequence';
+import { isSequenceDiagram, normalizeLabel, parseSequence, stripStepNumber, type SequenceMessage, type StepNumber } from './sequence';
 
 export const END_MARKER_RE = /^\s*<!--\s*seq-notes:end\s*-->\s*$/;
 
@@ -8,6 +8,8 @@ export interface LinkedMessage extends SequenceMessage {
   target?: string;
   /** true when the message has no target although other messages of the diagram have one. */
   unlinked?: boolean;
+  /** true when the target heading already starts with the message's `autonumber` number. */
+  numberInHeading?: boolean;
 }
 
 export interface DiagramInfo {
@@ -134,6 +136,9 @@ export function linkDiagrams(tokens: Token[]): LinkResult {
     diagram.rangeEnd = end;
 
     const headings = new Map<string, string>();
+    // Numbered headings (`3. Fetch user`) by their text without the number, used when no heading matches exactly.
+    const numberedHeadings = new Map<string, string[]>();
+    const steps = new Map<string, StepNumber & { heading: string }>();
     const headingTokens: { index: number; id: string; level: number }[] = [];
     for (let i = index + 1; i < end; i++) {
       const t = tokens[i];
@@ -143,17 +148,37 @@ export function linkDiagrams(tokens: Token[]): LinkResult {
         if (t.level === 0) {
           headingTokens.push({ index: i, id: String(id), level: Number(t.tag.slice(1)) });
         }
-        const key = normalizeLabel(headingText(tokens[i + 1]));
+        const text = headingText(tokens[i + 1]);
+        const key = normalizeLabel(text);
         if (!headings.has(key)) {
           headings.set(key, String(id));
+        }
+        const step = stripStepNumber(key);
+        if (step) {
+          steps.set(String(id), { ...step, heading: text });
+          numberedHeadings.set(step.text, [...(numberedHeadings.get(step.text) ?? []), String(id)]);
         }
       }
     }
 
     for (const message of diagram.messages) {
-      const target = headings.get(normalizeLabel(message.ref ?? message.text));
+      const label = normalizeLabel(message.ref ?? message.text);
+      const number = message.number === undefined ? undefined : String(message.number);
+      const numbered = numberedHeadings.get(label) ?? [];
+      const target = headings.get(label) ?? numbered.find((id) => steps.get(id)!.value === number) ?? numbered[0];
       if (target) {
         message.target = target;
+        const step = steps.get(target);
+        if (step && number !== undefined) {
+          message.numberInHeading = step.value === number;
+          // Only plain integers: `1.2` is more likely a section number than an autonumber with a step.
+          if (!headings.has(label) && /^\d+$/.test(step.value) && step.value !== number) {
+            warnings.push({
+              line: message.line,
+              message: `Heading "${step.heading}" is numbered ${step.value}, but the arrow is number ${number}.`,
+            });
+          }
+        }
       } else if (message.ref !== undefined) {
         warnings.push({
           line: message.refLine ?? message.line,

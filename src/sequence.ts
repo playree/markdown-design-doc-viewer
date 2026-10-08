@@ -1,8 +1,8 @@
 /**
  * Minimal parser for mermaid `sequenceDiagram` sources.
  * Only extracts what the preview needs: the messages (arrows) in drawing order,
- * their source line, any `%% @ref <heading>` directive attached to them and
- * the `%% @seq-notes` marker that opts the diagram into the side-by-side layout.
+ * their source line and `autonumber` number, any `%% @ref <heading>` directive
+ * attached to them and the `%% @seq-notes` marker that opts the diagram into the side-by-side layout.
  */
 
 export interface SequenceMessage {
@@ -16,6 +16,8 @@ export interface SequenceMessage {
   ref?: string;
   /** 0-based line of the `%% @ref` comment. */
   refLine?: number;
+  /** Number drawn by `autonumber`, if numbering is on for this message. */
+  number?: number;
 }
 
 export interface ParsedSequence {
@@ -41,6 +43,11 @@ const MESSAGE_RE = new RegExp(
 const REF_RE = /^\s*%%\s*@ref\s+(.+?)\s*$/;
 
 const SEQ_NOTES_RE = /^\s*%%\s*@seq-notes\s*$/;
+
+// Numbers as mermaid's lexer reads them: up to two decimals.
+const NUM = '(\\d+(?:\\.\\d{1,2})?|\\.\\d{1,2})';
+// mermaid's lexer drops trailing `%%` and `#` comments.
+const AUTONUMBER_RE = new RegExp(`^\\s*autonumber(?:\\s+(off)|\\s+${NUM}(?:\\s+${NUM})?)?\\s*(?:(?:%%|#).*)?$`, 'i');
 
 // A keyword must be followed by whitespace or the line end, so that participants
 // named e.g. `Link` or `End` (`Link->>API: ...`) are still read as messages.
@@ -76,6 +83,10 @@ export function parseSequence(source: string, firstLine: number): ParsedSequence
   const messages: SequenceMessage[] = [];
   let markerLine: number | undefined;
   let pendingRef: { text: string; line: number } | undefined;
+  // Same as mermaid's sequenceRenderer: every message advances the counter, even while numbering is off.
+  let sequenceIndex = 1;
+  let sequenceStep = 1;
+  let numbering = false;
 
   const lines = source.split(/\r?\n/);
   const start = skipFrontmatter(lines);
@@ -92,6 +103,14 @@ export function parseSequence(source: string, firstLine: number): ParsedSequence
       pendingRef = { text: ref[1], line: firstLine + i };
       return;
     }
+    const autonumber = AUTONUMBER_RE.exec(raw);
+    if (autonumber) {
+      // mermaid keeps the previous value for 0 (`start || sequenceIndex`).
+      sequenceIndex = Number(autonumber[2] ?? 0) || sequenceIndex;
+      sequenceStep = Number(autonumber[3] ?? 0) || sequenceStep;
+      numbering = autonumber[1] === undefined;
+      return;
+    }
     if (raw.trim().startsWith('%%') || NON_MESSAGE_KEYWORDS.test(raw)) {
       return;
     }
@@ -100,6 +119,10 @@ export function parseSequence(source: string, firstLine: number): ParsedSequence
       return;
     }
     const message: SequenceMessage = { index: messages.length, line: firstLine + i, text: m[4].trim() };
+    if (numbering) {
+      message.number = sequenceIndex;
+    }
+    sequenceIndex = Math.round((sequenceIndex + sequenceStep) * 100) / 100;
     if (pendingRef) {
       message.ref = pendingRef.text;
       message.refLine = pendingRef.line;
@@ -118,4 +141,39 @@ export function normalizeLabel(text: string): string {
     .replace(/#(\d+);/g, (_, code: string) => String.fromCharCode(Number(code)))
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+export interface StepNumber {
+  /** Heading text without the number. */
+  text: string;
+  /** The number as written, with ASCII digits (`3`, `1.2`). */
+  value: string;
+}
+
+const STEP_NUMBER_RES = [
+  // `3.` `3)` `1.2.` `3．` `3）` (a dot directly before a digit is a decimal, not a separator)
+  /^(\d+(?:\.\d+)*)[.)．）](?!\d)\s*(.+)$/,
+  // `1.2.3 `
+  /^(\d+(?:\.\d+)+)\s+(.+)$/,
+  // `(3)` `（3）`
+  /^[(（](\d+)[)）]\s*(.+)$/,
+];
+
+/** Splits a leading step number like `3.` off a heading. Labels such as `200 OK` are not numbered. */
+export function stripStepNumber(heading: string): StepNumber | undefined {
+  const text = heading.trim();
+  // Full-width digits keep the string length, so the match positions apply to `text` as well.
+  const ascii = text.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
+  for (const re of STEP_NUMBER_RES) {
+    const m = re.exec(ascii);
+    if (m) {
+      return { text: text.slice(ascii.length - m[2].length), value: m[1] };
+    }
+  }
+  // `①`–`⑳`
+  const circled = /^([\u2460-\u2473])\s*(.+)$/.exec(text);
+  if (circled) {
+    return { text: circled[2], value: String(circled[1].charCodeAt(0) - 0x2460 + 1) };
+  }
+  return undefined;
 }

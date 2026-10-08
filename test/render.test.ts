@@ -122,6 +122,40 @@ describe('linkDiagrams', () => {
   });
 });
 
+describe('numbered headings', () => {
+  const src = doc(
+    '```mermaid', '%% @seq-notes', 'sequenceDiagram', 'autonumber', 'A->>B: 取得', 'B-->>A: 結果', 'A->>A: 保存', '```',
+    '## 1. 取得', '## 2) 結果', '## 保存', '## 4. 保存',
+  );
+
+  it('links arrows to headings without their step number and prefers exact matches', () => {
+    const tokens = md.parse(src, {});
+    const { diagrams } = linkDiagrams(tokens);
+    expect(diagrams[0].messages.map((m) => [m.number, m.target])).toEqual([
+      [1, hid('1. 取得')],
+      [2, hid('2) 結果')],
+      [3, hid('保存')],
+    ]);
+  });
+
+  it('warns when the heading number differs from the arrow number', () => {
+    const tokens = md.parse(src.replace('## 2) 結果', '## 5) 結果'), {});
+    expect(linkDiagrams(tokens).warnings).toEqual([{ line: 5, message: 'Heading "5) 結果" is numbered 5, but the arrow is number 2.' }]);
+  });
+
+  it('tells whether the heading already shows the arrow number', () => {
+    const tokens = md.parse(src.replace('## 2) 結果', '## 5) 結果'), {});
+    expect(linkDiagrams(tokens).diagrams[0].messages.map((m) => m.numberInHeading)).toEqual([true, false, undefined]);
+  });
+
+  it('picks the heading with the arrow number among headings with the same text', () => {
+    const tokens = md.parse(doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', 'autonumber', 'A->>B: 取得', 'B->>C: 取得', '```', '## 1. 取得', '## 2. 取得'), {});
+    const { diagrams, warnings } = linkDiagrams(tokens);
+    expect(diagrams[0].messages.map((m) => m.target)).toEqual([hid('1. 取得'), hid('2. 取得')]);
+    expect(warnings).toEqual([]);
+  });
+});
+
 describe('renderDocument', () => {
   it('wraps paired diagrams and their overview', () => {
     const html = renderDocument(md, SAMPLE);

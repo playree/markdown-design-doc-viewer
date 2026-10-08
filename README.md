@@ -58,6 +58,7 @@ Issue a JWT valid for one hour.
 |---|---|
 | `%% @seq-notes` | Required. Marks the sequence diagram to be shown side by side with its descriptions. Write it anywhere inside the mermaid block. |
 | Arrow label equals a heading | `Auth->>DB: Fetch user` links to the heading `Fetch user` automatically. |
+| Numbered heading | `## 3. Fetch user` also links to `Fetch user` (`3.`, `3)`, `(3)`, `③`, `1.2.3` and similar prefixes are ignored when no heading matches exactly). |
 | `%% @ref <heading>` | Links the **next** arrow to `<heading>` when its label differs from the heading. |
 | `<!-- seq-notes:end -->` | Optional. Ends the description column. Without it, the column extends to the next `%% @seq-notes` diagram or the end of the document. |
 
@@ -68,6 +69,7 @@ Rules:
 - Only diagrams with `%% @seq-notes` are shown side by side (even if no arrow is linked). Other diagrams are rendered normally, and an `@ref` in them is reported as a warning.
 - `%% @seq-notes` has no effect on a diagram inside a list or blockquote; this is reported as a warning.
 - An `@ref` whose heading cannot be found is reported as a warning at the top of the preview.
+- With `autonumber`, linked headings show the arrow's number. A warning is shown when a numbered heading such as `## 3. Fetch user` does not match the number of its arrow.
 - To help spot missing descriptions, arrows without a linked heading are shown faded, and headings at the same level as the linked ones but without an arrow get a "no arrow" mark. Diagrams with no links at all get no marks.
 
 ## Settings

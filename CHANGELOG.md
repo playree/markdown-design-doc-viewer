@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- With `autonumber`, linked headings show the arrow's number. Numbered headings such as `## 3. Fetch user` link to the arrow `Fetch user`, with a warning when the numbers differ.
 - Arrows without a linked heading are shown faded, and headings at the level of the linked ones without an arrow get a "no arrow" mark.
 
 ## 0.1.0

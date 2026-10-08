@@ -189,6 +189,9 @@ function annotateMessages(svg: SVGSVGElement, meta: DiagramMeta): void {
         el.setAttribute('data-seqnotes-target', message.target);
       }
     }
+    if (message.target && message.number !== undefined && !message.numberInHeading) {
+      arrow.setAttribute('data-seqnotes-number', String(message.number));
+    }
     if (message.unlinked) {
       group.slice(0, -1).forEach((text) => text.classList.add('seqnotes-unlinked'));
     }
@@ -202,10 +205,16 @@ function wrapSections(pair: Element): void {
     return;
   }
   const targets = new Set(Array.from(pair.querySelectorAll('[data-seqnotes-target]'), (el) => el.getAttribute('data-seqnotes-target')));
+  const numbers = new Map<string, string[]>();
+  for (const arrow of Array.from(pair.querySelectorAll('[data-seqnotes-number]'))) {
+    const target = arrow.getAttribute('data-seqnotes-target')!;
+    numbers.set(target, [...(numbers.get(target) ?? []), arrow.getAttribute('data-seqnotes-number')!]);
+  }
   for (const heading of Array.from(overview.querySelectorAll('h1, h2, h3, h4, h5, h6'))) {
     if (!targets.has(heading.id)) {
       continue;
     }
+    addStepBadge(heading, numbers.get(heading.id));
     const level = headingLevel(heading)!;
     const section = document.createElement('section');
     section.className = 'seqnotes-section';
@@ -218,6 +227,17 @@ function wrapSections(pair: Element): void {
       el = next;
     }
   }
+}
+
+/** Shows the `autonumber` numbers of the linked arrows in front of the heading (except those it is numbered with already). */
+function addStepBadge(heading: Element, numbers: string[] | undefined): void {
+  if (!numbers) {
+    return;
+  }
+  const badge = document.createElement('span');
+  badge.className = 'seqnotes-step';
+  badge.textContent = numbers.join(', ');
+  heading.prepend(badge);
 }
 
 function headingLevel(el: Element): number | undefined {
