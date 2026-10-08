@@ -25,7 +25,7 @@ Open a Markdown file and click the preview icon in the editor title bar, or run 
 It can also be opened in place of the text editor: choose **Sequence Side Notes Preview** from **Reopen Editor With...** (the editor picker at the top right of the tab bar). To always open Markdown files with it, pick "Configure default editor for '*.md'" in that list, or add this to your settings:
 
 ```json
-"workbench.editorAssociations": { "*.md": "seqNotes.editor" }
+"workbench.editorAssociations": { "*.md": "seqNotes.editor", "*.markdown": "seqNotes.editor" }
 ```
 
 ## Writing linked documents
@@ -101,7 +101,7 @@ Markdownファイルを開いてエディタのタイトルバーにあるプレ
 テキストエディタの代わりに開くこともできます。コマンド **エディターを再度開くアプリケーションの選択...**（タブ右上の「テキスト エディター」と表示されている部分）から **Sequence Side Notes プレビュー** を選んでください。Markdownファイルを常にこのプレビューで開くには、同じリストの「'*.md' の既定値を設定する」を選ぶか、設定に次を追加します。
 
 ```json
-"workbench.editorAssociations": { "*.md": "seqNotes.editor" }
+"workbench.editorAssociations": { "*.md": "seqNotes.editor", "*.markdown": "seqNotes.editor" }
 ```
 
 ### 書き方
