@@ -27,7 +27,7 @@ pnpm exec vitest run test/render.test.ts -t 'テスト名の一部'   # 単一�
 pnpm package      # vsce で .vsix を作成
 ```
 
-動作確認は VS Code の F5（`.vscode/launch.json` の "Run Extension"）。ビルド後に `examples/` フォルダを開いた拡張開発ホストが起動するので、[examples/login.md](examples/login.md) をプレビューする。
+動作確認は VS Code の F5（`.vscode/launch.json` の "Run Extension"）。ビルド後に `examples/` フォルダを開いた拡張開発ホストが起動するので、[examples/login.md](examples/login.md)（基本の紐付け）、[examples/password-reset.md](examples/password-reset.md)（autonumber・アラート・タスクリストなど）、[examples/link-checks.md](examples/link-checks.md)（紐付け漏れの表示と警告）をプレビューする。
 
 ## アーキテクチャ
 
