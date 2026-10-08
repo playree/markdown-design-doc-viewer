@@ -13,6 +13,7 @@ Each arrow in the diagram is linked to a heading in the description, so you can 
 - **Arrow ⇔ heading links** — hover or click an arrow to highlight its description, or click a heading to find its arrow in the diagram.
 - **Editor sync** — the preview follows the editor's scroll position and cursor (an arrow is highlighted when the cursor is on its line). Double-click in the preview to jump to the source line.
 - **Plain Markdown** — the link syntax is made of mermaid comments and HTML comments, so the same file still renders correctly on GitHub and in the built-in Markdown preview.
+- **Design document friendly** — YAML front matter is hidden, code blocks are syntax highlighted, and GitHub alerts (`> [!NOTE]`) and task lists (`- [ ]`) are rendered.
 - **Resizable** — drag the boundary between the columns to resize them; double-click it to reset.
 
 ## Usage

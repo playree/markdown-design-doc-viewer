@@ -59,6 +59,58 @@ th { background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1)
 img { max-width: 100%; }
 hr { border: 0; border-top: 1px solid var(--seqnotes-border); }
 
+/* GitHub alerts (`> [!NOTE]`) */
+.markdown-alert {
+  --seqnotes-alert: var(--vscode-charts-blue, #3794ff);
+  margin: 0 0 1em;
+  padding: 0 1em;
+  border-left: 4px solid var(--seqnotes-alert);
+}
+.markdown-alert-tip { --seqnotes-alert: var(--vscode-charts-green, #388a34); }
+.markdown-alert-important { --seqnotes-alert: var(--vscode-charts-purple, #b180d7); }
+.markdown-alert-warning { --seqnotes-alert: var(--vscode-charts-yellow, #cca700); }
+.markdown-alert-caution { --seqnotes-alert: var(--vscode-charts-red, #f14c4c); }
+.markdown-alert-title { color: var(--seqnotes-alert); font-weight: 600; }
+
+/* Task lists */
+.task-list-item { list-style-type: none; }
+.task-list-item-checkbox { margin: 0 0.3em 0.2em -1.4em; vertical-align: middle; }
+
+/* Code highlighting (highlight.js classes), in the colors of Dark+ / Light+. */
+body {
+  --seqnotes-hl-keyword: #569cd6;
+  --seqnotes-hl-type: #4ec9b0;
+  --seqnotes-hl-number: #b5cea8;
+  --seqnotes-hl-string: #ce9178;
+  --seqnotes-hl-function: #dcdcaa;
+  --seqnotes-hl-comment: #6a9955;
+  --seqnotes-hl-meta: #9b9b9b;
+  --seqnotes-hl-variable: #9cdcfe;
+  --seqnotes-hl-selector: #d7ba7d;
+}
+body:is(.vscode-light, .vscode-high-contrast-light) {
+  --seqnotes-hl-keyword: #0000ff;
+  --seqnotes-hl-type: #267f99;
+  --seqnotes-hl-number: #098658;
+  --seqnotes-hl-string: #a31515;
+  --seqnotes-hl-function: #795e26;
+  --seqnotes-hl-comment: #008000;
+  --seqnotes-hl-meta: #808080;
+  --seqnotes-hl-variable: #001080;
+  --seqnotes-hl-selector: #800000;
+}
+.hljs-keyword, .hljs-literal, .hljs-symbol, .hljs-name, .hljs-link { color: var(--seqnotes-hl-keyword); }
+.hljs-built_in, .hljs-type { color: var(--seqnotes-hl-type); }
+.hljs-number, .hljs-class, .hljs-addition { color: var(--seqnotes-hl-number); }
+.hljs-string, .hljs-regexp, .hljs-deletion { color: var(--seqnotes-hl-string); }
+.hljs-title, .hljs-title.function_ { color: var(--seqnotes-hl-function); }
+.hljs-comment, .hljs-quote { color: var(--seqnotes-hl-comment); font-style: italic; }
+.hljs-meta, .hljs-tag { color: var(--seqnotes-hl-meta); }
+.hljs-variable, .hljs-template-variable, .hljs-attr, .hljs-attribute, .hljs-property { color: var(--seqnotes-hl-variable); }
+.hljs-section, .hljs-bullet, .hljs-selector-tag, .hljs-selector-id, .hljs-selector-class, .hljs-selector-attr, .hljs-selector-pseudo { color: var(--seqnotes-hl-selector); }
+.hljs-section, .hljs-strong { font-weight: bold; }
+.hljs-emphasis { font-style: italic; }
+
 /* ---------------------------------------------------------------- Diagrams */
 
 .seqnotes-mermaid { margin: 1em 0; }

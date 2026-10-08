@@ -1,3 +1,8 @@
+---
+title: Login Feature Design
+version: 1.0
+---
+
 # Login Feature Design
 
 ## Sequence
@@ -103,7 +108,8 @@ Authentication fails when:
 - The user is locked (`locked_until` is in the future)
 - The password does not match `password_hash` (bcrypt, cost 12)
 
-If no user matches, the Auth Service still runs a bcrypt comparison against a dummy hash so that response times do not reveal whether the ID exists.
+> [!IMPORTANT]
+> If no user matches, the Auth Service still runs a bcrypt comparison against a dummy hash so that response times do not reveal whether the ID exists.
 
 ### Token issuance
 

@@ -1,5 +1,6 @@
 import markdownit, { type Env, type MarkdownIt, type Token } from 'markdown-it';
 import { isMermaidFence, linkDiagrams, type DiagramInfo } from './linker';
+import { markdownExtras } from './markdownExtras';
 import { HEADING_ID_PREFIX, slugify } from './slug';
 
 export { HEADING_ID_PREFIX, slugify };
@@ -84,7 +85,7 @@ function resourceLinks(md: MarkdownIt): void {
 
 export function createMarkdown(): MarkdownIt {
   const md = markdownit({ html: true, linkify: true });
-  md.use(headingIds).use(sourceLines).use(mermaidFence).use(resourceLinks);
+  md.use(markdownExtras).use(headingIds).use(sourceLines).use(mermaidFence).use(resourceLinks);
   return md;
 }
 
