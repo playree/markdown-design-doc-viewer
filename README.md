@@ -22,6 +22,12 @@ Open a Markdown file and click the preview icon in the editor title bar, or run 
 - `Markdown Sequence Side Notes: Open Sequence Side Notes Preview to the Side`
 - `Markdown Sequence Side Notes: Open Sequence Side Notes Preview`
 
+It can also be opened in place of the text editor: choose **Sequence Side Notes Preview** from **Reopen Editor With...** (the editor picker at the top right of the tab bar). To always open Markdown files with it, pick "Configure default editor for '*.md'" in that list, or add this to your settings:
+
+```json
+"workbench.editorAssociations": { "*.md": "seqNotes.editor" }
+```
+
 ## Writing linked documents
 
 ````markdown
@@ -84,6 +90,19 @@ Rules:
 - **エディタとの同期**: エディタのスクロールとカーソルにプレビューが追従します（カーソルが矢印の行にあればその矢印をハイライト）。プレビューをダブルクリックするとエディタの該当行へ移動します。
 - **標準Markdownのまま**: 紐付けの記法はmermaidのコメントとHTMLコメントだけなので、GitHubや標準のMarkdownプレビューでもそのまま正しく表示されます。
 - **幅の調整**: 左右の境界をドラッグして幅を変えられます（ダブルクリックで元に戻ります）。
+
+### 使い方
+
+Markdownファイルを開いてエディタのタイトルバーにあるプレビューアイコンをクリックするか、コマンドパレットから次のコマンドを実行します。
+
+- `Markdown Sequence Side Notes: Sequence Side Notes プレビューを横に開く`
+- `Markdown Sequence Side Notes: Sequence Side Notes プレビューを開く`
+
+テキストエディタの代わりに開くこともできます。コマンド **エディターを再度開くアプリケーションの選択...**（タブ右上の「テキスト エディター」と表示されている部分）から **Sequence Side Notes プレビュー** を選んでください。Markdownファイルを常にこのプレビューで開くには、同じリストの「'*.md' の既定値を設定する」を選ぶか、設定に次を追加します。
+
+```json
+"workbench.editorAssociations": { "*.md": "seqNotes.editor" }
+```
 
 ### 書き方
 
