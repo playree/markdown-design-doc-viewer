@@ -1,0 +1,126 @@
+# Markdown Sequence Side Notes
+
+Preview design documents written in Markdown with **mermaid sequence diagrams shown side by side with their step descriptions**.
+Each arrow in the diagram is linked to a heading in the description, so you can jump back and forth between them.
+
+![Sequence diagram on the left, linked step descriptions on the right](images/screenshot.png)
+
+[日本語の説明はこちら](#日本語)
+
+## Features
+
+- **Side-by-side layout** — when the preview is wide enough, the sequence diagram stays on the left (sticky) while the descriptions scroll on the right. On narrow panes it falls back to the normal vertical layout.
+- **Arrow ⇔ heading links** — hover or click an arrow to highlight its description, or click a heading to find its arrow in the diagram.
+- **Editor sync** — the preview follows the editor's scroll position and cursor (an arrow is highlighted when the cursor is on its line). Double-click in the preview to jump to the source line.
+- **Plain Markdown** — the link syntax is made of mermaid comments and HTML comments, so the same file still renders correctly on GitHub and in the built-in Markdown preview.
+- **Resizable** — drag the boundary between the columns to resize them; double-click it to reset.
+
+## Usage
+
+Open a Markdown file and click the preview icon in the editor title bar, or run one of these commands from the Command Palette:
+
+- `Markdown Sequence Side Notes: Open Sequence Side Notes Preview to the Side`
+- `Markdown Sequence Side Notes: Open Sequence Side Notes Preview`
+
+## Writing linked documents
+
+````markdown
+# Sequence
+
+```mermaid
+sequenceDiagram
+    Auth->>DB: Fetch user
+    %% @ref Issue token
+    Auth-->>API: Return access token
+```
+
+# Steps
+
+## Fetch user
+
+Look up the user by id.
+
+## Issue token
+
+Issue a JWT valid for one hour.
+
+<!-- seq-notes:end -->
+````
+
+| Syntax | Meaning |
+|---|---|
+| Arrow label equals a heading | `Auth->>DB: Fetch user` links to the heading `Fetch user` automatically. |
+| `%% @ref <heading>` | Links the **next** arrow to `<heading>` when its label differs from the heading. |
+| `<!-- seq-notes:end -->` | Optional. Ends the description column. Without it, the column extends to the next sequence diagram or the end of the document. |
+
+Rules:
+
+- Only headings **after** the diagram (up to the end of the description column) are linked.
+- Labels and headings are compared after trimming and collapsing whitespace; `<br/>` in a label counts as a space.
+- A diagram is shown side by side only when at least one arrow is linked. Other diagrams are rendered normally.
+- An `@ref` whose heading cannot be found is reported as a warning at the top of the preview.
+
+## Settings
+
+| Setting | Default | Description |
+|---|---|---|
+| `seqNotes.splitMinWidth` | `1000` | Minimum preview width (px) for the side-by-side layout. |
+| `seqNotes.syncEditor` | `true` | Sync the preview with the editor and enable double-click to jump to the source. |
+
+---
+
+## 日本語
+
+設計書としてのMarkdownを、**mermaidのシーケンス図と処理概要を横並びにして**プレビューする拡張機能です。
+図の矢印と処理概要の見出しが紐付き、相互にハイライト・スクロールできます。
+
+### 機能
+
+- **横並び表示**: プレビューの幅が十分にあるとき、左にシーケンス図（スクロールしても固定）、右に処理概要を表示します。幅が狭いときは通常の縦並びになります。
+- **矢印と見出しの紐付け**: 矢印にマウスを乗せる・クリックすると対応する処理概要がハイライトされ、見出しをクリックすると図の該当矢印へスクロールします。
+- **エディタとの同期**: エディタのスクロールとカーソルにプレビューが追従します（カーソルが矢印の行にあればその矢印をハイライト）。プレビューをダブルクリックするとエディタの該当行へ移動します。
+- **標準Markdownのまま**: 紐付けの記法はmermaidのコメントとHTMLコメントだけなので、GitHubや標準のMarkdownプレビューでもそのまま正しく表示されます。
+- **幅の調整**: 左右の境界をドラッグして幅を変えられます（ダブルクリックで元に戻ります）。
+
+### 書き方
+
+````markdown
+# シーケンス
+
+```mermaid
+sequenceDiagram
+    Auth->>DB: ユーザー情報を取得
+    %% @ref トークン発行
+    Auth-->>API: アクセストークンを返却
+```
+
+# 処理概要
+
+## ユーザー情報を取得
+
+ID をキーにユーザーを 1 件取得する。
+
+## トークン発行
+
+有効期限 1 時間の JWT を発行する。
+
+<!-- seq-notes:end -->
+````
+
+| 記法 | 意味 |
+|---|---|
+| 矢印の文言と見出しが同じ | `Auth->>DB: ユーザー情報を取得` は見出し「ユーザー情報を取得」に自動で紐付きます。 |
+| `%% @ref 見出し` | **直後の**矢印を指定した見出しに紐付けます（文言が見出しと違う場合に使用）。 |
+| `<!-- seq-notes:end -->` | 任意。右カラム（処理概要）の終わりを明示します。省略時は次のシーケンス図または文書末尾までが右カラムになります。 |
+
+- 紐付けの対象になるのは、シーケンス図より**後ろ**にあり、右カラムの範囲内にある見出しだけです。
+- 前後の空白・連続する空白は無視して比較し、矢印の文言中の `<br/>` は空白として扱います。
+- 紐付けが1件もないシーケンス図は横並びにせず、通常どおり表示します。
+- `@ref` で指定した見出しが見つからない場合は、プレビュー上部に警告を表示します。
+
+### 設定
+
+| 設定 | 既定値 | 説明 |
+|---|---|---|
+| `seqNotes.splitMinWidth` | `1000` | 横並び表示にする最小のプレビュー幅 (px) |
+| `seqNotes.syncEditor` | `true` | エディタとの同期、ダブルクリックでのジャンプを有効にする |

@@ -1,0 +1,172 @@
+:root {
+  --seqnotes-accent: var(--vscode-textLink-activeForeground, #3794ff);
+  --seqnotes-accent-bg: color-mix(in srgb, var(--seqnotes-accent) 12%, transparent);
+  --seqnotes-current: var(--vscode-editorLineNumber-activeForeground, #c6c6c6);
+  --seqnotes-border: var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
+}
+
+body {
+  padding: 0 26px 40vh;
+  font-family: var(--vscode-markdown-font-family, var(--vscode-font-family));
+  font-size: var(--vscode-markdown-font-size, 14px);
+  line-height: var(--vscode-markdown-line-height, 1.6);
+  color: var(--vscode-editor-foreground);
+  background: var(--vscode-editor-background);
+  word-wrap: break-word;
+}
+
+/* ---------------------------------------------------------------- Markdown */
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 1.4em 0 0.6em;
+}
+h1 { font-size: 2em; padding-bottom: 0.3em; border-bottom: 1px solid var(--seqnotes-border); }
+h2 { font-size: 1.5em; padding-bottom: 0.3em; border-bottom: 1px solid var(--seqnotes-border); }
+h3 { font-size: 1.25em; }
+
+a { color: var(--vscode-textLink-foreground); text-decoration: none; }
+a:hover { color: var(--vscode-textLink-activeForeground); text-decoration: underline; }
+
+code {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.9em;
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15));
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+}
+pre {
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15));
+  padding: 12px 16px;
+  border-radius: 4px;
+  overflow: auto;
+}
+pre code { background: none; padding: 0; }
+
+blockquote {
+  margin: 0 0 1em;
+  padding: 0 1em;
+  border-left: 4px solid var(--vscode-textBlockQuote-border, var(--seqnotes-border));
+  color: var(--vscode-textBlockQuote-foreground, inherit);
+}
+
+table { border-collapse: collapse; margin-bottom: 1em; }
+th, td { border: 1px solid var(--seqnotes-border); padding: 4px 10px; }
+th { background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1)); }
+
+img { max-width: 100%; }
+hr { border: 0; border-top: 1px solid var(--seqnotes-border); }
+
+/* ---------------------------------------------------------------- Diagrams */
+
+.seqnotes-mermaid { margin: 1em 0; }
+.seqnotes-diagram svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+.seqnotes-mermaid-src { white-space: pre; }
+
+.seqnotes-error-message {
+  color: var(--vscode-errorForeground, #f14c4c);
+  margin-bottom: 4px;
+  white-space: pre-wrap;
+}
+
+.seqnotes-warnings {
+  margin: 12px 0;
+  padding: 6px 12px;
+  border: 1px solid var(--vscode-inputValidation-warningBorder, #b89500);
+  background: var(--vscode-inputValidation-warningBackground, rgba(184, 149, 0, 0.15));
+  border-radius: 4px;
+}
+.seqnotes-warnings p { margin: 4px 0; }
+
+/* ---------------------------------------------------------------- Side-by-side layout */
+
+body.seqnotes-wide .seqnotes-pair {
+  display: grid;
+  grid-template-columns: minmax(0, var(--seqnotes-split, 55%)) 24px minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.seqnotes-splitter { display: none; }
+
+body.seqnotes-wide .seqnotes-splitter {
+  display: block;
+  cursor: col-resize;
+  position: relative;
+  touch-action: none;
+}
+body.seqnotes-wide .seqnotes-splitter::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 11px;
+  width: 2px;
+  background: transparent;
+  transition: background-color 0.15s;
+}
+body.seqnotes-wide .seqnotes-splitter:hover::after,
+body.seqnotes-wide .seqnotes-splitter:active::after {
+  background: var(--vscode-sash-hoverBorder, var(--seqnotes-accent));
+}
+
+body.seqnotes-wide .seqnotes-seq-col {
+  align-self: start;
+  position: sticky;
+  top: 0;
+  max-height: 100vh;
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 8px 0;
+}
+
+body.seqnotes-wide .seqnotes-seq-col .seqnotes-mermaid { margin: 0; }
+
+/* The overview column starts flush with the diagram. */
+body.seqnotes-wide .seqnotes-overview-col > :first-child,
+body.seqnotes-wide .seqnotes-overview-col > :first-child > :first-child { margin-top: 8px; }
+
+/* ---------------------------------------------------------------- Links between arrows and steps */
+
+.seqnotes-linked { cursor: pointer; }
+
+.seqnotes-hit {
+  stroke: transparent !important;
+  stroke-width: 14px !important;
+  fill: none !important;
+  pointer-events: stroke;
+}
+
+.messageText.seqnotes-linked { text-decoration: underline dotted; }
+
+.messageText.seqnotes-active {
+  fill: var(--seqnotes-accent) !important;
+  font-weight: bold;
+}
+.seqnotes-msg.seqnotes-active:not(.seqnotes-hit, .messageText) {
+  stroke: var(--seqnotes-accent) !important;
+  stroke-width: 3px !important;
+}
+
+.seqnotes-section {
+  display: flow-root;
+  margin: 0.8em 0;
+  border-left: 3px solid transparent;
+  padding: 0 8px 0 12px;
+  border-radius: 2px;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.seqnotes-section.seqnotes-active {
+  border-left-color: var(--seqnotes-accent);
+  background: var(--seqnotes-accent-bg);
+}
+.seqnotes-section > :is(h1, h2, h3, h4, h5, h6) { cursor: pointer; margin-top: 0.5em; }
+.seqnotes-section > :is(h1, h2, h3, h4, h5, h6):hover { color: var(--seqnotes-accent); }
+
+/* ---------------------------------------------------------------- Editor cursor */
+
+[data-line].seqnotes-current:not(.seqnotes-mermaid) {
+  box-shadow: -10px 0 0 -7px var(--seqnotes-current);
+}
+.messageText.seqnotes-current { font-weight: bold; text-decoration: underline; }
+.seqnotes-msg.seqnotes-current:not(.seqnotes-hit, .messageText) { stroke-width: 3px !important; }

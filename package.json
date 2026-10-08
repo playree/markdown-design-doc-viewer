@@ -1,0 +1,110 @@
+{
+  "name": "markdown-sequence-side-notes",
+  "displayName": "Markdown Sequence Side Notes",
+  "description": "%description%",
+  "version": "0.1.0",
+  "publisher": "playree",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/playree/markdown-sequence-side-notes.git"
+  },
+  "bugs": {
+    "url": "https://github.com/playree/markdown-sequence-side-notes/issues"
+  },
+  "homepage": "https://github.com/playree/markdown-sequence-side-notes#readme",
+  "icon": "images/icon.png",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "markdown",
+    "mermaid",
+    "sequence diagram",
+    "design document",
+    "preview"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:markdown",
+    "onWebviewPanel:seqNotes.preview"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "seqNotes.openPreview",
+        "title": "%seqNotes.openPreview.title%",
+        "category": "%category%",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "seqNotes.openPreviewToSide",
+        "title": "%seqNotes.openPreviewToSide.title%",
+        "category": "%category%",
+        "icon": "$(open-preview)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "seqNotes.openPreviewToSide",
+          "when": "editorLangId == markdown",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "seqNotes.openPreview",
+          "when": "editorLangId == markdown"
+        },
+        {
+          "command": "seqNotes.openPreviewToSide",
+          "when": "editorLangId == markdown"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Markdown Sequence Side Notes",
+      "properties": {
+        "seqNotes.splitMinWidth": {
+          "type": "number",
+          "default": 1000,
+          "minimum": 0,
+          "description": "%seqNotes.splitMinWidth.description%"
+        },
+        "seqNotes.syncEditor": {
+          "type": "boolean",
+          "default": true,
+          "description": "%seqNotes.syncEditor.description%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "vscode:prepublish": "node esbuild.mjs --production",
+    "package": "vsce package --no-dependencies",
+    "publish": "vsce publish --no-dependencies"
+  },
+  "dependencies": {
+    "dompurify": "^3.4.16",
+    "markdown-it": "^15.0.2",
+    "mermaid": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/vscode": "~1.100.0",
+    "@vscode/vsce": "^4.0.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  },
+  "packageManager": "pnpm@12.3.4"
+}

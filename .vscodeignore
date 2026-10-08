@@ -1,0 +1,11 @@
+**
+!dist/extension.js
+!dist/webview.js
+!dist/webview.css
+!images/icon.png
+!images/preview.svg
+!package.nls.json
+!package.nls.ja.json
+!README.md
+!CHANGELOG.md
+!LICENSE
