@@ -65,7 +65,8 @@ setSplit(vscode.getState()?.split);
 function addSplitter(pair: Element): void {
   const splitter = document.createElement('div');
   splitter.className = 'seqnotes-splitter';
-  splitter.title = document.body.dataset.seqnotesSplitterTitle ?? 'Drag to resize, double-click to reset';
+  // Translated by the extension host (`shell()` in previewPanel.ts).
+  splitter.title = document.body.dataset.seqnotesSplitterTitle ?? '';
   pair.querySelector('.seqnotes-seq-col')?.after(splitter);
 
   splitter.addEventListener('pointerdown', (e) => {

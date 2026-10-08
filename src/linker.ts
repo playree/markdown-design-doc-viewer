@@ -97,7 +97,7 @@ function stepLevel(linkedLevels: number[]): number | undefined {
  * Only top-level (level 0) fences are paired, so the overview range always
  * starts and ends on a top-level block boundary and can be rendered on its own.
  */
-export function linkDiagrams(tokens: Token[], t: Translate = formatMessage): LinkResult {
+export function linkDiagrams(tokens: Token[], translate: Translate = formatMessage): LinkResult {
   const warnings: LinkWarning[] = [];
 
   const diagrams: DiagramInfo[] = tokens
@@ -109,13 +109,13 @@ export function linkDiagrams(tokens: Token[], t: Translate = formatMessage): Lin
         for (const m of messages.filter((m) => m.ref !== undefined)) {
           warnings.push({
             line: m.refLine ?? m.line,
-            message: t('@ref is ignored because the sequence diagram has no "%% @seq-notes" marker.'),
+            message: translate('@ref is ignored because the sequence diagram has no "%% @seq-notes" marker.'),
           });
         }
       } else if (token.level !== 0) {
         warnings.push({
           line: markerLine,
-          message: t('@seq-notes is ignored for a sequence diagram inside a list or blockquote.'),
+          message: translate('@seq-notes is ignored for a sequence diagram inside a list or blockquote.'),
         });
       }
       const paired = markerLine !== undefined && token.level === 0;
@@ -176,7 +176,7 @@ export function linkDiagrams(tokens: Token[], t: Translate = formatMessage): Lin
       } else if (message.ref !== undefined) {
         warnings.push({
           line: message.refLine ?? message.line,
-          message: t('@ref target heading "{0}" was not found after the sequence diagram.', message.ref),
+          message: translate('@ref target heading "{0}" was not found after the sequence diagram.', message.ref),
         });
       }
     }

@@ -72,6 +72,7 @@ Rules:
 - An `@ref` whose heading cannot be found is reported as a warning at the top of the preview.
 - With `autonumber`, linked headings show the arrow's number, unless the heading already starts with it (`## 3. Fetch user`).
 - To help spot missing descriptions, arrows without a linked heading are shown faded, and headings at the same level as the linked ones but without an arrow get a "no arrow" mark. Diagrams with no links at all get no marks.
+- Warnings, marks and tooltips are shown in English or Japanese, following the VS Code display language.
 
 ## Settings
 

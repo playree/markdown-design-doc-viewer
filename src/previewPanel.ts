@@ -166,7 +166,7 @@ class Preview {
     const documentDir = vscode.Uri.joinPath(uri, '..');
     // A custom editor's tab is titled by VS Code after the document.
     if (kind === 'panel') {
-      panel.title = `Preview ${uri.path.split('/').pop()}`;
+      panel.title = vscode.l10n.t('Preview {0}', uri.path.split('/').pop() ?? '');
       panel.iconPath = vscode.Uri.joinPath(extensionUri, 'images', 'preview.svg');
     }
     panel.webview.options = {
