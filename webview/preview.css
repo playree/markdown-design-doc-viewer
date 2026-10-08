@@ -160,6 +160,19 @@ body.seqnotes-wide .seqnotes-overview-col > :first-child > :first-child { margin
   border-left-color: var(--seqnotes-accent);
   background: var(--seqnotes-accent-bg);
 }
+/* Side by side: a line between top-level linked steps, drawn in the gap so the highlight box is unaffected. */
+body.seqnotes-wide .seqnotes-overview-col > .seqnotes-section ~ .seqnotes-section {
+  position: relative;
+  margin-top: 1.6em;
+}
+body.seqnotes-wide .seqnotes-overview-col > .seqnotes-section ~ .seqnotes-section::before {
+  content: '';
+  position: absolute;
+  top: -0.8em;
+  left: -3px; /* also under the border-left */
+  right: 0;
+  border-top: 1px solid var(--seqnotes-border);
+}
 .seqnotes-section > :is(h1, h2, h3, h4, h5, h6) { cursor: pointer; margin-top: 0.5em; }
 .seqnotes-section > :is(h1, h2, h3, h4, h5, h6):hover { color: var(--seqnotes-accent); }
 

@@ -9,7 +9,7 @@ Each arrow in the diagram is linked to a heading in the description, so you can 
 
 ## Features
 
-- **Side-by-side layout** — when the preview is wide enough, the sequence diagram stays on the left (sticky) while the descriptions scroll on the right. On narrow panes it falls back to the normal vertical layout.
+- **Side-by-side layout** — when the preview is wide enough, the sequence diagram stays on the left (sticky) while the descriptions scroll on the right, with a line between linked steps. On narrow panes it falls back to the normal vertical layout.
 - **Arrow ⇔ heading links** — hover or click an arrow to highlight its description, or click a heading to find its arrow in the diagram.
 - **Editor sync** — the preview follows the editor's scroll position and cursor (an arrow is highlighted when the cursor is on its line). Double-click in the preview to jump to the source line.
 - **Plain Markdown** — the link syntax is made of mermaid comments and HTML comments, so the same file still renders correctly on GitHub and in the built-in Markdown preview.
@@ -79,7 +79,7 @@ Rules:
 
 ### 機能
 
-- **横並び表示**: プレビューの幅が十分にあるとき、左にシーケンス図（スクロールしても固定）、右に処理概要を表示します。幅が狭いときは通常の縦並びになります。
+- **横並び表示**: プレビューの幅が十分にあるとき、左にシーケンス図（スクロールしても固定）、右に処理概要を表示します（紐付いた項目の間には区切り線が入ります）。幅が狭いときは通常の縦並びになります。
 - **矢印と見出しの紐付け**: 矢印にマウスを乗せる・クリックすると対応する処理概要がハイライトされ、見出しをクリックすると図の該当矢印へスクロールします。
 - **エディタとの同期**: エディタのスクロールとカーソルにプレビューが追従します（カーソルが矢印の行にあればその矢印をハイライト）。プレビューをダブルクリックするとエディタの該当行へ移動します。
 - **標準Markdownのまま**: 紐付けの記法はmermaidのコメントとHTMLコメントだけなので、GitHubや標準のMarkdownプレビューでもそのまま正しく表示されます。
