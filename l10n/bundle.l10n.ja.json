@@ -1,0 +1,10 @@
+{
+  "@ref is ignored because the sequence diagram has no \"%% @seq-notes\" marker.": "シーケンス図に \"%% @seq-notes\" がないため、@ref は無視されます。",
+  "@seq-notes is ignored for a sequence diagram inside a list or blockquote.": "リストや引用の中にあるシーケンス図では @seq-notes は無視されます。",
+  "@ref target heading \"{0}\" was not found after the sequence diagram.": "@ref で指定した見出し「{0}」がシーケンス図の後ろに見つかりません。",
+  "⚠ Line {0}: {1}": "⚠ {0} 行目: {1}",
+  "No arrow in the sequence diagram is linked to this heading.": "シーケンス図にこの見出しと紐付いた矢印がありません。",
+  "no arrow": "矢印なし",
+  "Drag to resize, double-click to reset": "ドラッグで幅を変更、ダブルクリックで元に戻す",
+  "Open a Markdown file to preview it with Sequence Side Notes.": "Sequence Side Notes でプレビューする Markdown ファイルを開いてください。"
+}

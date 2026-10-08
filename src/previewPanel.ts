@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { FromWebview, ToWebview, WebviewState } from './protocol';
-import { createMarkdown, renderDocument } from './render';
+import { createMarkdown, escapeHtml, renderDocument } from './render';
 
 const VIEW_TYPE = 'seqNotes.preview';
 /** Custom editor shown in "Reopen Editor With..." for Markdown files. */
@@ -204,7 +204,7 @@ class Preview {
     if (this.disposed) {
       return;
     }
-    const html = renderDocument(this.md, document.getText(), { resolveResource: (src) => this.resolveResource(src) });
+    const html = renderDocument(this.md, document.getText(), { resolveResource: (src) => this.resolveResource(src), t: vscode.l10n.t });
     this.post({ type: 'update', uri: this.uri.toString(), html, ...this.host.settings() });
   }
 
@@ -270,6 +270,7 @@ class Preview {
       `img-src ${webview.cspSource} https: data:`,
       `font-src ${webview.cspSource}`,
     ].join('; ');
+    const splitterTitle = escapeHtml(vscode.l10n.t('Drag to resize, double-click to reset'));
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -278,7 +279,7 @@ class Preview {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="${style}">
 </head>
-<body>
+<body data-seqnotes-splitter-title="${splitterTitle}">
 <div id="seqnotes-root"></div>
 <script nonce="${n}" src="${script}"></script>
 </body>

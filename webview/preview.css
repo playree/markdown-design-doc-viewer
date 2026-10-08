@@ -248,7 +248,7 @@ body.seqnotes-wide .seqnotes-overview-col > .seqnotes-section ~ .seqnotes-sectio
 /* Arrows without a step, and steps at the level of the linked ones without an arrow. */
 .messageText.seqnotes-unlinked:not(.seqnotes-current) { opacity: 0.55; }
 .seqnotes-unlinked:is(h1, h2, h3, h4, h5, h6)::after {
-  content: 'no arrow';
+  content: attr(data-seqnotes-mark);
   margin-left: 0.6em;
   padding: 0 0.5em;
   border: 1px dashed var(--seqnotes-border);

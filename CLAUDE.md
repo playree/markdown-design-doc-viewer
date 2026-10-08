@@ -59,6 +59,7 @@ vitest のテストは VS Code API を使わない純粋なモジュール（`se
 ## その他の注意
 
 - `contributes` の文字列は `package.nls.json` / `package.nls.ja.json` にある。両方を更新すること。
+- プレビューや通知に出す文言は英語の原文を `vscode.l10n.t`（`render.ts` / `linker.ts` では引数の `Translate`、[src/l10n.ts](src/l10n.ts)）に通し、日本語訳を `l10n/bundle.l10n.ja.json` に追加すること。webview 側の文言は拡張ホストで翻訳して HTML の data 属性で渡す。
 - `.vscodeignore` はホワイトリスト方式。実行時に必要なファイルを増やしたら追記すること。
 - 利用者に見える変更は [CHANGELOG.md](CHANGELOG.md) に書く。
 - PR は CodeRabbit が日本語でレビューする（`.coderabbit.yaml`）。

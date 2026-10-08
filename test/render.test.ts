@@ -181,7 +181,7 @@ describe('renderDocument', () => {
   it('marks the unlinked headings', () => {
     const html = renderDocument(md, doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', 'A->>B: 一', '```', '## 一', '## 二'));
     expect(html).toContain('<h2 id="sn-一" data-line="5">');
-    expect(html).toMatch(/<h2 id="sn-二" data-line="6" class="seqnotes-unlinked" title="[^"]+">/);
+    expect(html).toMatch(/<h2 id="sn-二" data-line="6" class="seqnotes-unlinked" title="[^"]+" data-seqnotes-mark="no arrow">/);
   });
 
   it('escapes the mermaid source and embedded metadata', () => {
@@ -207,5 +207,18 @@ describe('renderDocument', () => {
     const html = renderDocument(md, doc('para', '', '```mermaid', 'sequenceDiagram', '%% @seq-notes', '%% @ref 無い', 'A->>B: x', '```'));
     expect(html).toMatch(/^<div class="seqnotes-warnings"><p data-seqnotes-jump="5">/);
     expect(html.indexOf('data-line')).toBeGreaterThan(html.indexOf('</div>'));
+  });
+
+  it('translates the warnings and marks with env.t', () => {
+    const t = (message: string, ...args: (string | number)[]): string => `[${message}|${args.join('|')}]`;
+    const html = renderDocument(
+      md,
+      doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', 'A->>B: 一', '%% @ref 無い', 'A->>B: 二', '```', '## 一', '## 三'),
+      { t },
+    );
+    expect(html).toContain(
+      '<p data-seqnotes-jump="4">[⚠ Line {0}: {1}|5|[@ref target heading &quot;{0}&quot; was not found after the sequence diagram.|無い]]</p>',
+    );
+    expect(html).toContain('title="[No arrow in the sequence diagram is linked to this heading.|]" data-seqnotes-mark="[no arrow|]"');
   });
 });
