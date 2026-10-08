@@ -28,6 +28,7 @@ Open a Markdown file and click the preview icon in the editor title bar, or run 
 # Sequence
 
 ```mermaid
+%% @seq-notes
 sequenceDiagram
     Auth->>DB: Fetch user
     %% @ref Issue token
@@ -49,15 +50,17 @@ Issue a JWT valid for one hour.
 
 | Syntax | Meaning |
 |---|---|
+| `%% @seq-notes` | Required. Marks the sequence diagram to be shown side by side with its descriptions. Write it anywhere inside the mermaid block. |
 | Arrow label equals a heading | `Auth->>DB: Fetch user` links to the heading `Fetch user` automatically. |
 | `%% @ref <heading>` | Links the **next** arrow to `<heading>` when its label differs from the heading. |
-| `<!-- seq-notes:end -->` | Optional. Ends the description column. Without it, the column extends to the next sequence diagram or the end of the document. |
+| `<!-- seq-notes:end -->` | Optional. Ends the description column. Without it, the column extends to the next `%% @seq-notes` diagram or the end of the document. |
 
 Rules:
 
 - Only headings **after** the diagram (up to the end of the description column) are linked.
 - Labels and headings are compared after trimming and collapsing whitespace; `<br/>` in a label counts as a space.
-- A diagram is shown side by side only when at least one arrow is linked. Other diagrams are rendered normally.
+- Only diagrams with `%% @seq-notes` are shown side by side (even if no arrow is linked). Other diagrams are rendered normally, and an `@ref` in them is reported as a warning.
+- `%% @seq-notes` has no effect on a diagram inside a list or blockquote; this is reported as a warning.
 - An `@ref` whose heading cannot be found is reported as a warning at the top of the preview.
 
 ## Settings
@@ -88,6 +91,7 @@ Rules:
 # シーケンス
 
 ```mermaid
+%% @seq-notes
 sequenceDiagram
     Auth->>DB: ユーザー情報を取得
     %% @ref トークン発行
@@ -109,13 +113,15 @@ ID をキーにユーザーを 1 件取得する。
 
 | 記法 | 意味 |
 |---|---|
+| `%% @seq-notes` | 必須。そのシーケンス図を処理概要と横並びで表示することを示します。mermaidブロック内のどこに書いても構いません。 |
 | 矢印の文言と見出しが同じ | `Auth->>DB: ユーザー情報を取得` は見出し「ユーザー情報を取得」に自動で紐付きます。 |
 | `%% @ref 見出し` | **直後の**矢印を指定した見出しに紐付けます（文言が見出しと違う場合に使用）。 |
-| `<!-- seq-notes:end -->` | 任意。右カラム（処理概要）の終わりを明示します。省略時は次のシーケンス図または文書末尾までが右カラムになります。 |
+| `<!-- seq-notes:end -->` | 任意。右カラム（処理概要）の終わりを明示します。省略時は次の `%% @seq-notes` 付きのシーケンス図または文書末尾までが右カラムになります。 |
 
 - 紐付けの対象になるのは、シーケンス図より**後ろ**にあり、右カラムの範囲内にある見出しだけです。
 - 前後の空白・連続する空白は無視して比較し、矢印の文言中の `<br/>` は空白として扱います。
-- 紐付けが1件もないシーケンス図は横並びにせず、通常どおり表示します。
+- 横並びにするのは `%% @seq-notes` のあるシーケンス図だけです（紐付けが1件もなくても横並びにします）。それ以外の図は通常どおり表示し、その中の `@ref` は警告を表示します。
+- リストや引用の中にあるシーケンス図では `%% @seq-notes` は効かず、警告を表示します。
 - `@ref` で指定した見出しが見つからない場合は、プレビュー上部に警告を表示します。
 
 ### 設定

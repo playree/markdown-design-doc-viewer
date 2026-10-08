@@ -1,7 +1,8 @@
 /**
  * Minimal parser for mermaid `sequenceDiagram` sources.
  * Only extracts what the preview needs: the messages (arrows) in drawing order,
- * their source line and any `%% @ref <heading>` directive attached to them.
+ * their source line, any `%% @ref <heading>` directive attached to them and
+ * the `%% @seq-notes` marker that opts the diagram into the side-by-side layout.
  */
 
 export interface SequenceMessage {
@@ -15,6 +16,12 @@ export interface SequenceMessage {
   ref?: string;
   /** 0-based line of the `%% @ref` comment. */
   refLine?: number;
+}
+
+export interface ParsedSequence {
+  messages: SequenceMessage[];
+  /** 0-based document line of the `%% @seq-notes` marker, if present. */
+  markerLine?: number;
 }
 
 // Longest tokens first so that e.g. `-->>` is not read as `-->` + `>`.
@@ -32,6 +39,8 @@ const MESSAGE_RE = new RegExp(
 );
 
 const REF_RE = /^\s*%%\s*@ref\s+(.+?)\s*$/;
+
+const SEQ_NOTES_RE = /^\s*%%\s*@seq-notes\s*$/;
 
 // A keyword must be followed by whitespace or the line end, so that participants
 // named e.g. `Link` or `End` (`Link->>API: ...`) are still read as messages.
@@ -63,14 +72,19 @@ export function isSequenceDiagram(source: string): boolean {
  * @param source  fence content (without the ``` lines)
  * @param firstLine  0-based document line of the first content line
  */
-export function parseSequence(source: string, firstLine: number): SequenceMessage[] {
+export function parseSequence(source: string, firstLine: number): ParsedSequence {
   const messages: SequenceMessage[] = [];
+  let markerLine: number | undefined;
   let pendingRef: { text: string; line: number } | undefined;
 
   const lines = source.split(/\r?\n/);
   const start = skipFrontmatter(lines);
   lines.forEach((raw, i) => {
     if (i < start) {
+      return;
+    }
+    if (SEQ_NOTES_RE.test(raw)) {
+      markerLine ??= firstLine + i;
       return;
     }
     const ref = REF_RE.exec(raw);
@@ -94,7 +108,7 @@ export function parseSequence(source: string, firstLine: number): SequenceMessag
     messages.push(message);
   });
 
-  return messages;
+  return { messages, markerLine };
 }
 
 /** Normalizes label/heading text for comparison. */
