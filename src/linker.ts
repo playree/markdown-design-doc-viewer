@@ -6,6 +6,8 @@ export const END_MARKER_RE = /^\s*<!--\s*seq-notes:end\s*-->\s*$/;
 export interface LinkedMessage extends SequenceMessage {
   /** id of the heading this message is linked to. */
   target?: string;
+  /** true when the message has no target although other messages of the diagram have one. */
+  unlinked?: boolean;
 }
 
 export interface DiagramInfo {
@@ -15,6 +17,11 @@ export interface DiagramInfo {
   /** Exclusive end of the overview range (token index). Only meaningful when `paired`. */
   rangeEnd: number;
   messages: LinkedMessage[];
+  /**
+   * Token indices of the top-level overview headings no message links to, at the level
+   * most linked headings have. Empty when the diagram links to no heading at all.
+   */
+  unlinkedHeadings: number[];
   /** true when the diagram has a `%% @seq-notes` marker and is top-level, so it is laid out side by side. */
   paired: boolean;
 }
@@ -62,6 +69,25 @@ export function headingText(inline: Token | undefined): string {
 }
 
 /**
+ * The heading level of the steps: the one most linked headings have (the shallowest on a tie),
+ * so that a single `@ref` to e.g. a parent heading does not change it.
+ */
+function stepLevel(linkedLevels: number[]): number | undefined {
+  const counts = new Map<number, number>();
+  for (const level of linkedLevels) {
+    counts.set(level, (counts.get(level) ?? 0) + 1);
+  }
+  let best: number | undefined;
+  for (const [level, count] of counts) {
+    const bestCount = best === undefined ? 0 : counts.get(best)!;
+    if (count > bestCount || (count === bestCount && level < best!)) {
+      best = level;
+    }
+  }
+  return best;
+}
+
+/**
  * Finds sequence diagrams and resolves the message → heading links of the ones
  * marked with `%% @seq-notes`. Headings must already carry an `id` attribute.
  *
@@ -90,7 +116,7 @@ export function linkDiagrams(tokens: Token[]): LinkResult {
         });
       }
       const paired = markerLine !== undefined && token.level === 0;
-      return { id, fenceIndex: index, rangeEnd: index + 1, messages, paired };
+      return { id, fenceIndex: index, rangeEnd: index + 1, messages, unlinkedHeadings: [], paired };
     });
 
   const pairedFences = new Set(diagrams.filter((d) => d.paired).map((d) => d.fenceIndex));
@@ -108,10 +134,15 @@ export function linkDiagrams(tokens: Token[]): LinkResult {
     diagram.rangeEnd = end;
 
     const headings = new Map<string, string>();
+    const headingTokens: { index: number; id: string; level: number }[] = [];
     for (let i = index + 1; i < end; i++) {
       const t = tokens[i];
       const id = t.type === 'heading_open' ? t.attrGet('id') : null;
       if (id) {
+        // Headings inside lists or blockquotes are not steps of the overview.
+        if (t.level === 0) {
+          headingTokens.push({ index: i, id: String(id), level: Number(t.tag.slice(1)) });
+        }
         const key = normalizeLabel(headingText(tokens[i + 1]));
         if (!headings.has(key)) {
           headings.set(key, String(id));
@@ -130,6 +161,16 @@ export function linkDiagrams(tokens: Token[]): LinkResult {
         });
       }
     }
+
+    const targets = new Set(diagram.messages.map((m) => m.target).filter((t) => t !== undefined));
+    if (targets.size === 0) {
+      continue;
+    }
+    for (const message of diagram.messages.filter((m) => !m.target)) {
+      message.unlinked = true;
+    }
+    const level = stepLevel(headingTokens.filter((h) => targets.has(h.id)).map((h) => h.level));
+    diagram.unlinkedHeadings = headingTokens.filter((h) => h.level === level && !targets.has(h.id)).map((h) => h.index);
   }
 
   warnings.sort((a, b) => a.line - b.line);

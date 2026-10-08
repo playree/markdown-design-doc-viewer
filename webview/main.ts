@@ -189,6 +189,9 @@ function annotateMessages(svg: SVGSVGElement, meta: DiagramMeta): void {
         el.setAttribute('data-seqnotes-target', message.target);
       }
     }
+    if (message.unlinked) {
+      group.slice(0, -1).forEach((text) => text.classList.add('seqnotes-unlinked'));
+    }
   });
 }
 

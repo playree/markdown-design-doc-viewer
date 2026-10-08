@@ -99,6 +99,27 @@ describe('linkDiagrams', () => {
     expect(diagrams).toHaveLength(1);
     expect(diagrams[0].messages[0].target).toBeUndefined();
   });
+
+  it('collects the unlinked headings at the level most linked headings have', () => {
+    const src = doc(
+      '```mermaid', '%% @seq-notes', 'sequenceDiagram', 'A->>B: 一', 'B->>C: 二', '%% @ref 概要', 'C-->>A: 応答', 'A->>A: 無し', '```',
+      '# 概要', '## 一', '### 詳細', '## 二', '#### 深い', '## 三', '> ## 引用', '',
+      '<!-- seq-notes:end -->',
+      '## 範囲外',
+    );
+    const tokens = md.parse(src, {});
+    const [d] = linkDiagrams(tokens).diagrams;
+    // `# 概要` is linked by @ref but does not change the step level; headings in blockquotes and after the end marker are ignored
+    expect(d.unlinkedHeadings.map((i) => tokens[i].attrGet('id'))).toEqual([hid('三')]);
+    expect(d.messages.map((m) => m.unlinked)).toEqual([undefined, undefined, undefined, true]);
+  });
+
+  it('marks nothing in a diagram without any link', () => {
+    const tokens = md.parse(doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', 'A->>B: x', '```', '## 見出し'), {});
+    const [d] = linkDiagrams(tokens).diagrams;
+    expect(d.unlinkedHeadings).toEqual([]);
+    expect(d.messages[0].unlinked).toBeUndefined();
+  });
 });
 
 describe('renderDocument', () => {
@@ -112,6 +133,12 @@ describe('renderDocument', () => {
     // content after the end marker is outside the pair
     expect(html.lastIndexOf('</div>', html.indexOf('<h1 id="sn-補足"'))).toBeGreaterThan(overview);
     expect(html).toMatch(/<div class="seqnotes-mermaid" data-line="2" data-seqnotes-meta="\{&quot;id&quot;:0,/);
+  });
+
+  it('marks the unlinked headings', () => {
+    const html = renderDocument(md, doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', 'A->>B: 一', '```', '## 一', '## 二'));
+    expect(html).toContain('<h2 id="sn-一" data-line="5">');
+    expect(html).toMatch(/<h2 id="sn-二" data-line="6" class="seqnotes-unlinked" title="[^"]+">/);
   });
 
   it('escapes the mermaid source and embedded metadata', () => {

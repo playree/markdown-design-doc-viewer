@@ -13,7 +13,7 @@ export type RenderEnv = Env & {
 export interface DiagramMeta {
   id: number;
   paired: boolean;
-  messages: { index: number; line: number; text: string; target?: string }[];
+  messages: { index: number; line: number; text: string; target?: string; unlinked?: boolean }[];
 }
 
 const escapeHtml = (s: string): string =>
@@ -62,7 +62,7 @@ function mermaidFence(md: MarkdownIt): void {
       const meta: DiagramMeta = {
         id: diagram.id,
         paired: diagram.paired,
-        messages: diagram.messages.map(({ index, line, text, target }) => ({ index, line, text, target })),
+        messages: diagram.messages.map(({ index, line, text, target, unlinked }) => ({ index, line, text, target, unlinked })),
       };
       attrs += ` data-seqnotes-meta="${escapeHtml(JSON.stringify(meta))}"`;
     }
@@ -94,6 +94,10 @@ export function renderDocument(md: MarkdownIt, source: string, env: RenderEnv = 
   for (const diagram of diagrams) {
     const fence = tokens[diagram.fenceIndex];
     fence.meta = { ...fence.meta, seqNotes: diagram };
+    for (const index of diagram.unlinkedHeadings) {
+      tokens[index].attrJoin('class', 'seqnotes-unlinked');
+      tokens[index].attrSet('title', 'No arrow in the sequence diagram is linked to this heading.');
+    }
   }
 
   const render = (slice: Token[]): string => md.renderer.render(slice, md.options, env);
