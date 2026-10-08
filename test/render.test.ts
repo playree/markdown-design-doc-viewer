@@ -148,6 +148,13 @@ describe('numbered headings', () => {
     expect(linkDiagrams(tokens).diagrams[0].messages.map((m) => m.numberInHeading)).toEqual([true, false, undefined]);
   });
 
+  it('compares the numbers as numbers', () => {
+    const tokens = md.parse(src.replace('## 1. 取得', '## 01. 取得'), {});
+    const { diagrams, warnings } = linkDiagrams(tokens);
+    expect(diagrams[0].messages[0].numberInHeading).toBe(true);
+    expect(warnings).toEqual([]);
+  });
+
   it('picks the heading with the arrow number among headings with the same text', () => {
     const tokens = md.parse(doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', 'autonumber', 'A->>B: 取得', 'B->>C: 取得', '```', '## 1. 取得', '## 2. 取得'), {});
     const { diagrams, warnings } = linkDiagrams(tokens);

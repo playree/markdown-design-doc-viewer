@@ -18,7 +18,8 @@ export function highlight(code: string, lang: string): string {
 }
 
 // The first line of a front matter block must be a `key:` line, so that a document starting with a horizontal rule stays as it is.
-const YAML_KEY_RE = /^[\w-]+\s*:(?:\s|$)/;
+// Keys may be non-ASCII (`タイトル:`) or quoted.
+const YAML_KEY_RE = /^(?:"[^"]*"|'[^']*'|[^\s#:"'-][^:]*?)\s*:(?:\s|$)/;
 
 /** Hides a YAML front matter block at the top of the document, like the built-in preview does by default. */
 function frontMatter(md: MarkdownIt): void {
@@ -42,6 +43,7 @@ const ALERT_RE = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*(?:\n|$)/i;
 
 /**
  * Turns `> [!NOTE]` blockquotes into `<div class="markdown-alert markdown-alert-note">` with a title.
+ * Like GitHub, only top-level blockquotes with some text after the marker are converted.
  * Runs before the inline rule, so editing the paragraph's content is enough.
  */
 function githubAlerts(md: MarkdownIt): void {
@@ -50,7 +52,7 @@ function githubAlerts(md: MarkdownIt): void {
     for (let i = 0; i < tokens.length; i++) {
       const open = tokens[i];
       const inline = tokens[i + 2];
-      if (open.type !== 'blockquote_open' || tokens[i + 1]?.type !== 'paragraph_open' || inline?.type !== 'inline') {
+      if (open.type !== 'blockquote_open' || open.level !== 0 || tokens[i + 1]?.type !== 'paragraph_open' || inline?.type !== 'inline') {
         continue;
       }
       const m = ALERT_RE.exec(inline.content);
@@ -61,6 +63,9 @@ function githubAlerts(md: MarkdownIt): void {
       let close = i + 1;
       while (tokens[close].type !== 'blockquote_close' || tokens[close].level !== open.level) {
         close++;
+      }
+      if (m[0].length === inline.content.length && close === i + 4) {
+        continue;
       }
       open.tag = 'div';
       open.attrJoin('class', `markdown-alert markdown-alert-${type}`);

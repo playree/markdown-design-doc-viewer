@@ -25,6 +25,11 @@ describe('front matter', () => {
     expect(renderDocument(md, doc('para', '', '---', 'a: 1', '---'))).toContain('<h2 id="sn-a-1" data-line="3">a: 1</h2>');
   });
 
+  it('accepts non-ASCII and quoted keys', () => {
+    expect(renderDocument(md, doc('---', 'タイトル: 設計書', '---', 'para'))).toBe('<p data-line="3">para</p>\n');
+    expect(renderDocument(md, doc('---', '"title": 設計書', '---', 'para'))).toBe('<p data-line="3">para</p>\n');
+  });
+
   it('does not turn its lines into headings', () => {
     // Without the rule, `title: 設計書` followed by `---` is a setext heading.
     expect(md.parse(doc('---', 'title: 設計書', '---'), {})).toEqual([]);
@@ -69,6 +74,12 @@ describe('GitHub alerts', () => {
   it('leaves other blockquotes alone', () => {
     expect(renderDocument(md, doc('> [!NOTE] 同じ行', '> 本文'))).toContain('<blockquote data-line="0">');
     expect(renderDocument(md, doc('> [!OTHER]', '> 本文'))).toContain('<blockquote data-line="0">');
+  });
+
+  it('leaves marker-only and nested blockquotes alone, like GitHub', () => {
+    expect(renderDocument(md, doc('> [!NOTE]'))).toContain('<blockquote data-line="0">');
+    expect(renderDocument(md, doc('- 項目', '', '  > [!NOTE]', '  > 本文'))).toContain('<blockquote data-line="2">');
+    expect(renderDocument(md, doc('> > [!NOTE]', '> > 本文'))).not.toContain('markdown-alert');
   });
 });
 

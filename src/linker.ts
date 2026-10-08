@@ -163,16 +163,17 @@ export function linkDiagrams(tokens: Token[]): LinkResult {
 
     for (const message of diagram.messages) {
       const label = normalizeLabel(message.ref ?? message.text);
-      const number = message.number === undefined ? undefined : String(message.number);
+      const number = message.number;
+      // Compared as numbers, so that `01.` matches arrow 1.
       const numbered = numberedHeadings.get(label) ?? [];
-      const target = headings.get(label) ?? numbered.find((id) => steps.get(id)!.value === number) ?? numbered[0];
+      const target = headings.get(label) ?? numbered.find((id) => Number(steps.get(id)!.value) === number) ?? numbered[0];
       if (target) {
         message.target = target;
         const step = steps.get(target);
         if (step && number !== undefined) {
-          message.numberInHeading = step.value === number;
+          message.numberInHeading = Number(step.value) === number;
           // Only plain integers: `1.2` is more likely a section number than an autonumber with a step.
-          if (!headings.has(label) && /^\d+$/.test(step.value) && step.value !== number) {
+          if (!headings.has(label) && /^\d+$/.test(step.value) && !message.numberInHeading) {
             warnings.push({
               line: message.line,
               message: `Heading "${step.heading}" is numbered ${step.value}, but the arrow is number ${number}.`,
