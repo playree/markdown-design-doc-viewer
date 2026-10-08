@@ -8,6 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - `main` で直接作業・コミットしない。ファイルを変更する前に、最新の `main` から `feature/<内容を表す名前>`（例: `feature/seq-notes-marker`）を作成して切り替える。
 - `main` への反映は PR 経由で行う（PR は CodeRabbit がレビューする）。
+- PR を作る前に、差分をセルフコードレビュー（`/code-review`）し、指摘を反映してから PR を作る。
 
 ## 概要
 
