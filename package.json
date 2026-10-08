@@ -48,6 +48,21 @@
         "icon": "$(open-preview)"
       }
     ],
+    "customEditors": [
+      {
+        "viewType": "seqNotes.editor",
+        "displayName": "%seqNotes.editor.displayName%",
+        "selector": [
+          {
+            "filenamePattern": "*.md"
+          },
+          {
+            "filenamePattern": "*.markdown"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
     "menus": {
       "editor/title": [
         {

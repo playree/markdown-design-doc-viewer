@@ -3,6 +3,8 @@ import type { FromWebview, ToWebview, WebviewState } from './protocol';
 import { createMarkdown, renderDocument } from './render';
 
 const VIEW_TYPE = 'seqNotes.preview';
+/** Custom editor shown in "Reopen Editor With..." for Markdown files. */
+const EDITOR_VIEW_TYPE = 'seqNotes.editor';
 const UPDATE_DELAY_MS = 300;
 /** Editor scroll events caused by our own reveal are ignored for this long. */
 const SCROLL_SUPPRESS_MS = 500;
@@ -36,8 +38,11 @@ function nonce(): string {
   return Array.from({ length: 32 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
+type PreviewKind = 'panel' | 'editor';
+
 export class PreviewManager implements vscode.Disposable {
-  private readonly previews = new Map<string, Preview>();
+  /** A document can have both a panel preview and a custom editor open at once. */
+  private readonly previews = new Map<string, Set<Preview>>();
   private readonly md = createMarkdown();
   private readonly disposables: vscode.Disposable[] = [];
   private suppressScrollUntil = 0;
@@ -49,35 +54,40 @@ export class PreviewManager implements vscode.Disposable {
       vscode.window.registerWebviewPanelSerializer(VIEW_TYPE, {
         deserializeWebviewPanel: async (panel, state: WebviewState | undefined) => {
           if (state?.uri) {
-            this.attach(panel, vscode.Uri.parse(state.uri));
+            this.attach(panel, vscode.Uri.parse(state.uri), 'panel');
           } else {
             panel.dispose();
           }
         },
       }),
-      vscode.workspace.onDidChangeTextDocument((e) => this.previews.get(e.document.uri.toString())?.scheduleUpdate()),
+      vscode.window.registerCustomEditorProvider(
+        EDITOR_VIEW_TYPE,
+        { resolveCustomTextEditor: (document, panel) => this.attach(panel, document.uri, 'editor') },
+        { webviewOptions: { retainContextWhenHidden: true }, supportsMultipleEditorsPerDocument: true },
+      ),
+      vscode.workspace.onDidChangeTextDocument((e) => this.forEach(e.document.uri, (p) => p.scheduleUpdate())),
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration('seqNotes')) {
           this.settings = readSettings();
-          this.previews.forEach((p) => p.update());
+          this.previews.forEach((set) => set.forEach((p) => p.update()));
         }
       }),
       vscode.window.onDidChangeTextEditorSelection((e) => {
         if (this.settings.syncEditor) {
-          this.previews.get(e.textEditor.document.uri.toString())?.post({ type: 'markLine', line: e.selections[0].active.line });
+          this.forEach(e.textEditor.document.uri, (p) => p.post({ type: 'markLine', line: e.selections[0].active.line }));
         }
       }),
       vscode.window.onDidChangeTextEditorVisibleRanges((e) => {
         if (!this.settings.syncEditor || Date.now() < this.suppressScrollUntil || e.visibleRanges.length === 0) {
           return;
         }
-        this.previews.get(e.textEditor.document.uri.toString())?.post({ type: 'scrollToLine', line: e.visibleRanges[0].start.line });
+        this.forEach(e.textEditor.document.uri, (p) => p.post({ type: 'scrollToLine', line: e.visibleRanges[0].start.line }));
       }),
     );
   }
 
   show(uri: vscode.Uri, column: vscode.ViewColumn): void {
-    const existing = this.previews.get(uri.toString());
+    const existing = [...(this.previews.get(uri.toString()) ?? [])].find((p) => p.kind === 'panel');
     if (existing) {
       existing.panel.reveal(column);
       return;
@@ -86,35 +96,50 @@ export class PreviewManager implements vscode.Disposable {
       enableScripts: true,
       retainContextWhenHidden: true,
     });
-    this.attach(panel, uri);
+    this.attach(panel, uri, 'panel');
   }
 
-  private attach(panel: vscode.WebviewPanel, uri: vscode.Uri): void {
-    const preview = new Preview(panel, uri, this.extensionUri, this.md, {
+  private forEach(uri: vscode.Uri, fn: (preview: Preview) => void): void {
+    this.previews.get(uri.toString())?.forEach(fn);
+  }
+
+  private attach(panel: vscode.WebviewPanel, uri: vscode.Uri, kind: PreviewKind): void {
+    const key = uri.toString();
+    const preview = new Preview(panel, uri, kind, this.extensionUri, this.md, {
       settings: () => this.settings,
-      revealLine: (line) => this.revealLine(uri, line),
+      // A custom editor occupies the document's tab, so the source opens beside it.
+      revealLine: (line) => this.revealLine(uri, line, kind === 'editor' ? vscode.ViewColumn.Beside : vscode.ViewColumn.One),
     });
-    this.previews.set(uri.toString(), preview);
+    let set = this.previews.get(key);
+    if (!set) {
+      set = new Set();
+      this.previews.set(key, set);
+    }
+    set.add(preview);
     panel.onDidDispose(() => {
       preview.dispose();
-      this.previews.delete(uri.toString());
+      const current = this.previews.get(key);
+      current?.delete(preview);
+      if (current?.size === 0) {
+        this.previews.delete(key);
+      }
     });
   }
 
-  private async revealLine(uri: vscode.Uri, line: number): Promise<void> {
+  private async revealLine(uri: vscode.Uri, line: number, fallbackColumn: vscode.ViewColumn): Promise<void> {
     const document = await vscode.workspace.openTextDocument(uri);
     const visible = vscode.window.visibleTextEditors.find((e) => e.document.uri.toString() === uri.toString());
     const position = new vscode.Position(Math.min(line, document.lineCount - 1), 0);
     this.suppressScrollUntil = Date.now() + SCROLL_SUPPRESS_MS;
     const editor = await vscode.window.showTextDocument(document, {
-      viewColumn: visible?.viewColumn ?? vscode.ViewColumn.One,
+      viewColumn: visible?.viewColumn ?? fallbackColumn,
       selection: new vscode.Range(position, position),
     });
     editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
   }
 
   dispose(): void {
-    this.previews.forEach((p) => p.panel.dispose());
+    this.previews.forEach((set) => set.forEach((p) => p.panel.dispose()));
     this.disposables.forEach((d) => d.dispose());
   }
 }
@@ -133,13 +158,17 @@ class Preview {
   constructor(
     readonly panel: vscode.WebviewPanel,
     private readonly uri: vscode.Uri,
+    readonly kind: PreviewKind,
     private readonly extensionUri: vscode.Uri,
     private readonly md: ReturnType<typeof createMarkdown>,
     private readonly host: PreviewHost,
   ) {
     const documentDir = vscode.Uri.joinPath(uri, '..');
-    panel.title = `Preview ${uri.path.split('/').pop()}`;
-    panel.iconPath = vscode.Uri.joinPath(extensionUri, 'images', 'preview.svg');
+    // A custom editor's tab is titled by VS Code after the document.
+    if (kind === 'panel') {
+      panel.title = `Preview ${uri.path.split('/').pop()}`;
+      panel.iconPath = vscode.Uri.joinPath(extensionUri, 'images', 'preview.svg');
+    }
     panel.webview.options = {
       enableScripts: true,
       localResourceRoots: [
