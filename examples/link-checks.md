@@ -26,7 +26,7 @@ Linked, and the number matches the arrow, so no extra number is shown.
 
 ### 3. Read cache
 
-Linked to arrow 2. The number in the heading is different, so a warning is shown at the top of the preview.
+Linked to arrow 2. The number in the heading is different, so the arrow's number is shown next to it as well.
 
 ### Profile
 
@@ -36,7 +36,7 @@ Linked to arrow 5. The heading has no number, so the arrow's number is shown nex
 
 No arrow is linked to this heading, so it gets a "no arrow" mark.
 
-Arrow 3 (`Cache miss`) has no heading, and the `@ref` of arrow 4 points to a heading that does not exist (also a warning). Both arrows are shown faded.
+Arrow 3 (`Cache miss`) has no heading, and the `@ref` of arrow 4 points to a heading that does not exist, which is reported as a warning. Both arrows are shown faded.
 
 <!-- seq-notes:end -->
 

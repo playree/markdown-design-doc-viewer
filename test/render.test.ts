@@ -138,9 +138,11 @@ describe('numbered headings', () => {
     ]);
   });
 
-  it('warns when the heading number differs from the arrow number', () => {
+  it('links a numbered heading even when its number differs from the arrow number', () => {
     const tokens = md.parse(src.replace('## 2) 結果', '## 5) 結果'), {});
-    expect(linkDiagrams(tokens).warnings).toEqual([{ line: 5, message: 'Heading "5) 結果" is numbered 5, but the arrow is number 2.' }]);
+    const { diagrams, warnings } = linkDiagrams(tokens);
+    expect(diagrams[0].messages[1].target).toBe(hid('5) 結果'));
+    expect(warnings).toEqual([]);
   });
 
   it('tells whether the heading already shows the arrow number', () => {

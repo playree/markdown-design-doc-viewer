@@ -138,7 +138,7 @@ export function linkDiagrams(tokens: Token[]): LinkResult {
     const headings = new Map<string, string>();
     // Numbered headings (`3. Fetch user`) by their text without the number, used when no heading matches exactly.
     const numberedHeadings = new Map<string, string[]>();
-    const steps = new Map<string, StepNumber & { heading: string }>();
+    const steps = new Map<string, StepNumber>();
     const headingTokens: { index: number; id: string; level: number }[] = [];
     for (let i = index + 1; i < end; i++) {
       const t = tokens[i];
@@ -148,14 +148,13 @@ export function linkDiagrams(tokens: Token[]): LinkResult {
         if (t.level === 0) {
           headingTokens.push({ index: i, id: String(id), level: Number(t.tag.slice(1)) });
         }
-        const text = headingText(tokens[i + 1]);
-        const key = normalizeLabel(text);
+        const key = normalizeLabel(headingText(tokens[i + 1]));
         if (!headings.has(key)) {
           headings.set(key, String(id));
         }
         const step = stripStepNumber(key);
         if (step) {
-          steps.set(String(id), { ...step, heading: text });
+          steps.set(String(id), step);
           numberedHeadings.set(step.text, [...(numberedHeadings.get(step.text) ?? []), String(id)]);
         }
       }
@@ -172,13 +171,6 @@ export function linkDiagrams(tokens: Token[]): LinkResult {
         const step = steps.get(target);
         if (step && number !== undefined) {
           message.numberInHeading = Number(step.value) === number;
-          // Only plain integers: `1.2` is more likely a section number than an autonumber with a step.
-          if (!headings.has(label) && /^\d+$/.test(step.value) && !message.numberInHeading) {
-            warnings.push({
-              line: message.line,
-              message: `Heading "${step.heading}" is numbered ${step.value}, but the arrow is number ${number}.`,
-            });
-          }
         }
       } else if (message.ref !== undefined) {
         warnings.push({
