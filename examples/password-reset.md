@@ -27,7 +27,7 @@ sequenceDiagram
     alt User exists
         API->>DB: Store reset token
         %% @ref Send reset email
-        API->>Mail: Send email with reset link
+        API-)Mail: Send email with reset link
     end
     API-->>FE: 202 Accepted
 
@@ -94,7 +94,7 @@ Creating a new token invalidates the user's earlier unused tokens.
 
 ### Send reset email
 
-Sends the link `https://example.com/reset?token=<token>` through the Mail Service.
+Queues an email with the link `https://example.com/reset?token=<token>`. The Mail Service sends it after the response has been returned, so the request does not wait for it.
 
 ```yaml
 # config/mail.yaml
@@ -122,6 +122,11 @@ The response is the same whether or not the user exists, so the endpoint cannot 
 
 The frontend reads the token from the URL and removes it from the address bar with `history.replaceState` so that it is not left in the browser history.
 
+This does not remove the token from logs of the first request, so:
+
+- The load balancer and reverse proxies must not log the query string of `/reset`.
+- The page is served with `Referrer-Policy: no-referrer`, so the token is not sent to other sites in the `Referer` header.
+
 - The new password must be 8–128 characters and must not be the same as the current one.
 - If the token is expired or already used, the page shows "This link has expired." and a link to request a new one.
 
@@ -129,7 +134,7 @@ The frontend reads the token from the URL and removes it from the address bar wi
 
 ```json
 {
-  "token": "q3V0b2tlbi1leGFtcGxl",
+  "token": "<token from the email link>",
   "password": "new correct horse battery staple"
 }
 ```
@@ -143,6 +148,16 @@ The frontend reads the token from the URL and removes it from the address bar wi
 ### 9. Update password
 
 Updates `password_hash` and marks the token as used in one transaction.
+The token is consumed with a conditional update, so that two concurrent requests with the same token cannot both succeed:
+
+```sql
+UPDATE password_reset_tokens
+SET used_at = now()
+WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()
+RETURNING user_id;
+```
+
+The password is updated only when this returns exactly one row; otherwise the API returns `410 Gone`.
 
 > [!WARNING]
 > All refresh tokens of the user are revoked as well, so every other session is logged out. Tell support before releasing this change.
