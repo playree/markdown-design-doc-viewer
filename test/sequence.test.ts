@@ -5,7 +5,7 @@ describe('isSequenceDiagram', () => {
   it('detects sequenceDiagram after comments and blank lines', () => {
     expect(isSequenceDiagram('%% comment\n\nsequenceDiagram\n  A->>B: hi')).toBe(true);
     expect(isSequenceDiagram('flowchart TD\n  A-->B')).toBe(false);
-    expect(isSequenceDiagram('%% @seq-notes\nsequenceDiagram')).toBe(true);
+    expect(isSequenceDiagram('%% @link-headings\nsequenceDiagram')).toBe(true);
   });
 
   it('skips a leading YAML frontmatter block', () => {
@@ -71,11 +71,11 @@ describe('parseSequence', () => {
     expect(parseSequence('sequenceDiagram\nA->>B: GET /a?x=1: ok', 0).messages[0].text).toBe('GET /a?x=1: ok');
   });
 
-  it('finds the %% @seq-notes marker before or after the diagram type', () => {
-    expect(parseSequence('%% @seq-notes\nsequenceDiagram\nA->>B: x', 3).markerLine).toBe(3);
-    const after = parseSequence('sequenceDiagram\n  %%  @seq-notes \nA->>B: x', 3);
+  it('finds the %% @link-headings marker before or after the diagram type', () => {
+    expect(parseSequence('%% @link-headings\nsequenceDiagram\nA->>B: x', 3).markerLine).toBe(3);
+    const after = parseSequence('sequenceDiagram\n  %%  @link-headings \nA->>B: x', 3);
     expect(after).toEqual({ messages: [{ index: 0, line: 5, text: 'x' }], markerLine: 4 });
-    expect(parseSequence('sequenceDiagram\n%% @seq-notes-x\nA->>B: x', 0).markerLine).toBeUndefined();
+    expect(parseSequence('sequenceDiagram\n%% @link-headings-x\nA->>B: x', 0).markerLine).toBeUndefined();
   });
 
   it('numbers messages like mermaid autonumber', () => {
@@ -90,8 +90,8 @@ describe('parseSequence', () => {
   });
 
   it('ignores the marker inside frontmatter and does not attach it as a @ref', () => {
-    expect(parseSequence('---\n%% @seq-notes\n---\nsequenceDiagram\nA->>B: x', 0).markerLine).toBeUndefined();
-    const { messages } = parseSequence('sequenceDiagram\n%% @ref y\n%% @seq-notes\nA->>B: x', 0);
+    expect(parseSequence('---\n%% @link-headings\n---\nsequenceDiagram\nA->>B: x', 0).markerLine).toBeUndefined();
+    const { messages } = parseSequence('sequenceDiagram\n%% @ref y\n%% @link-headings\nA->>B: x', 0);
     expect(messages[0].ref).toBe('y');
   });
 });

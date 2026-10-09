@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { inSequenceDiagram, quickFixes, quickFixesByLine, refCandidates, type TextEdit } from '../src/authoring';
+import { linkableDiagramAt, quickFixes, quickFixesByLine, refCandidates, type TextEdit } from '../src/authoring';
 import { collectIssues } from '../src/issues';
 import { createMarkdown } from '../src/render';
 
@@ -14,23 +14,27 @@ function apply(source: string, edit: TextEdit): string {
 }
 
 // Line numbers:          0             1                 2                  3                   4                  5                    6                  7
-const base = doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', '    A->>B: 一', '    A->>B: 二', '    %% @ref ない', '    A->>B: 三', '```',
+const base = doc('```mermaid', '%% @link-headings', 'sequenceDiagram', '    A->>B: 一', '    A->>B: 二', '    %% @ref ない', '    A->>B: 三', '```',
   // 8   9       10  11      12  13
   '', '## 一', '', '本文', '', '## 予備');
 
-describe('inSequenceDiagram', () => {
-  it('is true on the content lines of a sequence diagram only', () => {
-    expect([0, 1, 3, 6, 7, 9].map((line) => inSequenceDiagram(md, base, line))).toEqual([false, true, true, true, false, false]);
-    expect(inSequenceDiagram(md, doc('```mermaid', 'flowchart LR', '  A --> B', '```'), 2)).toBe(false);
+describe('linkableDiagramAt', () => {
+  it('gives the kind on the content lines of a sequence diagram or a flowchart only', () => {
+    expect([0, 1, 3, 6, 7, 9].map((line) => linkableDiagramAt(md, base, line))).toEqual([undefined, 'sequence', 'sequence', 'sequence', undefined, undefined]);
+    expect(linkableDiagramAt(md, doc('```mermaid', 'flowchart LR', '  A --> B', '```'), 2)).toBe('flowchart');
+    expect(linkableDiagramAt(md, doc('```mermaid', 'pie', '  "A": 1', '```'), 2)).toBeUndefined();
   });
 });
 
 describe('refCandidates', () => {
   it('lists the overview headings, unlinked first', () => {
-    expect(refCandidates(md, base, 5)).toEqual([
-      { text: '予備', linked: false },
-      { text: '一', linked: true },
-    ]);
+    expect(refCandidates(md, base, 5)).toEqual({
+      kind: 'sequence',
+      candidates: [
+        { text: '予備', linked: false },
+        { text: '一', linked: true },
+      ],
+    });
   });
 
   it('is undefined outside a paired diagram', () => {
@@ -71,30 +75,30 @@ describe('quickFixes', () => {
   });
 
   it('adds a heading at the end of the overview: before the end marker, a parent heading or at the end', () => {
-    const src = doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', '    A->>B: 一', '    A->>B: 二', '```', '', '### 一', '本文');
+    const src = doc('```mermaid', '%% @link-headings', 'sequenceDiagram', '    A->>B: 一', '    A->>B: 二', '```', '', '### 一', '本文');
     expect(apply(src, quickFixes(md, src, 4)[0].edit)).toBe(src + '\n\n### 二\n');
     expect(apply(src + '\n', quickFixes(md, src + '\n', 4)[0].edit)).toBe(src + '\n\n### 二\n');
 
-    const marker = doc(src, '<!-- seq-notes:end -->', '', '## 次');
-    expect(apply(marker, quickFixes(md, marker, 4)[0].edit)).toBe(doc(src, '', '### 二', '', '<!-- seq-notes:end -->', '', '## 次'));
+    const marker = doc(src, '<!-- link-headings:end -->', '', '## 次');
+    expect(apply(marker, quickFixes(md, marker, 4)[0].edit)).toBe(doc(src, '', '### 二', '', '<!-- link-headings:end -->', '', '## 次'));
 
     const parent = doc(src, '', '## 次の章');
     expect(apply(parent, quickFixes(md, parent, 4)[0].edit)).toBe(doc(src, '', '### 二', '', '## 次の章'));
   });
 
   it('adds the heading of the first arrow before the first step', () => {
-    const src = doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', '    A->>B: 一', '    A->>B: 二', '```', '', '## 概要', '', '### 二');
-    expect(apply(src, quickFixes(md, src, 3)[0].edit)).toBe(doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', '    A->>B: 一', '    A->>B: 二', '```', '', '## 概要', '', '### 一', '', '### 二'));
+    const src = doc('```mermaid', '%% @link-headings', 'sequenceDiagram', '    A->>B: 一', '    A->>B: 二', '```', '', '## 概要', '', '### 二');
+    expect(apply(src, quickFixes(md, src, 3)[0].edit)).toBe(doc('```mermaid', '%% @link-headings', 'sequenceDiagram', '    A->>B: 一', '    A->>B: 二', '```', '', '## 概要', '', '### 一', '', '### 二'));
   });
 
   it('does not offer a @ref to a heading with the text of an earlier one, which @ref cannot tell apart', () => {
-    const src = doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', '    A->>B: 一', '    A->>B: 二', '```', '', '## 一', '### 確認', '## 三', '### 確認');
+    const src = doc('```mermaid', '%% @link-headings', 'sequenceDiagram', '    A->>B: 一', '    A->>B: 二', '```', '', '## 一', '### 確認', '## 三', '### 確認');
     // `### 確認` are below the step level; the unlinked step is `三`.
     expect(quickFixes(md, src, 4).map((f) => f.title)).toEqual(['Link to heading "三" with @ref', 'Add heading "二" to the overview']);
-    const steps = doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', '    A->>B: 一', '    A->>B: 二', '```', '', '## 一', '## 確認', '## 確認');
+    const steps = doc('```mermaid', '%% @link-headings', 'sequenceDiagram', '    A->>B: 一', '    A->>B: 二', '```', '', '## 一', '## 確認', '## 確認');
     expect(quickFixes(md, steps, 4).map((f) => f.title)).toEqual(['Link to heading "確認" with @ref', 'Add heading "二" to the overview']);
     expect(quickFixes(md, steps, 9)).toEqual([]);
-    expect(refCandidates(md, steps, 4)?.map((c) => c.text)).toEqual(['確認', '一']);
+    expect(refCandidates(md, steps, 4)?.candidates.map((c) => c.text)).toEqual(['確認', '一']);
   });
 
   it('gives the fixes of several lines at once', () => {
@@ -103,6 +107,28 @@ describe('quickFixes', () => {
     expect(fixes.get(4)).toEqual(quickFixes(md, base, 4));
     expect(fixes.get(13)).toEqual(quickFixes(md, base, 13));
     expect(fixes.get(3)).toEqual([]);
+  });
+
+  it('works on flowchart nodes', () => {
+    // Line numbers:      0             1                    2               3            4                    5                    6      7   8         9
+    const flow = doc('```mermaid', '%% @link-headings', 'flowchart TD', '    A[一]', '    A --> B[二]', '    B --> C[三]', '```', '', '## 一', '## 予備');
+    expect(quickFixes(md, flow, 4).map((f) => f.title)).toEqual(['Link to heading "予備" with @ref', 'Add heading "二" to the overview']);
+    expect(apply(flow, quickFixes(md, flow, 4)[0].edit).split('\n').slice(4, 6)).toEqual(['    %% @ref 予備', '    A --> B[二]']);
+    expect(quickFixes(md, flow, 9).map((f) => f.title)).toEqual(['Link node "二" to this heading with @ref', 'Link node "三" to this heading with @ref']);
+    expect(refCandidates(md, flow, 5)).toEqual({
+      kind: 'flowchart',
+      candidates: [
+        { text: '予備', linked: false },
+        { text: '一', linked: true },
+      ],
+    });
+  });
+
+  it('gives the fixes of every node of a flowchart line, but @ref only for the node it would go to', () => {
+    const flow = doc('```mermaid', '%% @link-headings', 'flowchart TD', '    S[開始] --> A[一] --> B[二]', '```', '', '## 開始', '## 予備');
+    // A `%% @ref` above line 3 would go to S, so it is offered for neither A nor B.
+    expect(quickFixes(md, flow, 3).map((f) => f.title)).toEqual(['Add heading "一" to the overview', 'Add heading "二" to the overview']);
+    expect(quickFixes(md, flow, 7)).toEqual([]);
   });
 
   it('offers nothing for linked lines and translates the titles', () => {

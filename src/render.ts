@@ -1,6 +1,6 @@
 import markdownit, { type Env, type MarkdownIt, type Token } from 'markdown-it';
 import { formatMessage, type Translate } from './l10n';
-import { isMermaidFence, linkDiagrams, type DiagramInfo } from './linker';
+import { isMermaidFence, linkDiagrams, type DiagramInfo, type DiagramKind } from './linker';
 import { markdownExtras } from './markdownExtras';
 import { HEADING_ID_PREFIX, slugify } from './slug';
 
@@ -23,8 +23,10 @@ export type RenderEnv = Env & {
 /** Diagram data embedded into the HTML for the webview script. */
 export interface DiagramMeta {
   id: number;
+  kind: DiagramKind;
   paired: boolean;
-  messages: { index: number; line: number; text: string; number?: number; numberInHeading?: boolean; target?: string; unlinked?: boolean }[];
+  /** The arrows of a sequence diagram, or the nodes of a flowchart (with `nodeId`). */
+  messages: { index: number; line: number; text: string; nodeId?: string; number?: number; numberInHeading?: boolean; target?: string; unlinked?: boolean }[];
 }
 
 export const escapeHtml = (s: string): string =>
@@ -75,11 +77,13 @@ function mermaidFence(md: MarkdownIt): void {
     if (diagram) {
       const meta: DiagramMeta = {
         id: diagram.id,
+        kind: diagram.kind,
         paired: diagram.paired,
-        messages: diagram.messages.map(({ index, line, text, number, numberInHeading, target, unlinked }) => ({
+        messages: diagram.messages.map(({ index, line, text, nodeId, number, numberInHeading, target, unlinked }) => ({
           index,
           line,
           text,
+          nodeId,
           number,
           numberInHeading,
           target,
@@ -117,11 +121,15 @@ export function renderDocument(md: MarkdownIt, source: string, env: RenderEnv = 
   for (const diagram of diagrams) {
     const fence = tokens[diagram.fenceIndex];
     fence.meta = { ...fence.meta, seqNotes: diagram };
+    const flowchart = diagram.kind === 'flowchart';
     for (const index of env.forExport ? [] : diagram.unlinkedHeadings) {
       tokens[index].attrJoin('class', 'seqnotes-unlinked');
-      tokens[index].attrSet('title', t('No arrow in the sequence diagram is linked to this heading.'));
+      tokens[index].attrSet(
+        'title',
+        flowchart ? t('No node in the flowchart is linked to this heading.') : t('No arrow in the sequence diagram is linked to this heading.'),
+      );
       // Shown by the CSS (`content: attr(...)`).
-      tokens[index].attrSet('data-seqnotes-mark', t('no arrow'));
+      tokens[index].attrSet('data-seqnotes-mark', flowchart ? t('no node') : t('no arrow'));
     }
   }
 
@@ -145,7 +153,8 @@ export function renderDocument(md: MarkdownIt, source: string, env: RenderEnv = 
       continue;
     }
     html += render(tokens.slice(pos, diagram.fenceIndex));
-    html += `<div class="seqnotes-pair" data-diagram="${diagram.id}">`;
+    // A horizontal flowchart is too wide to be put beside its overview.
+    html += `<div class="seqnotes-pair${diagram.stacked ? ' seqnotes-pair-stacked' : ''}" data-diagram="${diagram.id}">`;
     html += `<div class="seqnotes-seq-col">${render(tokens.slice(diagram.fenceIndex, diagram.fenceIndex + 1))}</div>`;
     html += `<div class="seqnotes-overview-col">${render(tokens.slice(diagram.fenceIndex + 1, diagram.rangeEnd))}</div>`;
     html += '</div>\n';

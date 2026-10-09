@@ -12,7 +12,7 @@ owner: auth-team
 ## Sequence
 
 ```mermaid
-%% @seq-notes
+%% @link-headings
 sequenceDiagram
     autonumber
     actor User
@@ -190,7 +190,7 @@ Shows "Your password has been reset." and a button to the login page. The user i
 > [!CAUTION]
 > Never log the token or the new password, not even at debug level.
 
-<!-- seq-notes:end -->
+<!-- link-headings:end -->
 
 ## Open items
 

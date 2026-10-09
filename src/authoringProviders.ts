@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { inSequenceDiagram, quickFixesByLine, refCandidates, type TextEdit } from './authoring';
+import { linkableDiagramAt, quickFixesByLine, refCandidates, type TextEdit } from './authoring';
 import { DIAGNOSTIC_SOURCE } from './diagnostics';
 import { createMarkdown } from './render';
 
@@ -24,20 +24,28 @@ export function registerAuthoringProviders(): vscode.Disposable {
 
       const ref = REF_PREFIX_RE.exec(before);
       if (ref) {
-        const candidates = refCandidates(md, document.getText(), position.line);
+        const result = refCandidates(md, document.getText(), position.line);
+        const flowchart = result?.kind === 'flowchart';
         // The heading replaces the rest of the line.
         const range = new vscode.Range(position.line, ref[0].length, position.line, line.length);
-        return candidates?.map((c, i) => {
+        return result?.candidates.map((c, i) => {
           const item = new vscode.CompletionItem(c.text, vscode.CompletionItemKind.Reference);
           item.range = range;
           item.sortText = String(i).padStart(4, '0');
-          item.detail = c.linked ? vscode.l10n.t('Already linked to an arrow') : vscode.l10n.t('No arrow linked yet');
+          item.detail = flowchart
+            ? c.linked
+              ? vscode.l10n.t('Already linked to a node')
+              : vscode.l10n.t('No node linked yet')
+            : c.linked
+              ? vscode.l10n.t('Already linked to an arrow')
+              : vscode.l10n.t('No arrow linked yet');
           return item;
         });
       }
 
       const directive = DIRECTIVE_PREFIX_RE.exec(before);
-      if (directive && inSequenceDiagram(md, document.getText(), position.line)) {
+      const kind = directive && linkableDiagramAt(md, document.getText(), position.line);
+      if (directive && kind) {
         const range = new vscode.Range(position.line, position.character - directive[1].length, position.line, position.character);
         const item = (label: string, insertText: string, documentation: string, retrigger: boolean): vscode.CompletionItem => {
           const it = new vscode.CompletionItem(label, vscode.CompletionItemKind.Keyword);
@@ -49,10 +57,15 @@ export function registerAuthoringProviders(): vscode.Disposable {
           }
           return it;
         };
-        return [
-          item('@seq-notes', '@seq-notes', vscode.l10n.t('Show this sequence diagram side by side with the step headings after it.'), false),
-          item('@ref', '@ref ', vscode.l10n.t('Link the next arrow to a heading.'), true),
-        ];
+        return kind === 'flowchart'
+          ? [
+              item('@link-headings', '@link-headings', vscode.l10n.t('Show this flowchart with the step headings after it and link its nodes to them (side by side, or below a horizontal flowchart).'), false),
+              item('@ref', '@ref ', vscode.l10n.t('Link the node defined on the next line to a heading.'), true),
+            ]
+          : [
+              item('@link-headings', '@link-headings', vscode.l10n.t('Show this sequence diagram side by side with the step headings after it.'), false),
+              item('@ref', '@ref ', vscode.l10n.t('Link the next arrow to a heading.'), true),
+            ];
       }
       return undefined;
     },

@@ -1,9 +1,9 @@
 import DOMPurify from 'dompurify';
-import mermaid from 'mermaid';
-import type { FromWebview, ToWebview, WebviewState } from '../src/protocol';
+import mermaid, { type MermaidConfig } from 'mermaid';
+import type { DiagramLook, FromWebview, ToWebview, WebviewState } from '../src/protocol';
 import type { DiagramMeta } from '../src/render';
 import { normalizeLabel } from '../src/sequence';
-import { activeFor, isWide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, type Active } from './linking';
+import { activeFor, isSideBySide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, type Active } from './linking';
 
 interface VsCodeApi {
   postMessage(message: FromWebview): void;
@@ -22,6 +22,7 @@ let lastHtml: string | undefined;
 let splitMinWidth = 1000;
 let syncEditor = true;
 let tocEnabled = true;
+let diagramLook: DiagramLook = 'neo';
 let renderSeq = 0;
 let pinned: Active | undefined;
 let currentLine: number | undefined;
@@ -108,14 +109,24 @@ function queueRender<T>(render: () => Promise<T>): Promise<T> {
   return result;
 }
 
+/**
+ * mermaid settings for `diagramLook`: nothing for `neo`, which mermaid uses by default for most diagrams.
+ * A top-level `look` is taken before those per-diagram defaults.
+ */
+function lookConfig(look: DiagramLook): MermaidConfig {
+  return look === 'neo' ? {} : { look };
+}
+
 /** Renders the mermaid blocks of `container` and returns the SVGs it used, keyed like `svgCache`. */
 async function renderDiagrams(container: HTMLElement, idPrefix: string, dark: boolean): Promise<Map<string, string>> {
   const cache = new Map<string, string>();
+  // Resets the settings of the previous render, as mermaid.initialize starts from its defaults.
   mermaid.initialize({
     startOnLoad: false,
     securityLevel: 'strict',
     theme: dark ? 'dark' : 'default',
     fontFamily: getComputedStyle(document.body).fontFamily,
+    ...lookConfig(diagramLook),
   });
 
   const blocks = Array.from(container.querySelectorAll<HTMLElement>('.seqnotes-mermaid'));
@@ -125,7 +136,7 @@ async function renderDiagrams(container: HTMLElement, idPrefix: string, dark: bo
     const meta = metaJson ? (JSON.parse(metaJson) as DiagramMeta) : undefined;
     const id = `${idPrefix}-${i}`;
     const source = pre?.textContent ?? '';
-    const key = `${dark}\n${source}`;
+    const key = `${dark}\n${diagramLook}\n${source}`;
     try {
       // A cached SVG carries the element ids of its first render, so reuse it only once per document.
       const cached = cache.has(key) ? undefined : svgCache.get(key);
@@ -138,7 +149,11 @@ async function renderDiagrams(container: HTMLElement, idPrefix: string, dark: bo
       pre?.replaceWith(holder);
       const svgEl = holder.querySelector('svg');
       if (meta && svgEl) {
-        annotateMessages(svgEl, meta);
+        if (meta.kind === 'flowchart') {
+          annotateNodes(svgEl, meta);
+        } else {
+          annotateMessages(svgEl, meta);
+        }
       }
     } catch (error) {
       document.getElementById(`d${id}`)?.remove();
@@ -199,6 +214,8 @@ function annotateMessages(svg: SVGSVGElement, meta: DiagramMeta): void {
     }
     hit.classList.add('seqnotes-hit');
     arrow.after(hit);
+    // The element that stands for the message, e.g. to scroll to.
+    arrow.classList.add('seqnotes-item');
     for (const el of [...group, hit]) {
       el.classList.add('seqnotes-msg');
       el.setAttribute('data-seqnotes-line', String(message.line));
@@ -214,6 +231,42 @@ function annotateMessages(svg: SVGSVGElement, meta: DiagramMeta): void {
       group.slice(0, -1).forEach((text) => text.classList.add('seqnotes-unlinked'));
     }
   });
+}
+
+/** The node id of a flowchart node element: its `data-id`, or else the middle of its element id `<svg id>-flowchart-<node id>-<n>`. */
+function flowchartNodeId(svg: SVGSVGElement, el: Element): string | undefined {
+  const dataId = el.getAttribute('data-id');
+  if (dataId !== null) {
+    return dataId;
+  }
+  const id = el.id.startsWith(`${svg.id}-`) ? el.id.slice(svg.id.length + 1) : el.id;
+  return /^flowchart-(.+)-\d+$/.exec(id)?.[1];
+}
+
+/** Ties the node elements of a flowchart to the parsed node data. */
+function annotateNodes(svg: SVGSVGElement, meta: DiagramMeta): void {
+  const elements = new Map<string, Element>();
+  for (const el of Array.from(svg.querySelectorAll('g.node'))) {
+    const id = flowchartNodeId(svg, el);
+    if (id !== undefined && !elements.has(id)) {
+      elements.set(id, el);
+    }
+  }
+  for (const node of meta.messages) {
+    const el = node.nodeId === undefined ? undefined : elements.get(node.nodeId);
+    if (!el) {
+      continue;
+    }
+    el.classList.add('seqnotes-node', 'seqnotes-item');
+    el.setAttribute('data-seqnotes-line', String(node.line));
+    if (node.target) {
+      el.classList.add('seqnotes-linked');
+      el.setAttribute('data-seqnotes-target', node.target);
+    }
+    if (node.unlinked) {
+      el.classList.add('seqnotes-unlinked');
+    }
+  }
 }
 
 /** Wraps each linked heading and its content into a <section> so it can be highlighted as a whole. */
@@ -311,7 +364,9 @@ async function update(html: string): Promise<void> {
   root.replaceChildren(...Array.from(next.childNodes));
   root.querySelectorAll('.seqnotes-pair').forEach((pair) => {
     wrapSections(pair);
-    addSplitter(pair);
+    if (!pair.classList.contains('seqnotes-pair-stacked')) {
+      addSplitter(pair);
+    }
   });
   setUpWarnings();
   addZoomButtons();
@@ -818,19 +873,21 @@ function lineOf(el: Element): number {
 
 /** Block elements carrying source lines, in document order, usable for page scrolling. */
 function lineElements(): HTMLElement[] {
-  const wide = isWide();
   return Array.from(root.querySelectorAll<HTMLElement>('[data-line]')).filter(
-    (el) => !(wide && el.closest('.seqnotes-seq-col')) && el.offsetParent !== null,
+    (el) => !(el.closest('.seqnotes-seq-col') && isSideBySide(el)) && el.offsetParent !== null,
   );
 }
 
+/** The arrow or node defined on `line`. */
 function messageAt(line: number): Element | undefined {
-  return root.querySelector(`[data-et="message"][data-seqnotes-line="${line}"]`) ?? undefined;
+  // A flowchart line may define several nodes: prefer a linked one.
+  const items = `.seqnotes-item[data-seqnotes-line="${line}"]`;
+  return root.querySelector(`${items}[data-seqnotes-target]`) ?? root.querySelector(items) ?? undefined;
 }
 
 function scrollToLine(line: number): void {
   const message = messageAt(line);
-  if (message && isWide()) {
+  if (message && isSideBySide(message)) {
     scrollColumnTo(message, false);
     return;
   }
@@ -860,7 +917,7 @@ function scrollToLine(line: number): void {
 function isVisible(el: Element): boolean {
   const r = el.getBoundingClientRect();
   const col = el.closest('.seqnotes-seq-col');
-  const bounds = col && isWide() ? col.getBoundingClientRect() : { top: 0, bottom: window.innerHeight };
+  const bounds = col && isSideBySide(col) ? col.getBoundingClientRect() : { top: 0, bottom: window.innerHeight };
   return r.bottom > bounds.top && r.top < bounds.bottom && r.top >= 0 && r.bottom <= window.innerHeight;
 }
 
@@ -918,6 +975,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       splitMinWidth = message.splitMinWidth;
       syncEditor = message.syncEditor;
       tocEnabled = message.toc;
+      diagramLook = message.diagramLook;
       vscode.setState({ ...vscode.getState(), uri: message.uri });
       applyLayout();
       void update(message.html);

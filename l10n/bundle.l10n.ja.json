@@ -1,6 +1,6 @@
 {
-  "@ref is ignored because the sequence diagram has no \"%% @seq-notes\" marker.": "シーケンス図に \"%% @seq-notes\" がないため、@ref は無視されます。",
-  "@seq-notes is ignored for a sequence diagram inside a list or blockquote.": "リストや引用の中にあるシーケンス図では @seq-notes は無視されます。",
+  "@ref is ignored because the sequence diagram has no \"%% @link-headings\" marker.": "シーケンス図に \"%% @link-headings\" がないため、@ref は無視されます。",
+  "@link-headings is ignored for a sequence diagram inside a list or blockquote.": "リストや引用の中にあるシーケンス図では @link-headings は無視されます。",
   "@ref target heading \"{0}\" was not found after the sequence diagram.": "@ref で指定した見出し「{0}」がシーケンス図の後ろに見つかりません。",
   "⚠ Line {0}: {1}": "⚠ {0} 行目: {1}",
   "No arrow in the sequence diagram is linked to this heading.": "シーケンス図にこの見出しと紐付いた矢印がありません。",
@@ -33,5 +33,20 @@
   "No arrow linked yet": "まだ矢印と紐付いていない",
   "Show this sequence diagram side by side with the step headings after it.": "このシーケンス図を、後ろにある処理概要の見出しと横並びで表示します。",
   "Link the next arrow to a heading.": "直後の矢印を見出しに紐付けます。",
-  "No arrow in the sequence diagram is linked to heading \"{0}\".": "シーケンス図に見出し「{0}」と紐付いた矢印がありません。"
+  "No arrow in the sequence diagram is linked to heading \"{0}\".": "シーケンス図に見出し「{0}」と紐付いた矢印がありません。",
+  "@ref is ignored because the flowchart has no \"%% @link-headings\" marker.": "フローチャートに \"%% @link-headings\" がないため、@ref は無視されます。",
+  "@link-headings is ignored for a flowchart inside a list or blockquote.": "リストや引用の中にあるフローチャートでは @link-headings は無視されます。",
+  "@ref target heading \"{0}\" was not found after the flowchart.": "@ref で指定した見出し「{0}」がフローチャートの後ろに見つかりません。",
+  "No node in the flowchart is linked to this heading.": "フローチャートにこの見出しと紐付いたノードがありません。",
+  "no node": "ノードなし",
+  "No node in the flowchart is linked to a heading. Write the steps as headings after the diagram, with the same text as the nodes.": "フローチャートのどのノードも見出しと紐付いていません。処理概要を、ノードと同じ文言の見出しとして図の後ろに書いてください。",
+  "Node \"{0}\" is not linked to any heading. Add a heading with the same text after the diagram, or write \"%% @ref <heading>\" above the node.": "ノード「{0}」がどの見出しとも紐付いていません。同じ文言の見出しを図の後ろに追加するか、ノードを書いた行の直前に \"%% @ref <見出し>\" を書いてください。",
+  "No node in the flowchart is linked to heading \"{0}\".": "フローチャートに見出し「{0}」と紐付いたノードがありません。",
+  "Link node \"{0}\" to this heading with @ref": "ノード「{0}」を @ref でこの見出しに紐付ける",
+  "Already linked to a node": "ノードと紐付け済み",
+  "No node linked yet": "まだノードと紐付いていない",
+  "Show this flowchart with the step headings after it and link its nodes to them (side by side, or below a horizontal flowchart).": "このフローチャートを、後ろにある処理概要の見出しと並べて表示し、ノードと紐付けます（横並び。横向きの図では処理概要を下に表示します）。",
+  "Link the node defined on the next line to a heading.": "直後の行で定義したノードを見出しに紐付けます。",
+  "\"%% @seq-notes\" is no longer supported. Write \"%% @link-headings\" instead.": "\"%% @seq-notes\" は使えなくなりました。代わりに \"%% @link-headings\" を書いてください。",
+  "\"<!-- seq-notes:end -->\" is no longer supported. Write \"<!-- link-headings:end -->\" instead.": "\"<!-- seq-notes:end -->\" は使えなくなりました。代わりに \"<!-- link-headings:end -->\" を書いてください。"
 }

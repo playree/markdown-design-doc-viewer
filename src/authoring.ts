@@ -1,6 +1,6 @@
 import type { MarkdownIt } from 'markdown-it';
 import { formatMessage, type Translate } from './l10n';
-import { isSequenceFence, linkDiagrams, type DiagramInfo, type LinkedMessage, type OverviewHeading } from './linker';
+import { diagramKind, linkDiagrams, type DiagramInfo, type DiagramKind, type LinkedMessage, type OverviewHeading } from './linker';
 import { normalizeLabel } from './sequence';
 
 /** A 0-based position in the Markdown document. */
@@ -23,8 +23,14 @@ export interface QuickFix {
 export interface RefCandidate {
   /** Heading text to write after `@ref`. */
   text: string;
-  /** true when an arrow of the diagram is already linked to the heading. */
+  /** true when an arrow (node) of the diagram is already linked to the heading. */
   linked: boolean;
+}
+
+export interface RefCandidates {
+  /** Kind of the diagram the `@ref` is in. */
+  kind: DiagramKind;
+  candidates: RefCandidate[];
 }
 
 /** true when `line` is a content line of the fence whose source lines are [start, end). */
@@ -36,19 +42,21 @@ function inFence(lines: string[], map: [number, number] | null, line: number): b
   return !(line === map[1] - 1 && /^\s*(`{3,}|~{3,})\s*$/.test(lines[line]));
 }
 
-/** true when `line` is inside a mermaid sequence diagram, where `%% @seq-notes` and `%% @ref` can be written. */
-export function inSequenceDiagram(md: MarkdownIt, source: string, line: number): boolean {
+/**
+ * The kind of the diagram `line` is inside, when it is a sequence diagram or a flowchart,
+ * where `%% @link-headings` and `%% @ref` can be written.
+ */
+export function linkableDiagramAt(md: MarkdownIt, source: string, line: number): DiagramKind | undefined {
   const lines = source.split(/\r?\n/);
-  return md
-    .parse(source, {})
-    .some((t) => isSequenceFence(t) && inFence(lines, t.map, line));
+  const fence = md.parse(source, {}).find((t) => diagramKind(t) !== undefined && inFence(lines, t.map, line));
+  return fence && diagramKind(fence);
 }
 
 /**
  * The headings a `%% @ref` on `line` can link to: the headings of the overview of the paired diagram
  * containing the line, those no arrow is linked to first. Undefined when the line is not in a paired diagram.
  */
-export function refCandidates(md: MarkdownIt, source: string, line: number): RefCandidate[] | undefined {
+export function refCandidates(md: MarkdownIt, source: string, line: number): RefCandidates | undefined {
   const lines = source.split(/\r?\n/);
   const tokens = md.parse(source, {});
   const diagram = linkDiagrams(tokens).diagrams.find((d) => d.paired && inFence(lines, tokens[d.fenceIndex].map, line));
@@ -58,7 +66,7 @@ export function refCandidates(md: MarkdownIt, source: string, line: number): Ref
   const targets = new Set(diagram.messages.map((m) => m.target));
   // A heading with the text of an earlier one cannot be written as a `@ref`.
   const candidates = diagram.headings.filter((h) => h.text !== '' && h.refTarget).map((h) => ({ text: h.text, linked: targets.has(h.id) }));
-  return [...candidates.filter((c) => !c.linked), ...candidates.filter((c) => c.linked)];
+  return { kind: diagram.kind, candidates: [...candidates.filter((c) => !c.linked), ...candidates.filter((c) => c.linked)] };
 }
 
 const indentOf = (line: string): string => /^\s*/.exec(line)![0];
@@ -131,13 +139,16 @@ export function quickFixesByLine(md: MarkdownIt, source: string, lines: number[]
   return new Map(lines.map((line) => [line, fixesAt(sourceLines, tokens, diagrams, line, t)]));
 }
 
+/** false for a flowchart node whose `%% @ref`, written above its line, would go to another node of the line. */
+const canWriteRef = (message: LinkedMessage): boolean => message.refLine !== undefined || message.refable !== false;
+
 function fixesAt(lines: string[], tokens: ReturnType<MarkdownIt['parse']>, diagrams: DiagramInfo[], line: number, t: Translate): QuickFix[] {
   const fixes: QuickFix[] = [];
   for (const diagram of diagrams) {
-    // An arrow without a heading, or the `@ref` of one.
-    const message = diagram.messages.find((m) => !m.target && (m.refLine === line || (m.line === line && (m.unlinked || m.ref !== undefined))));
-    if (message) {
-      for (const heading of linkableHeadings(diagram)) {
+    // Arrows / nodes without a heading, or the `@ref` of one. A flowchart line may define several nodes.
+    const messages = diagram.messages.filter((m) => !m.target && (m.refLine === line || (m.line === line && (m.unlinked || m.ref !== undefined))));
+    for (const message of messages) {
+      for (const heading of canWriteRef(message) ? linkableHeadings(diagram) : []) {
         const title = message.ref !== undefined ? t('Change @ref to heading "{0}"', heading.text) : t('Link to heading "{0}" with @ref', heading.text);
         fixes.push(linkFix(lines, message, heading.text, title));
       }
@@ -150,9 +161,10 @@ function fixesAt(lines: string[], tokens: ReturnType<MarkdownIt['parse']>, diagr
     // A step heading without an arrow.
     const step = diagram.headings.find((h) => h.line === line && diagram.unlinkedHeadings.includes(h.index));
     if (step && step.text !== '' && step.refTarget) {
-      for (const m of diagram.messages.filter((m) => m.unlinked)) {
+      for (const m of diagram.messages.filter((m) => m.unlinked && canWriteRef(m))) {
         const label = normalizeLabel(m.text) || `#${m.index + 1}`;
-        fixes.push(linkFix(lines, m, step.text, t('Link arrow "{0}" to this heading with @ref', label)));
+        const title = diagram.kind === 'flowchart' ? t('Link node "{0}" to this heading with @ref', label) : t('Link arrow "{0}" to this heading with @ref', label);
+        fixes.push(linkFix(lines, m, step.text, title));
       }
     }
   }

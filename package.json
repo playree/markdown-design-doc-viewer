@@ -26,6 +26,7 @@
     "markdown",
     "mermaid",
     "sequence diagram",
+    "flowchart",
     "design document",
     "preview"
   ],
@@ -121,6 +122,19 @@
           "type": "boolean",
           "default": true,
           "description": "%mdDesignDoc.frontMatter.description%"
+        },
+        "mdDesignDoc.diagramLook": {
+          "type": "string",
+          "enum": [
+            "neo",
+            "classic"
+          ],
+          "enumDescriptions": [
+            "%mdDesignDoc.diagramLook.neo%",
+            "%mdDesignDoc.diagramLook.classic%"
+          ],
+          "default": "neo",
+          "description": "%mdDesignDoc.diagramLook.description%"
         },
         "mdDesignDoc.diagnostics": {
           "type": "boolean",
