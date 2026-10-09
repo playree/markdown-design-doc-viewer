@@ -1,5 +1,10 @@
 # Markdown Design Doc Viewer
 
+[![CI](https://github.com/playree/markdown-design-doc-viewer/actions/workflows/ci.yml/badge.svg)](https://github.com/playree/markdown-design-doc-viewer/actions/workflows/ci.yml)
+[![Visual Studio Marketplace Version](https://vsmarketplacebadges.dev/version/playree.markdown-design-doc-viewer.svg)](https://marketplace.visualstudio.com/items?itemName=playree.markdown-design-doc-viewer)
+[![Visual Studio Marketplace Installs](https://vsmarketplacebadges.dev/installs/playree.markdown-design-doc-viewer.svg)](https://marketplace.visualstudio.com/items?itemName=playree.markdown-design-doc-viewer)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 English | [日本語](README.ja.md)
 
 A viewer for design documents written in Markdown. Its main feature shows **mermaid sequence diagrams side by side with their step descriptions**.
