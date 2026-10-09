@@ -53,7 +53,7 @@ The token's claims and expiry.
 - Put `%% @link-headings` on a line of its own inside the block. Without it, the diagram is not shown side by side and nothing is linked.
 - Put the diagram at the top level of the document, not inside a list or blockquote.
 - Keep each arrow label (the text after `:`) short and unique within the diagram. It becomes the step heading.
-- `autonumber` may be used. The preview then shows the arrow's number next to its heading.
+- `autonumber` may be used. The preview then shows the arrow's number next to its heading (unless `mdDesignDoc.headingNumbers` is off).
 - Other mermaid diagrams (ER diagrams, diagrams without `%% @link-headings`) are rendered normally. Do not put `%% @ref` in them.
 
 ## Flowchart

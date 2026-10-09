@@ -118,6 +118,11 @@
           "default": true,
           "description": "%mdDesignDoc.toc.description%"
         },
+        "mdDesignDoc.headingNumbers": {
+          "type": "boolean",
+          "default": true,
+          "description": "%mdDesignDoc.headingNumbers.description%"
+        },
         "mdDesignDoc.frontMatter": {
           "type": "boolean",
           "default": true,
