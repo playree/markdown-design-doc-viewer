@@ -80,7 +80,17 @@ hr { border: 0; border-top: 1px solid var(--seqnotes-border); }
 .markdown-alert-important { --seqnotes-alert: var(--vscode-charts-purple, #b180d7); }
 .markdown-alert-warning { --seqnotes-alert: var(--vscode-charts-yellow, #cca700); }
 .markdown-alert-caution { --seqnotes-alert: var(--vscode-charts-red, #f14c4c); }
-.markdown-alert-title { color: var(--seqnotes-alert); font-weight: 600; }
+.markdown-alert-title {
+  display: flex;
+  align-items: center;
+  color: var(--seqnotes-alert);
+  font-weight: 600;
+}
+.markdown-alert-title .octicon {
+  flex: none;
+  margin-right: 0.5em;
+  fill: currentColor;
+}
 
 /* Task lists */
 .task-list-item { list-style-type: none; }

@@ -3,6 +3,7 @@
 ## Unreleased
 
 - The arrow numbers shown at the start of linked headings with `autonumber` can be hidden with `mdDesignDoc.headingNumbers`.
+- GitHub alerts show the icon of their kind before the title, as on GitHub.
 
 ## 0.3.0
 
