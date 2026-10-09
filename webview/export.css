@@ -59,6 +59,6 @@ body.seqnotes-export.seqnotes-wide .seqnotes-pair {
   .seqnotes-splitter { display: none !important; }
 
   .seqnotes-section.seqnotes-active { background: none; border-left-color: transparent; }
-  .seqnotes-diagram, pre, table, .markdown-alert { break-inside: avoid; }
+  .seqnotes-diagram, pre, table, .markdown-alert, details { break-inside: avoid; }
   h1, h2, h3, h4, h5, h6 { break-after: avoid; }
 }
