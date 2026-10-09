@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Link warnings, arrows without a heading and headings without an arrow are reported in the Problems panel for open Markdown files, even when no preview is open. It can be turned off with `mdDesignDoc.diagnostics`.
+- Added an [authoring guide for AI assistants](docs/ai-authoring-guide.md) to copy into `CLAUDE.md`, `AGENTS.md` or similar instructions files.
+
 ## 0.2.0
 
 - Renamed to **Markdown Design Doc Viewer** (extension ID `playree.markdown-design-doc-viewer`). It is published as a new extension, so uninstall Markdown Sequence Side Notes and install this one.
