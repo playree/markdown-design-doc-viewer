@@ -112,24 +112,36 @@ describe('code highlighting', () => {
 });
 
 describe('GitHub alerts', () => {
-  it.each(['NOTE', 'TIP', 'IMPORTANT', 'WARNING', 'CAUTION'])('converts [!%s]', (type) => {
+  const icon = (name: string) => `<svg class="octicon octicon-${name}" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="[^"]+"></path></svg>`;
+
+  it.each([
+    ['NOTE', 'info'],
+    ['TIP', 'light-bulb'],
+    ['IMPORTANT', 'report'],
+    ['WARNING', 'alert'],
+    ['CAUTION', 'stop'],
+  ])('converts [!%s]', (type, iconName) => {
     const html = renderDocument(md, doc(`> [!${type}]`, '> 本文'));
     const name = type.toLowerCase();
-    expect(html).toBe(
-      `<div class="markdown-alert markdown-alert-${name}" data-line="0">\n` +
-        `<p class="markdown-alert-title" data-line="0">${name[0].toUpperCase()}${name.slice(1)}</p>\n` +
-        '<p data-line="1">本文</p>\n' +
-        '</div>\n',
+    expect(html).toMatch(
+      new RegExp(
+        `^<div class="markdown-alert markdown-alert-${name}" data-line="0">\n` +
+          `<p class="markdown-alert-title" data-line="0">${icon(iconName)}${name[0].toUpperCase()}${name.slice(1)}</p>\n` +
+          '<p data-line="1">本文</p>\n' +
+          '</div>\n$',
+      ),
     );
   });
 
   it('drops the marker paragraph when the text starts in a new paragraph', () => {
     const html = renderDocument(md, doc('> [!note]', '>', '> 本文'));
-    expect(html).toBe(
-      '<div class="markdown-alert markdown-alert-note" data-line="0">\n' +
-        '<p class="markdown-alert-title" data-line="0">Note</p>\n' +
-        '<p data-line="2">本文</p>\n' +
-        '</div>\n',
+    expect(html).toMatch(
+      new RegExp(
+        '^<div class="markdown-alert markdown-alert-note" data-line="0">\n' +
+          `<p class="markdown-alert-title" data-line="0">${icon('info')}Note</p>\n` +
+          '<p data-line="2">本文</p>\n' +
+          '</div>\n$',
+      ),
     );
   });
 
