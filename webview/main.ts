@@ -387,6 +387,7 @@ function revealHeading(heading: Element): void {
 
 function updateTocCurrent(): void {
   // The last headings may never reach the threshold; at the end of the page take the last one on the screen.
+  // Not on a page that does not scroll: it is at the top, and everything on it is on the screen.
   const atEnd = window.scrollY > 0 && window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 1;
   const threshold = atEnd ? window.innerHeight : window.innerHeight * TOC_CURRENT_RATIO;
   let current = -1;
@@ -404,12 +405,27 @@ function updateTocCurrent(): void {
   if (current === tocCurrent) {
     return;
   }
-  tocList.children[tocCurrent]?.classList.remove(TOC_CURRENT);
-  tocList.children[current]?.classList.add(TOC_CURRENT);
+  setTocCurrent(tocCurrent, false);
+  setTocCurrent(current, true);
   tocCurrent = current;
   // Not while open: the list would move under the mouse.
   if (!toc.matches(':hover')) {
     revealTocCurrent();
+  }
+}
+
+function setTocCurrent(index: number, on: boolean): void {
+  const item = tocList.children[index];
+  if (!item) {
+    return;
+  }
+  item.classList.toggle(TOC_CURRENT, on);
+  // For screen readers, which do not see the highlighted line.
+  const button = item.querySelector('button')!;
+  if (on) {
+    button.setAttribute('aria-current', 'location');
+  } else {
+    button.removeAttribute('aria-current');
   }
 }
 
