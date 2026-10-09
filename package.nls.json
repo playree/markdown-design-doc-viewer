@@ -9,6 +9,7 @@
   "mdDesignDoc.splitMinWidth.description": "Minimum preview width (px) at which a sequence diagram or flowchart and its step descriptions are shown side by side. Horizontal flowcharts (LR / RL) are always shown above their step descriptions.",
   "mdDesignDoc.syncEditor.description": "Synchronize the preview with the editor cursor and scroll position, and jump to the source line on double-click in the preview.",
   "mdDesignDoc.toc.description": "Show a table of contents (headings h1-h3) that opens when hovering the right edge of the preview.",
+  "mdDesignDoc.headingNumbers.description": "With `autonumber`, show the arrow's number at the start of its linked heading in the preview and in exported HTML.",
   "mdDesignDoc.diagramLook.description": "Look of the mermaid diagrams in the preview and in exported HTML. A diagram can still choose its own with `config: look:` in its front matter.",
   "mdDesignDoc.diagramLook.neo": "mermaid's default look: rounder shapes, with shadows on flowchart nodes.",
   "mdDesignDoc.diagramLook.classic": "The flat look of earlier mermaid versions, without shadows.",

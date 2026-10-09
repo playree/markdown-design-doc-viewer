@@ -17,6 +17,7 @@ export interface Settings {
   splitMinWidth: number;
   syncEditor: boolean;
   toc: boolean;
+  headingNumbers: boolean;
   frontMatter: boolean;
   diagramLook: DiagramLook;
 }
@@ -27,6 +28,7 @@ export function readSettings(): Settings {
     splitMinWidth: c.get<number>('splitMinWidth', 1000),
     syncEditor: c.get<boolean>('syncEditor', true),
     toc: c.get<boolean>('toc', true),
+    headingNumbers: c.get<boolean>('headingNumbers', true),
     frontMatter: c.get<boolean>('frontMatter', true),
     diagramLook: c.get<string>('diagramLook') === 'classic' ? 'classic' : 'neo',
   };
@@ -293,8 +295,8 @@ export class Preview {
     if (this.disposed) {
       return;
     }
-    const { frontMatter, ...settings } = this.host.settings();
-    const html = renderDocument(this.md, document.getText(), { resolveResource: (src) => this.resolveResource(src), t: vscode.l10n.t, frontMatter });
+    const { frontMatter, headingNumbers, ...settings } = this.host.settings();
+    const html = renderDocument(this.md, document.getText(), { resolveResource: (src) => this.resolveResource(src), t: vscode.l10n.t, frontMatter, headingNumbers });
     this.post({ type: 'update', uri: this.uri.toString(), html, ...settings });
   }
 

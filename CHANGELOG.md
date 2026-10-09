@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The arrow numbers shown at the start of linked headings with `autonumber` can be hidden with `mdDesignDoc.headingNumbers`.
+
 ## 0.3.0
 
 - Breaking: the marker is renamed to fit any diagram kind: `%% @seq-notes` → `%% @link-headings`, and `<!-- seq-notes:end -->` → `<!-- link-headings:end -->`. The old names are no longer recognized: diagrams with only the old marker are shown as plain diagrams, and the old markers are reported as warnings so that you can replace them.

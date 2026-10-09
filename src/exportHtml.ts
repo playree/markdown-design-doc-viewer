@@ -62,6 +62,7 @@ async function renderWithImages(md: ReturnType<typeof createMarkdown>, source: s
   const html = renderDocument(md, source, {
     t: vscode.l10n.t,
     frontMatter: settings.frontMatter,
+    headingNumbers: settings.headingNumbers,
     forExport: true,
     // Synchronous, so the images are only collected here and read below.
     resolveResource: (src) => {

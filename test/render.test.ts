@@ -260,6 +260,12 @@ describe('renderDocument', () => {
     expect(renderDocument(md, src)).toContain('unlinked&quot;:true');
   });
 
+  it('leaves out the autonumber numbers when headingNumbers is false', () => {
+    const src = doc('```mermaid', '%% @link-headings', 'sequenceDiagram', 'autonumber', 'A->>B: 一', '```', '## 一');
+    expect(renderDocument(md, src)).toContain('&quot;number&quot;:1');
+    expect(renderDocument(md, src, { headingNumbers: false })).not.toContain('&quot;number&quot;');
+  });
+
   it('escapes the mermaid source and embedded metadata', () => {
     const html = renderDocument(md, doc('```mermaid', 'sequenceDiagram', 'A->>B: "</pre><b>', '```'));
     expect(html).not.toMatch(/<b>/);

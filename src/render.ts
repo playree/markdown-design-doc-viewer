@@ -13,6 +13,8 @@ export type RenderEnv = Env & {
   t?: Translate;
   /** false hides the YAML front matter instead of showing it as a table. */
   frontMatter?: boolean;
+  /** false leaves out the `autonumber` numbers, so that no number is shown on the linked headings. */
+  headingNumbers?: boolean;
   /**
    * Renders for an exported file: without what only helps the author (warnings, marks of missing links)
    * or the editor sync (source lines).
@@ -73,6 +75,7 @@ function mermaidFence(md: MarkdownIt): void {
     }
     const diagram = token.meta?.seqNotes as DiagramInfo | undefined;
     const forExport = env?.forExport === true;
+    const headingNumbers = env?.headingNumbers !== false;
     let attrs = forExport ? '' : ` data-line="${token.map?.[0] ?? 0}"`;
     if (diagram) {
       const meta: DiagramMeta = {
@@ -84,7 +87,7 @@ function mermaidFence(md: MarkdownIt): void {
           line,
           text,
           nodeId,
-          number,
+          number: headingNumbers ? number : undefined,
           numberInHeading,
           target,
           unlinked: forExport ? undefined : unlinked,

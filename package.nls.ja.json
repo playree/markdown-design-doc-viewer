@@ -9,6 +9,7 @@
   "mdDesignDoc.splitMinWidth.description": "シーケンス図・フローチャートと処理概要を横並びで表示する最小のプレビュー幅 (px)。横向き（LR / RL）のフローチャートは常に処理概要を下に表示します。",
   "mdDesignDoc.syncEditor.description": "エディタのカーソル・スクロール位置にプレビューを追従させ、プレビューのダブルクリックでエディタの該当行へ移動します。",
   "mdDesignDoc.toc.description": "プレビューの右端にマウスを乗せると開く目次（見出し h1〜h3）を表示します。",
+  "mdDesignDoc.headingNumbers.description": "`autonumber` を使ったとき、紐付いた見出しの先頭に矢印の番号を表示します（プレビューと HTML エクスポート）。",
   "mdDesignDoc.diagramLook.description": "プレビューと HTML エクスポートでの mermaid の図の見た目。図の front matter に `config: look:` を書いた図はその指定に従います。",
   "mdDesignDoc.diagramLook.neo": "mermaid の標準の見た目。角が丸く、フローチャートのノードに影が付きます。",
   "mdDesignDoc.diagramLook.classic": "以前の mermaid の平坦な見た目。影は付きません。",

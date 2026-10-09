@@ -79,7 +79,7 @@ Rules:
 - Only diagrams with `%% @link-headings` are shown side by side (even if no arrow is linked). Other diagrams are rendered normally, and an `@ref` in them is reported as a warning.
 - `%% @link-headings` has no effect on a diagram inside a list or blockquote; this is reported as a warning.
 - An `@ref` whose heading cannot be found is reported as a warning at the top of the preview. The × button hides the warnings temporarily; they are shown again when they change.
-- With `autonumber`, linked headings show the arrow's number, unless the heading already starts with it (`## 3. Fetch user`).
+- With `autonumber`, linked headings show the arrow's number, unless the heading already starts with it (`## 3. Fetch user`). Turn `mdDesignDoc.headingNumbers` off to hide them.
 - To help spot missing descriptions, arrows without a linked heading are shown faded, and headings at the same level as the linked ones but without an arrow get a "no arrow" mark. Diagrams with no links at all get no marks.
 - The same warnings and missing links are also reported in the Problems panel for open Markdown files, even when no preview is open. A diagram with `%% @link-headings` but no links at all is reported there too.
 - In the editor, the headings of the overview are completed after `%% @ref ` (those without an arrow first). The missing-link diagnostics come with quick fixes (light bulb, `Ctrl+.`): link the arrow to a heading without an arrow by writing a `@ref`, add a heading with the arrow's text to the overview, or point a broken `@ref` to an existing heading.
@@ -124,6 +124,7 @@ The guide also tells the assistant to read the diagnostics of the file. Agents t
 | `mdDesignDoc.splitMinWidth` | `1000` | Minimum preview width (px) for the side-by-side layout. |
 | `mdDesignDoc.syncEditor` | `true` | Sync the preview with the editor and enable double-click to jump to the source. |
 | `mdDesignDoc.toc` | `true` | Show the table of contents at the right edge of the preview. |
+| `mdDesignDoc.headingNumbers` | `true` | With `autonumber`, show the arrow's number at the start of its linked heading (preview and exported HTML). |
 | `mdDesignDoc.diagramLook` | `neo` | Look of the mermaid diagrams: `neo` (mermaid's default, with shadows on flowchart nodes) or `classic` (flat, without shadows). A diagram with `config: look:` in its front matter keeps its own. |
 | `mdDesignDoc.frontMatter` | `true` | Show the YAML front matter at the top as a table of metadata. When off, it is hidden. |
 | `mdDesignDoc.diagnostics` | `true` | Report link warnings and missing links of open Markdown files in the Problems panel. |
