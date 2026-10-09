@@ -2,7 +2,7 @@
   "name": "markdown-design-doc-viewer",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "playree",
   "license": "MIT",
   "repository": {

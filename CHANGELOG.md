@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
 - Breaking: the marker is renamed to fit any diagram kind: `%% @seq-notes` → `%% @link-headings`, and `<!-- seq-notes:end -->` → `<!-- link-headings:end -->`. The old names are no longer recognized: diagrams with only the old marker are shown as plain diagrams, and the old markers are reported as warnings so that you can replace them.
 - Flowcharts (`graph` / `flowchart`) can be linked to their step headings like sequence diagrams: each node is linked to the heading with the text of its label, or with `%% @ref` above the line defining it. Horizontal flowcharts (`LR` / `RL`) are always shown above their steps instead of beside them.
