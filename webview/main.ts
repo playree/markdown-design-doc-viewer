@@ -299,6 +299,10 @@ async function update(html: string): Promise<void> {
     addSplitter(pair);
   });
   setUpWarnings();
+  addZoomButtons();
+  if (zoom) {
+    setZoomSvg();
+  }
 
   window.scrollTo(0, scrollY);
   root.querySelectorAll('.seqnotes-seq-col').forEach((col, i) => (col.scrollTop = colScroll[i] ?? 0));
@@ -528,9 +532,13 @@ root.addEventListener('click', (e) => {
     return;
   }
   const active = activeFor(target);
-  if (!active) {
-    return;
+  if (active) {
+    activate(active);
   }
+});
+
+/** Pins a clicked message or heading and scrolls its counterpart into view. */
+function activate(active: Active & { kind: 'message' | 'heading' }): void {
   pinned = { pair: active.pair, target: active.target };
   showActive(pinned);
   const escaped = CSS.escape(active.target);
@@ -543,9 +551,13 @@ root.addEventListener('click', (e) => {
       scrollColumnTo(arrow, true);
     }
   }
-});
+}
 
 document.addEventListener('keydown', (e) => {
+  if (zoom) {
+    zoomKey(e);
+    return;
+  }
   if (e.key === 'Escape') {
     pinned = undefined;
     showActive(undefined);
@@ -569,6 +581,241 @@ function openLink(href: string): void {
     vscode.postMessage({ type: 'openLink', href });
   }
 }
+
+// ---------------------------------------------------------------------------
+// Diagram zoom
+
+const ZOOM_STEP = 1.25;
+const MIN_SCALE = 0.05;
+const MAX_SCALE = 20;
+/** Space kept around a diagram fitted to the overlay, in px. */
+const ZOOM_MARGIN = 24;
+/** A pointer that moves farther than this (px) pans instead of clicking. */
+const DRAG_THRESHOLD = 4;
+
+const ZOOM_ICON =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10 10l4.5 4.5M4.5 6.5h4M6.5 4.5v4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+const FIT_ICON =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+
+interface Zoom {
+  /** Index of the diagram among the `.seqnotes-diagram`s of the document. */
+  index: number;
+  scale: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** The open zoom overlay, if any. */
+let zoom: Zoom | undefined;
+
+const zoomOverlay = document.createElement('div');
+zoomOverlay.className = 'seqnotes-zoom';
+zoomOverlay.hidden = true;
+zoomOverlay.tabIndex = -1;
+const zoomStage = document.createElement('div');
+zoomStage.className = 'seqnotes-zoom-stage';
+const zoomToolbar = document.createElement('div');
+zoomToolbar.className = 'seqnotes-zoom-toolbar';
+
+/** A toolbar button. Titles are translated by the extension host (`shell()` in previewPanel.ts). */
+function zoomButton(content: string, title: string | undefined, onClick: () => void): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.innerHTML = content;
+  button.title = title ?? '';
+  button.setAttribute('aria-label', button.title);
+  button.addEventListener('click', onClick);
+  return button;
+}
+
+const zoomCenter = (): [number, number] => [zoomOverlay.clientWidth / 2, zoomOverlay.clientHeight / 2];
+const titles = document.body.dataset;
+zoomToolbar.append(
+  zoomButton('+', titles.seqnotesZoomInTitle, () => zoomAt(ZOOM_STEP, ...zoomCenter())),
+  zoomButton('&minus;', titles.seqnotesZoomOutTitle, () => zoomAt(1 / ZOOM_STEP, ...zoomCenter())),
+  zoomButton(FIT_ICON, titles.seqnotesZoomFitTitle, () => fitZoom()),
+  zoomButton('&times;', titles.seqnotesZoomCloseTitle, () => closeZoom()),
+);
+zoomOverlay.append(zoomStage, zoomToolbar);
+// Outside the root, so the arrow / heading handlers on it do not see the events.
+document.body.append(zoomOverlay);
+
+const diagramHolders = (): Element[] => Array.from(root.querySelectorAll('.seqnotes-diagram'));
+
+/** Adds a button that opens the diagram in the zoom overlay, shown when hovering it. */
+function addZoomButtons(): void {
+  diagramHolders().forEach((holder, index) => {
+    const button = zoomButton(ZOOM_ICON, titles.seqnotesZoomTitle, () => openZoom(index));
+    button.className = 'seqnotes-zoom-button';
+    // Not a jump to the source line.
+    button.addEventListener('dblclick', (e) => e.stopPropagation());
+    holder.prepend(button);
+  });
+}
+
+function openZoom(index: number): void {
+  zoom = { index, scale: 1, x: 0, y: 0, width: 0, height: 0 };
+  zoomOverlay.hidden = false;
+  if (setZoomSvg()) {
+    fitZoom();
+    zoomOverlay.focus();
+  }
+}
+
+function closeZoom(): void {
+  zoom = undefined;
+  zoomOverlay.hidden = true;
+  zoomStage.replaceChildren();
+}
+
+/** Puts a copy of the diagram into the overlay, keeping the scale and position. Closes it when the diagram is gone. */
+function setZoomSvg(): boolean {
+  const svg = zoom && diagramHolders()[zoom.index]?.querySelector<SVGSVGElement>(':scope > svg');
+  if (!zoom || !svg) {
+    closeZoom();
+    return false;
+  }
+  const box = svg.viewBox.baseVal;
+  const rect = svg.getBoundingClientRect();
+  zoom.width = box?.width || rect.width;
+  zoom.height = box?.height || rect.height;
+  const copy = svg.cloneNode(true) as SVGSVGElement;
+  // mermaid sizes the SVG to its container with a max-width.
+  copy.removeAttribute('style');
+  copy.setAttribute('width', String(zoom.width));
+  copy.setAttribute('height', String(zoom.height));
+  zoomStage.replaceChildren(copy);
+  applyZoom();
+  return true;
+}
+
+function applyZoom(): void {
+  if (zoom) {
+    zoomStage.style.transform = `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.scale})`;
+  }
+}
+
+/** Shows the whole diagram in the middle of the overlay. */
+function fitZoom(): void {
+  if (!zoom || zoom.width === 0 || zoom.height === 0) {
+    return;
+  }
+  const width = zoomOverlay.clientWidth;
+  const height = zoomOverlay.clientHeight;
+  zoom.scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, Math.min((width - 2 * ZOOM_MARGIN) / zoom.width, (height - 2 * ZOOM_MARGIN) / zoom.height)));
+  zoom.x = (width - zoom.width * zoom.scale) / 2;
+  zoom.y = (height - zoom.height * zoom.scale) / 2;
+  applyZoom();
+}
+
+/** Scales by `factor` keeping the point (x, y) of the overlay where it is. */
+function zoomAt(factor: number, x: number, y: number): void {
+  if (!zoom) {
+    return;
+  }
+  const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, zoom.scale * factor));
+  zoom.x = x - ((x - zoom.x) * scale) / zoom.scale;
+  zoom.y = y - ((y - zoom.y) * scale) / zoom.scale;
+  zoom.scale = scale;
+  applyZoom();
+}
+
+function zoomKey(e: KeyboardEvent): void {
+  const [x, y] = zoomCenter();
+  switch (e.key) {
+    case 'Escape':
+      closeZoom();
+      break;
+    case '+':
+    case '=':
+      zoomAt(ZOOM_STEP, x, y);
+      break;
+    case '-':
+      zoomAt(1 / ZOOM_STEP, x, y);
+      break;
+    case '0':
+      fitZoom();
+      break;
+    default:
+      return;
+  }
+  e.preventDefault();
+}
+
+zoomOverlay.addEventListener(
+  'wheel',
+  (e) => {
+    e.preventDefault();
+    const r = zoomOverlay.getBoundingClientRect();
+    zoomAt(Math.exp(-e.deltaY * 0.002), e.clientX - r.left, e.clientY - r.top);
+  },
+  { passive: false },
+);
+
+/** true while the pointer pans, so that releasing it is not taken as a click. */
+let zoomDragged = false;
+
+// On the whole overlay, so that the empty space around a small diagram pans it too.
+zoomOverlay.addEventListener('pointerdown', (e) => {
+  if (!zoom || e.button !== 0 || zoomToolbar.contains(e.target as Node)) {
+    return;
+  }
+  const start = { x: e.clientX, y: e.clientY, zoomX: zoom.x, zoomY: zoom.y };
+  zoomDragged = false;
+  const move = (ev: PointerEvent) => {
+    const dx = ev.clientX - start.x;
+    const dy = ev.clientY - start.y;
+    if (!zoomDragged && Math.hypot(dx, dy) < DRAG_THRESHOLD) {
+      return;
+    }
+    if (!zoomDragged) {
+      // Captured only now: a capture from the start would make a click on an arrow target the overlay.
+      zoomDragged = true;
+      zoomOverlay.setPointerCapture(ev.pointerId);
+      zoomOverlay.classList.add('seqnotes-zoom-dragging');
+    }
+    if (zoom) {
+      zoom.x = start.zoomX + dx;
+      zoom.y = start.zoomY + dy;
+      applyZoom();
+    }
+  };
+  const up = () => {
+    zoomOverlay.classList.remove('seqnotes-zoom-dragging');
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    window.removeEventListener('pointercancel', up);
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', up);
+});
+
+zoomOverlay.addEventListener('dblclick', (e) => {
+  if (!zoomToolbar.contains(e.target as Node)) {
+    fitZoom();
+  }
+});
+
+// A linked arrow in the overlay: close it and show the step, like a click on the arrow in the preview.
+zoomStage.addEventListener('click', (e) => {
+  const message = (e.target as Element).closest('[data-seqnotes-target]');
+  const pair = zoom && diagramHolders()[zoom.index]?.closest('.seqnotes-pair');
+  if (zoomDragged || !message || !pair) {
+    return;
+  }
+  closeZoom();
+  activate({ pair, target: message.getAttribute('data-seqnotes-target')!, kind: 'message' });
+});
+
+window.addEventListener('resize', () => {
+  if (zoom) {
+    fitZoom();
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Editor sync

@@ -279,6 +279,15 @@ class Preview {
     const splitterTitle = escapeHtml(vscode.l10n.t('Drag to resize, double-click to reset'));
     const hideWarningsTitle = escapeHtml(vscode.l10n.t('Hide warnings'));
     const tocTitle = escapeHtml(vscode.l10n.t('Contents'));
+    const zoomTitles = [
+      ['zoom-title', vscode.l10n.t('Zoom diagram')],
+      ['zoom-in-title', vscode.l10n.t('Zoom in')],
+      ['zoom-out-title', vscode.l10n.t('Zoom out')],
+      ['zoom-fit-title', vscode.l10n.t('Fit to window')],
+      ['zoom-close-title', vscode.l10n.t('Close')],
+    ]
+      .map(([name, title]) => ` data-seqnotes-${name}="${escapeHtml(title)}"`)
+      .join('');
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -287,7 +296,7 @@ class Preview {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="${style}">
 </head>
-<body data-seqnotes-splitter-title="${splitterTitle}" data-seqnotes-hide-warnings-title="${hideWarningsTitle}" data-seqnotes-toc-title="${tocTitle}">
+<body data-seqnotes-splitter-title="${splitterTitle}" data-seqnotes-hide-warnings-title="${hideWarningsTitle}" data-seqnotes-toc-title="${tocTitle}"${zoomTitles}>
 <div id="seqnotes-root"></div>
 <script nonce="${n}" src="${script}"></script>
 </body>

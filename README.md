@@ -16,6 +16,7 @@ Each arrow in the diagram is linked to a heading in the description, so you can 
 - **Design document friendly** — YAML front matter is shown as a table of the document's metadata (title, version, status...), code blocks are syntax highlighted, and GitHub alerts (`> [!NOTE]`) and task lists (`- [ ]`) are rendered.
 - **Resizable** — drag the boundary between the columns to resize them; double-click it to reset.
 - **Table of contents** — hover the short lines at the right edge of the preview to open a table of contents (h1–h3) and jump to a heading. The highlighted line shows where you are.
+- **Diagram zoom** — hover a mermaid diagram and click the button at its top right to show it full screen. Scroll the wheel to zoom, drag to pan, double-click to fit it again and press Esc to close. Clicking a linked arrow closes it and shows the step.
 - **Find** — press `Ctrl+F` (`Cmd+F` on macOS) in the preview to search it.
 
 ## Usage
