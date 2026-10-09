@@ -6,6 +6,7 @@
 !images/preview.svg
 !package.nls.json
 !package.nls.ja.json
+!l10n/**
 !README.md
 !CHANGELOG.md
 !LICENSE

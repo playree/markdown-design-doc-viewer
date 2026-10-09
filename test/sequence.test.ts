@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isSequenceDiagram, normalizeLabel, parseSequence } from '../src/sequence';
+import { isSequenceDiagram, normalizeLabel, parseSequence, stripStepNumber } from '../src/sequence';
 
 describe('isSequenceDiagram', () => {
   it('detects sequenceDiagram after comments and blank lines', () => {
@@ -78,10 +78,41 @@ describe('parseSequence', () => {
     expect(parseSequence('sequenceDiagram\n%% @seq-notes-x\nA->>B: x', 0).markerLine).toBeUndefined();
   });
 
+  it('numbers messages like mermaid autonumber', () => {
+    const numbers = (...lines: string[]) => parseSequence(['sequenceDiagram', ...lines].join('\n'), 0).messages.map((m) => m.number);
+    expect(numbers('A->>B: a', 'autonumber', 'A->>B: b', 'Note over A: n', 'A->>B: c')).toEqual([undefined, 2, 3]);
+    expect(numbers('autonumber 10 5', 'A->>B: a', 'A->>B: b')).toEqual([10, 15]);
+    // the counter keeps going while numbering is off
+    expect(numbers('AUTONUMBER', 'A->>B: a', 'autonumber off', 'A->>B: b', 'autonumber', 'A->>B: c')).toEqual([1, undefined, 3]);
+    expect(numbers('autonumber 1 0.1', 'A->>B: a', 'A->>B: b', 'A->>B: c')).toEqual([1, 1.1, 1.2]);
+    expect(numbers('autonumber 5', 'A->>B: a', 'autonumber 0 2', 'A->>B: b', 'A->>B: c')).toEqual([5, 6, 8]);
+    expect(numbers('autonumber 10 %% start', 'A->>B: a', 'autonumber off # pause', 'A->>B: b')).toEqual([10, undefined]);
+  });
+
   it('ignores the marker inside frontmatter and does not attach it as a @ref', () => {
     expect(parseSequence('---\n%% @seq-notes\n---\nsequenceDiagram\nA->>B: x', 0).markerLine).toBeUndefined();
     const { messages } = parseSequence('sequenceDiagram\n%% @ref y\n%% @seq-notes\nA->>B: x', 0);
     expect(messages[0].ref).toBe('y');
+  });
+});
+
+describe('stripStepNumber', () => {
+  it('splits a leading step number off', () => {
+    expect(stripStepNumber('3. 取得')).toEqual({ text: '取得', value: '3' });
+    expect(stripStepNumber('3) 取得')).toEqual({ text: '取得', value: '3' });
+    expect(stripStepNumber('3．取得')).toEqual({ text: '取得', value: '3' });
+    expect(stripStepNumber('３．取得１件')).toEqual({ text: '取得１件', value: '3' });
+    expect(stripStepNumber('(12) 取得')).toEqual({ text: '取得', value: '12' });
+    expect(stripStepNumber('（3）取得')).toEqual({ text: '取得', value: '3' });
+    expect(stripStepNumber('③ 取得')).toEqual({ text: '取得', value: '3' });
+    expect(stripStepNumber('1.2. 取得')).toEqual({ text: '取得', value: '1.2' });
+    expect(stripStepNumber('1.2.3 取得')).toEqual({ text: '取得', value: '1.2.3' });
+  });
+
+  it('leaves labels that only start with a number alone', () => {
+    expect(stripStepNumber('200 OK')).toBeUndefined();
+    expect(stripStepNumber('1.5倍に拡大')).toBeUndefined();
+    expect(stripStepNumber('3.')).toBeUndefined();
   });
 });
 

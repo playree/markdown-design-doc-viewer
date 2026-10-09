@@ -1,5 +1,7 @@
 import markdownit, { type Env, type MarkdownIt, type Token } from 'markdown-it';
+import { formatMessage, type Translate } from './l10n';
 import { isMermaidFence, linkDiagrams, type DiagramInfo } from './linker';
+import { markdownExtras } from './markdownExtras';
 import { HEADING_ID_PREFIX, slugify } from './slug';
 
 export { HEADING_ID_PREFIX, slugify };
@@ -7,16 +9,18 @@ export { HEADING_ID_PREFIX, slugify };
 export type RenderEnv = Env & {
   /** Rewrites relative resource URLs (images) to something the webview can load. */
   resolveResource?: (src: string) => string;
+  /** Translates the texts the preview adds (warnings, marks). English by default. */
+  t?: Translate;
 };
 
 /** Diagram data embedded into the HTML for the webview script. */
 export interface DiagramMeta {
   id: number;
   paired: boolean;
-  messages: { index: number; line: number; text: string; target?: string }[];
+  messages: { index: number; line: number; text: string; number?: number; numberInHeading?: boolean; target?: string; unlinked?: boolean }[];
 }
 
-const escapeHtml = (s: string): string =>
+export const escapeHtml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 function headingIds(md: MarkdownIt): void {
@@ -62,7 +66,7 @@ function mermaidFence(md: MarkdownIt): void {
       const meta: DiagramMeta = {
         id: diagram.id,
         paired: diagram.paired,
-        messages: diagram.messages.map(({ index, line, text, target }) => ({ index, line, text, target })),
+        messages: diagram.messages.map(({ index, line, text, number, numberInHeading, target, unlinked }) => ({ index, line, text, number, numberInHeading, target, unlinked })),
       };
       attrs += ` data-seqnotes-meta="${escapeHtml(JSON.stringify(meta))}"`;
     }
@@ -84,26 +88,35 @@ function resourceLinks(md: MarkdownIt): void {
 
 export function createMarkdown(): MarkdownIt {
   const md = markdownit({ html: true, linkify: true });
-  md.use(headingIds).use(sourceLines).use(mermaidFence).use(resourceLinks);
+  md.use(markdownExtras).use(headingIds).use(sourceLines).use(mermaidFence).use(resourceLinks);
   return md;
 }
 
 export function renderDocument(md: MarkdownIt, source: string, env: RenderEnv = {}): string {
   const tokens = md.parse(source, env);
-  const { diagrams, warnings } = linkDiagrams(tokens);
+  const t = env.t ?? formatMessage;
+  const { diagrams, warnings } = linkDiagrams(tokens, t);
   for (const diagram of diagrams) {
     const fence = tokens[diagram.fenceIndex];
     fence.meta = { ...fence.meta, seqNotes: diagram };
+    for (const index of diagram.unlinkedHeadings) {
+      tokens[index].attrJoin('class', 'seqnotes-unlinked');
+      tokens[index].attrSet('title', t('No arrow in the sequence diagram is linked to this heading.'));
+      // Shown by the CSS (`content: attr(...)`).
+      tokens[index].attrSet('data-seqnotes-mark', t('no arrow'));
+    }
   }
 
   const render = (slice: Token[]): string => md.renderer.render(slice, md.options, env);
 
   let html = '';
   if (warnings.length > 0) {
-    html += '<div class="seqnotes-warnings">';
+    // Lets the webview keep the panel hidden while the warnings stay the same, even if their lines move.
+    const key = warnings.map((w) => w.message).join('\n');
+    html += `<div class="seqnotes-warnings" data-seqnotes-key="${escapeHtml(key)}">`;
     for (const w of warnings) {
       // Not data-line: the warnings sit above the content, and the scroll sync expects data-line in document order.
-      html += `<p data-seqnotes-jump="${w.line}">⚠ Line ${w.line + 1}: ${escapeHtml(w.message)}</p>`;
+      html += `<p data-seqnotes-jump="${w.line}">${escapeHtml(t('⚠ Line {0}: {1}', w.line + 1, w.message))}</p>`;
     }
     html += '</div>\n';
   }

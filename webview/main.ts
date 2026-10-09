@@ -30,6 +30,8 @@ let syncEditor = true;
 let renderSeq = 0;
 let pinned: Active | undefined;
 let currentLine: number | undefined;
+/** `data-seqnotes-key` of the warnings the user closed. The panel is hidden while the warnings are the same. */
+let dismissedWarnings: string | undefined;
 
 // ---------------------------------------------------------------------------
 // Layout
@@ -65,7 +67,8 @@ setSplit(vscode.getState()?.split);
 function addSplitter(pair: Element): void {
   const splitter = document.createElement('div');
   splitter.className = 'seqnotes-splitter';
-  splitter.title = 'Drag to resize, double-click to reset';
+  // Translated by the extension host (`shell()` in previewPanel.ts).
+  splitter.title = document.body.dataset.seqnotesSplitterTitle ?? '';
   pair.querySelector('.seqnotes-seq-col')?.after(splitter);
 
   splitter.addEventListener('pointerdown', (e) => {
@@ -189,6 +192,12 @@ function annotateMessages(svg: SVGSVGElement, meta: DiagramMeta): void {
         el.setAttribute('data-seqnotes-target', message.target);
       }
     }
+    if (message.target && message.number !== undefined && !message.numberInHeading) {
+      arrow.setAttribute('data-seqnotes-number', String(message.number));
+    }
+    if (message.unlinked) {
+      group.slice(0, -1).forEach((text) => text.classList.add('seqnotes-unlinked'));
+    }
   });
 }
 
@@ -199,10 +208,16 @@ function wrapSections(pair: Element): void {
     return;
   }
   const targets = new Set(Array.from(pair.querySelectorAll('[data-seqnotes-target]'), (el) => el.getAttribute('data-seqnotes-target')));
+  const numbers = new Map<string, string[]>();
+  for (const arrow of Array.from(pair.querySelectorAll('[data-seqnotes-number]'))) {
+    const target = arrow.getAttribute('data-seqnotes-target')!;
+    numbers.set(target, [...(numbers.get(target) ?? []), arrow.getAttribute('data-seqnotes-number')!]);
+  }
   for (const heading of Array.from(overview.querySelectorAll('h1, h2, h3, h4, h5, h6'))) {
     if (!targets.has(heading.id)) {
       continue;
     }
+    addStepBadge(heading, numbers.get(heading.id));
     const level = headingLevel(heading)!;
     const section = document.createElement('section');
     section.className = 'seqnotes-section';
@@ -215,6 +230,46 @@ function wrapSections(pair: Element): void {
       el = next;
     }
   }
+}
+
+/** Shows the `autonumber` numbers of the linked arrows in front of the heading (except those it is numbered with already). */
+function addStepBadge(heading: Element, numbers: string[] | undefined): void {
+  if (!numbers) {
+    return;
+  }
+  const badge = document.createElement('span');
+  badge.className = 'seqnotes-step';
+  badge.textContent = numbers.join(', ');
+  heading.prepend(badge);
+}
+
+/** Adds a close button to the warnings panel, and keeps the panel hidden while the closed warnings stay the same. */
+function setUpWarnings(): void {
+  // renderDocument puts the panel first; a `.seqnotes-warnings` written in the Markdown is not it.
+  const panel = root.firstElementChild;
+  if (!(panel instanceof HTMLElement) || !panel.matches('.seqnotes-warnings[data-seqnotes-key]')) {
+    return;
+  }
+  const key = panel.dataset.seqnotesKey;
+  // Not cleared when the warnings change for a moment while typing: the panel hides again when they come back.
+  panel.hidden = key === dismissedWarnings;
+  const close = document.createElement('button');
+  close.className = 'seqnotes-warnings-close';
+  // Translated by the extension host (`shell()` in previewPanel.ts).
+  close.title = document.body.dataset.seqnotesHideWarningsTitle ?? '';
+  close.setAttribute('aria-label', close.title);
+  close.textContent = '×';
+  close.addEventListener('click', () => {
+    // Keep what is below the panel where it is on the screen.
+    const anchor = panel.nextElementSibling;
+    const top = anchor?.getBoundingClientRect().top;
+    dismissedWarnings = key;
+    panel.hidden = true;
+    if (anchor && top !== undefined) {
+      window.scrollBy(0, anchor.getBoundingClientRect().top - top);
+    }
+  });
+  panel.prepend(close);
 }
 
 function headingLevel(el: Element): number | undefined {
@@ -242,6 +297,7 @@ async function update(html: string): Promise<void> {
     wrapSections(pair);
     addSplitter(pair);
   });
+  setUpWarnings();
 
   window.scrollTo(0, scrollY);
   root.querySelectorAll('.seqnotes-seq-col').forEach((col, i) => (col.scrollTop = colScroll[i] ?? 0));

@@ -14,6 +14,7 @@
   },
   "homepage": "https://github.com/playree/markdown-sequence-side-notes#readme",
   "icon": "images/icon.png",
+  "l10n": "./l10n",
   "engines": {
     "vscode": "^1.100.0"
   },
@@ -110,6 +111,7 @@
   },
   "dependencies": {
     "dompurify": "^3.4.16",
+    "highlight.js": "^11.12.0",
     "markdown-it": "^15.0.2",
     "mermaid": "^12.1.0"
   },

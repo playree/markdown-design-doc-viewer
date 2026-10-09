@@ -99,6 +99,70 @@ describe('linkDiagrams', () => {
     expect(diagrams).toHaveLength(1);
     expect(diagrams[0].messages[0].target).toBeUndefined();
   });
+
+  it('collects the unlinked headings at the level most linked headings have', () => {
+    const src = doc(
+      '```mermaid', '%% @seq-notes', 'sequenceDiagram', 'A->>B: 一', 'B->>C: 二', '%% @ref 概要', 'C-->>A: 応答', 'A->>A: 無し', '```',
+      '# 概要', '## 一', '### 詳細', '## 二', '#### 深い', '## 三', '> ## 引用', '',
+      '<!-- seq-notes:end -->',
+      '## 範囲外',
+    );
+    const tokens = md.parse(src, {});
+    const [d] = linkDiagrams(tokens).diagrams;
+    // `# 概要` is linked by @ref but does not change the step level; headings in blockquotes and after the end marker are ignored
+    expect(d.unlinkedHeadings.map((i) => tokens[i].attrGet('id'))).toEqual([hid('三')]);
+    expect(d.messages.map((m) => m.unlinked)).toEqual([undefined, undefined, undefined, true]);
+  });
+
+  it('marks nothing in a diagram without any link', () => {
+    const tokens = md.parse(doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', 'A->>B: x', '```', '## 見出し'), {});
+    const [d] = linkDiagrams(tokens).diagrams;
+    expect(d.unlinkedHeadings).toEqual([]);
+    expect(d.messages[0].unlinked).toBeUndefined();
+  });
+});
+
+describe('numbered headings', () => {
+  const src = doc(
+    '```mermaid', '%% @seq-notes', 'sequenceDiagram', 'autonumber', 'A->>B: 取得', 'B-->>A: 結果', 'A->>A: 保存', '```',
+    '## 1. 取得', '## 2) 結果', '## 保存', '## 4. 保存',
+  );
+
+  it('links arrows to headings without their step number and prefers exact matches', () => {
+    const tokens = md.parse(src, {});
+    const { diagrams } = linkDiagrams(tokens);
+    expect(diagrams[0].messages.map((m) => [m.number, m.target])).toEqual([
+      [1, hid('1. 取得')],
+      [2, hid('2) 結果')],
+      [3, hid('保存')],
+    ]);
+  });
+
+  it('links a numbered heading even when its number differs from the arrow number', () => {
+    const tokens = md.parse(src.replace('## 2) 結果', '## 5) 結果'), {});
+    const { diagrams, warnings } = linkDiagrams(tokens);
+    expect(diagrams[0].messages[1].target).toBe(hid('5) 結果'));
+    expect(warnings).toEqual([]);
+  });
+
+  it('tells whether the heading already shows the arrow number', () => {
+    const tokens = md.parse(src.replace('## 2) 結果', '## 5) 結果'), {});
+    expect(linkDiagrams(tokens).diagrams[0].messages.map((m) => m.numberInHeading)).toEqual([true, false, undefined]);
+  });
+
+  it('compares the numbers as numbers', () => {
+    const tokens = md.parse(src.replace('## 1. 取得', '## 01. 取得'), {});
+    const { diagrams, warnings } = linkDiagrams(tokens);
+    expect(diagrams[0].messages[0].numberInHeading).toBe(true);
+    expect(warnings).toEqual([]);
+  });
+
+  it('picks the heading with the arrow number among headings with the same text', () => {
+    const tokens = md.parse(doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', 'autonumber', 'A->>B: 取得', 'B->>C: 取得', '```', '## 1. 取得', '## 2. 取得'), {});
+    const { diagrams, warnings } = linkDiagrams(tokens);
+    expect(diagrams[0].messages.map((m) => m.target)).toEqual([hid('1. 取得'), hid('2. 取得')]);
+    expect(warnings).toEqual([]);
+  });
 });
 
 describe('renderDocument', () => {
@@ -112,6 +176,12 @@ describe('renderDocument', () => {
     // content after the end marker is outside the pair
     expect(html.lastIndexOf('</div>', html.indexOf('<h1 id="sn-補足"'))).toBeGreaterThan(overview);
     expect(html).toMatch(/<div class="seqnotes-mermaid" data-line="2" data-seqnotes-meta="\{&quot;id&quot;:0,/);
+  });
+
+  it('marks the unlinked headings', () => {
+    const html = renderDocument(md, doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', 'A->>B: 一', '```', '## 一', '## 二'));
+    expect(html).toContain('<h2 id="sn-一" data-line="5">');
+    expect(html).toMatch(/<h2 id="sn-二" data-line="6" class="seqnotes-unlinked" title="[^"]+" data-seqnotes-mark="no arrow">/);
   });
 
   it('escapes the mermaid source and embedded metadata', () => {
@@ -135,7 +205,28 @@ describe('renderDocument', () => {
 
   it('puts warnings above the content without data-line', () => {
     const html = renderDocument(md, doc('para', '', '```mermaid', 'sequenceDiagram', '%% @seq-notes', '%% @ref 無い', 'A->>B: x', '```'));
-    expect(html).toMatch(/^<div class="seqnotes-warnings"><p data-seqnotes-jump="5">/);
+    expect(html).toMatch(/^<div class="seqnotes-warnings" data-seqnotes-key="[^"]+"><p data-seqnotes-jump="5">/);
     expect(html.indexOf('data-line')).toBeGreaterThan(html.indexOf('</div>'));
+  });
+
+  it('keys the warnings by their messages, without the line numbers', () => {
+    const src = doc('```mermaid', 'sequenceDiagram', '%% @seq-notes', '%% @ref 無い', 'A->>B: x', '```');
+    const key = (html: string): string | undefined => /data-seqnotes-key="([^"]*)"/.exec(html)?.[1];
+    expect(key(renderDocument(md, src))).toBe('@ref target heading &quot;無い&quot; was not found after the sequence diagram.');
+    expect(key(renderDocument(md, doc('para', '', src)))).toBe(key(renderDocument(md, src)));
+    expect(renderDocument(md, doc('para'))).not.toContain('seqnotes-warnings');
+  });
+
+  it('translates the warnings and marks with env.t', () => {
+    const t = (message: string, ...args: (string | number)[]): string => `[${message}|${args.join('|')}]`;
+    const html = renderDocument(
+      md,
+      doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', 'A->>B: 一', '%% @ref 無い', 'A->>B: 二', '```', '## 一', '## 三'),
+      { t },
+    );
+    expect(html).toContain(
+      '<p data-seqnotes-jump="4">[⚠ Line {0}: {1}|5|[@ref target heading &quot;{0}&quot; was not found after the sequence diagram.|無い]]</p>',
+    );
+    expect(html).toContain('title="[No arrow in the sequence diagram is linked to this heading.|]" data-seqnotes-mark="[no arrow|]"');
   });
 });

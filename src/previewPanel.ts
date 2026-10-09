@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { FromWebview, ToWebview, WebviewState } from './protocol';
-import { createMarkdown, renderDocument } from './render';
+import { createMarkdown, escapeHtml, renderDocument } from './render';
 
 const VIEW_TYPE = 'seqNotes.preview';
 /** Custom editor shown in "Reopen Editor With..." for Markdown files. */
@@ -166,7 +166,7 @@ class Preview {
     const documentDir = vscode.Uri.joinPath(uri, '..');
     // A custom editor's tab is titled by VS Code after the document.
     if (kind === 'panel') {
-      panel.title = `Preview ${uri.path.split('/').pop()}`;
+      panel.title = vscode.l10n.t('Preview {0}', uri.path.split('/').pop() ?? '');
       panel.iconPath = vscode.Uri.joinPath(extensionUri, 'images', 'preview.svg');
     }
     panel.webview.options = {
@@ -204,7 +204,7 @@ class Preview {
     if (this.disposed) {
       return;
     }
-    const html = renderDocument(this.md, document.getText(), { resolveResource: (src) => this.resolveResource(src) });
+    const html = renderDocument(this.md, document.getText(), { resolveResource: (src) => this.resolveResource(src), t: vscode.l10n.t });
     this.post({ type: 'update', uri: this.uri.toString(), html, ...this.host.settings() });
   }
 
@@ -270,6 +270,8 @@ class Preview {
       `img-src ${webview.cspSource} https: data:`,
       `font-src ${webview.cspSource}`,
     ].join('; ');
+    const splitterTitle = escapeHtml(vscode.l10n.t('Drag to resize, double-click to reset'));
+    const hideWarningsTitle = escapeHtml(vscode.l10n.t('Hide warnings'));
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -278,7 +280,7 @@ class Preview {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="${style}">
 </head>
-<body>
+<body data-seqnotes-splitter-title="${splitterTitle}" data-seqnotes-hide-warnings-title="${hideWarningsTitle}">
 <div id="seqnotes-root"></div>
 <script nonce="${n}" src="${script}"></script>
 </body>

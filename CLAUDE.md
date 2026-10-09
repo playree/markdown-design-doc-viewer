@@ -27,7 +27,7 @@ pnpm exec vitest run test/render.test.ts -t 'テスト名の一部'   # 単一�
 pnpm package      # vsce で .vsix を作成
 ```
 
-動作確認は VS Code の F5（`.vscode/launch.json` の "Run Extension"）。ビルド後に `examples/` フォルダを開いた拡張開発ホストが起動するので、[examples/login.md](examples/login.md) をプレビューする。
+動作確認は VS Code の F5（`.vscode/launch.json` の "Run Extension"）。ビルド後に `examples/` フォルダを開いた拡張開発ホストが起動するので、[examples/login.md](examples/login.md)（基本の紐付け）、[examples/password-reset.md](examples/password-reset.md)（autonumber・アラート・タスクリストなど）、[examples/link-checks.md](examples/link-checks.md)（紐付け漏れの表示と警告）をプレビューする。
 
 ## アーキテクチャ
 
@@ -59,6 +59,7 @@ vitest のテストは VS Code API を使わない純粋なモジュール（`se
 ## その他の注意
 
 - `contributes` の文字列は `package.nls.json` / `package.nls.ja.json` にある。両方を更新すること。
+- プレビューや通知に出す文言は英語の原文を `vscode.l10n.t`（`render.ts` / `linker.ts` では引数の `Translate`、[src/l10n.ts](src/l10n.ts)）に通し、日本語訳を `l10n/bundle.l10n.ja.json` に追加すること。webview 側の文言は拡張ホストで翻訳して HTML の data 属性で渡す。
 - `.vscodeignore` はホワイトリスト方式。実行時に必要なファイルを増やしたら追記すること。
 - 利用者に見える変更は [CHANGELOG.md](CHANGELOG.md) に書く。
 - PR は CodeRabbit が日本語でレビューする（`.coderabbit.yaml`）。
