@@ -20,13 +20,16 @@ export function collectIssues(md: MarkdownIt, source: string, t: Translate = for
   const issues: Issue[] = warnings.map((w) => ({ line: w.line, message: w.message, severity: 'warning' }));
 
   for (const diagram of diagrams.filter((d) => d.paired)) {
-    // A diagram whose only links are broken `@ref`s is already reported by their warnings.
-    if (diagram.messages.length > 0 && diagram.messages.every((m) => !m.target && m.ref === undefined)) {
-      issues.push({
-        line: tokens[diagram.fenceIndex].map?.[0] ?? 0,
-        message: t('No arrow in the sequence diagram is linked to a heading. Write the steps as headings after the diagram, with the same text as the arrows.'),
-        severity: 'info',
-      });
+    // Without any link, the arrows are not marked as unlinked, so the diagram is reported once instead.
+    // A diagram whose only arrows have broken `@ref`s is already reported by their warnings.
+    if (diagram.messages.every((m) => !m.target)) {
+      if (diagram.messages.some((m) => m.ref === undefined)) {
+        issues.push({
+          line: tokens[diagram.fenceIndex].map?.[0] ?? 0,
+          message: t('No arrow in the sequence diagram is linked to a heading. Write the steps as headings after the diagram, with the same text as the arrows.'),
+          severity: 'info',
+        });
+      }
       continue;
     }
     // An arrow without a label cannot be linked by a heading, so it is not reported.

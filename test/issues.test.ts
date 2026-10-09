@@ -64,6 +64,14 @@ describe('collectIssues', () => {
     expect(collectIssues(md, src).map((i) => i.severity)).toEqual(['warning']);
   });
 
+  it('still reports a diagram without links when broken @refs and plain arrows are mixed', () => {
+    const src = doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', '    %% @ref ない', '    A->>B: 一', '    A->>B: 二', '```');
+    expect(collectIssues(md, src).map((i) => [i.line, i.severity])).toEqual([
+      [0, 'info'],
+      [3, 'warning'],
+    ]);
+  });
+
   it('does not report unlinked arrows without a label', () => {
     const src = doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', '    A->>B: 一', '    B-->>A: ', '```', '', '## 一');
     expect(collectIssues(md, src)).toEqual([]);
