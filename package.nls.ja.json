@@ -4,6 +4,7 @@
   "category": "Markdown 設計書ビューア",
   "mdDesignDoc.openPreview.title": "設計書プレビューを開く",
   "mdDesignDoc.openPreviewToSide.title": "設計書プレビューを横に開く",
+  "mdDesignDoc.exportHtml.title": "設計書を HTML にエクスポート",
   "mdDesignDoc.editor.displayName": "設計書プレビュー",
   "mdDesignDoc.splitMinWidth.description": "シーケンス図と処理概要を横並びで表示する最小のプレビュー幅 (px)。",
   "mdDesignDoc.syncEditor.description": "エディタのカーソル・スクロール位置にプレビューを追従させ、プレビューのダブルクリックでエディタの該当行へ移動します。",

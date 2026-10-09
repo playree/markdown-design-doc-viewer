@@ -47,6 +47,11 @@
         "title": "%mdDesignDoc.openPreviewToSide.title%",
         "category": "%category%",
         "icon": "$(open-preview)"
+      },
+      {
+        "command": "mdDesignDoc.exportHtml",
+        "title": "%mdDesignDoc.exportHtml.title%",
+        "category": "%category%"
       }
     ],
     "customEditors": [
@@ -80,6 +85,16 @@
         {
           "command": "mdDesignDoc.openPreviewToSide",
           "when": "editorLangId == markdown"
+        },
+        {
+          "command": "mdDesignDoc.exportHtml",
+          "when": "editorLangId == markdown || activeWebviewPanelId == 'mdDesignDoc.preview' || activeCustomEditorId == 'mdDesignDoc.editor'"
+        }
+      ],
+      "webview/context": [
+        {
+          "command": "mdDesignDoc.exportHtml",
+          "when": "webviewId == 'mdDesignDoc.preview' || webviewId == 'mdDesignDoc.editor'"
         }
       ]
     },

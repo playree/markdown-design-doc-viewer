@@ -4,6 +4,7 @@
   "category": "Markdown Design Doc Viewer",
   "mdDesignDoc.openPreview.title": "Open Design Doc Preview",
   "mdDesignDoc.openPreviewToSide.title": "Open Design Doc Preview to the Side",
+  "mdDesignDoc.exportHtml.title": "Export Design Doc as HTML",
   "mdDesignDoc.editor.displayName": "Design Doc Preview",
   "mdDesignDoc.splitMinWidth.description": "Minimum preview width (px) at which a sequence diagram and its step descriptions are shown side by side.",
   "mdDesignDoc.syncEditor.description": "Synchronize the preview with the editor cursor and scroll position, and jump to the source line on double-click in the preview.",

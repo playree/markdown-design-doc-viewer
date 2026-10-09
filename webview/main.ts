@@ -3,7 +3,7 @@ import mermaid from 'mermaid';
 import type { FromWebview, ToWebview, WebviewState } from '../src/protocol';
 import type { DiagramMeta } from '../src/render';
 import { normalizeLabel } from '../src/sequence';
-import { HEADING_ID_PREFIX, slugify } from '../src/slug';
+import { activeFor, isWide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, type Active } from './linking';
 
 interface VsCodeApi {
   postMessage(message: FromWebview): void;
@@ -12,15 +12,9 @@ interface VsCodeApi {
 }
 declare function acquireVsCodeApi(): VsCodeApi;
 
-interface Active {
-  pair: Element;
-  target: string;
-}
-
 const vscode = acquireVsCodeApi();
 const root = document.getElementById('seqnotes-root')!;
 
-const ACTIVE = 'seqnotes-active';
 const CURRENT = 'seqnotes-current';
 const HEADING_RE = /^H([1-6])$/;
 
@@ -36,8 +30,6 @@ let dismissedWarnings: string | undefined;
 
 // ---------------------------------------------------------------------------
 // Layout
-
-const isWide = (): boolean => document.body.classList.contains('seqnotes-wide');
 
 function applyLayout(): void {
   document.body.classList.toggle('seqnotes-wide', window.innerWidth >= splitMinWidth);
@@ -104,13 +96,22 @@ let renderedDark = isDarkTheme();
 /** SVGs of the previous render keyed by theme + source, so unchanged diagrams are not re-rendered on every edit. */
 let svgCache = new Map<string, string>();
 
-async function renderDiagrams(container: HTMLElement, seq: number): Promise<void> {
-  renderedDark = isDarkTheme();
+/** mermaid is configured globally, so renders run one at a time. */
+let renderQueue: Promise<unknown> = Promise.resolve();
+
+function queueRender<T>(render: () => Promise<T>): Promise<T> {
+  const result = renderQueue.then(render);
+  renderQueue = result.catch(() => undefined);
+  return result;
+}
+
+/** Renders the mermaid blocks of `container` and returns the SVGs it used, keyed like `svgCache`. */
+async function renderDiagrams(container: HTMLElement, idPrefix: string, dark: boolean): Promise<Map<string, string>> {
   const cache = new Map<string, string>();
   mermaid.initialize({
     startOnLoad: false,
     securityLevel: 'strict',
-    theme: renderedDark ? 'dark' : 'default',
+    theme: dark ? 'dark' : 'default',
     fontFamily: getComputedStyle(document.body).fontFamily,
   });
 
@@ -119,9 +120,9 @@ async function renderDiagrams(container: HTMLElement, seq: number): Promise<void
     const pre = block.querySelector('.seqnotes-mermaid-src');
     const metaJson = block.getAttribute('data-seqnotes-meta');
     const meta = metaJson ? (JSON.parse(metaJson) as DiagramMeta) : undefined;
-    const id = `seqnotes-svg-${seq}-${i}`;
+    const id = `${idPrefix}-${i}`;
     const source = pre?.textContent ?? '';
-    const key = `${renderedDark}\n${source}`;
+    const key = `${dark}\n${source}`;
     try {
       // A cached SVG carries the element ids of its first render, so reuse it only once per document.
       const cached = cache.has(key) ? undefined : svgCache.get(key);
@@ -144,7 +145,16 @@ async function renderDiagrams(container: HTMLElement, seq: number): Promise<void
       block.prepend(message);
     }
   }
-  svgCache = cache;
+  return cache;
+}
+
+/** Sanitizes the HTML from the extension host and renders its diagrams into a new element. */
+async function buildContent(html: string, idPrefix: string, dark: boolean): Promise<{ content: HTMLElement; cache: Map<string, string> }> {
+  const content = document.createElement('div');
+  // Raw HTML in Markdown is allowed, so sanitize like the built-in preview does.
+  content.append(DOMPurify.sanitize(html, { RETURN_DOM_FRAGMENT: true }));
+  const cache = await queueRender(() => renderDiagrams(content, idPrefix, dark));
+  return { content, cache };
 }
 
 /** Ties the SVG elements of each message (label texts + arrow) to the parsed message data. */
@@ -281,10 +291,11 @@ function headingLevel(el: Element): number | undefined {
 async function update(html: string): Promise<void> {
   lastHtml = html;
   const seq = ++renderSeq;
-  const next = document.createElement('div');
-  // Raw HTML in Markdown is allowed, so sanitize like the built-in preview does.
-  next.append(DOMPurify.sanitize(html, { RETURN_DOM_FRAGMENT: true }));
-  await renderDiagrams(next, seq);
+  // Set before rendering, so that other class changes of the body do not start another update meanwhile.
+  const dark = (renderedDark = isDarkTheme());
+  const { content: next, cache } = await buildContent(html, `seqnotes-svg-${seq}`, dark);
+  // Kept even when a newer update is waiting: it renders next and can reuse these.
+  svgCache = cache;
   if (seq !== renderSeq) {
     return;
   }
@@ -477,47 +488,7 @@ new ResizeObserver(scheduleTocCurrent).observe(root);
 // Message <-> heading highlighting
 
 function showActive(active: Active | undefined): void {
-  root.querySelectorAll(`.${ACTIVE}`).forEach((el) => el.classList.remove(ACTIVE));
-  if (!active) {
-    return;
-  }
-  const target = CSS.escape(active.target);
-  active.pair.querySelectorAll(`[data-seqnotes-target="${target}"], [data-seqnotes-section="${target}"]`).forEach((el) => el.classList.add(ACTIVE));
-}
-
-/** The message or linked heading under an event target. */
-function activeFor(el: Element | null): (Active & { kind: 'message' | 'heading' }) | undefined {
-  const pair = el?.closest('.seqnotes-pair');
-  if (!el || !pair) {
-    return undefined;
-  }
-  const message = el.closest('[data-seqnotes-target]');
-  if (message) {
-    return { pair, target: message.getAttribute('data-seqnotes-target')!, kind: 'message' };
-  }
-  // Only the heading that owns the section; unlinked sub-headings inside it do not count.
-  const heading = el.closest(':is(h1, h2, h3, h4, h5, h6)[id]');
-  if (heading && heading.parentElement?.getAttribute('data-seqnotes-section') === heading.id) {
-    return { pair, target: heading.id, kind: 'heading' };
-  }
-  return undefined;
-}
-
-function scrollColumnTo(el: Element, smooth: boolean): void {
-  const col = el.closest('.seqnotes-seq-col');
-  const behavior: ScrollBehavior = smooth ? 'smooth' : 'auto';
-  if (col && isWide()) {
-    const r = el.getBoundingClientRect();
-    const c = col.getBoundingClientRect();
-    col.scrollBy({ top: r.top - c.top - c.height / 2, behavior });
-    // The sticky column itself may be off screen when the pair is only partly visible.
-    const pr = col.parentElement!.getBoundingClientRect();
-    if (pr.top > 0 || pr.bottom < window.innerHeight / 2) {
-      col.parentElement!.scrollIntoView({ block: 'start', behavior });
-    }
-  } else {
-    el.scrollIntoView({ block: 'center', behavior });
-  }
+  showActiveIn(root, active);
 }
 
 root.addEventListener('mouseover', (e) => showActive(activeFor(e.target as Element) ?? pinned));
@@ -541,16 +512,7 @@ root.addEventListener('click', (e) => {
 function activate(active: Active & { kind: 'message' | 'heading' }): void {
   pinned = { pair: active.pair, target: active.target };
   showActive(pinned);
-  const escaped = CSS.escape(active.target);
-  if (active.kind === 'message') {
-    // 'nearest' keeps the page still when the section is already visible, so the sticky diagram stays in view.
-    active.pair.querySelector(`[data-seqnotes-section="${escaped}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  } else {
-    const arrow = active.pair.querySelector(`[data-et="message"][data-seqnotes-target="${escaped}"]`);
-    if (arrow) {
-      scrollColumnTo(arrow, true);
-    }
-  }
+  revealCounterpart(active);
 }
 
 document.addEventListener('keydown', (e) => {
@@ -566,20 +528,37 @@ document.addEventListener('keydown', (e) => {
 
 function openLink(href: string): void {
   if (href.startsWith('#')) {
-    let name = href.slice(1);
-    try {
-      name = decodeURIComponent(name);
-    } catch {
-      // keep the raw fragment
-    }
-    const target =
-      document.getElementById(HEADING_ID_PREFIX + name) ??
-      document.getElementById(HEADING_ID_PREFIX + slugify(name)) ??
-      document.getElementById(name);
-    target?.scrollIntoView({ block: 'start' });
+    scrollToFragment(href);
   } else {
     vscode.postMessage({ type: 'openLink', href });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Export
+
+/**
+ * Renders the document for an exported HTML file: with the light theme, and without what only helps
+ * the author (warnings, marks of missing links) or the editor sync (source lines).
+ */
+async function exportBody(id: number, html: string): Promise<string> {
+  const { content } = await buildContent(html, `seqnotes-export-${id}`, false);
+  content.querySelectorAll('.seqnotes-pair').forEach(wrapSections);
+  // renderDocument puts the warnings first, see setUpWarnings.
+  if (content.firstElementChild?.matches('.seqnotes-warnings[data-seqnotes-key]')) {
+    content.firstElementChild.remove();
+  }
+  content.querySelectorAll('.seqnotes-unlinked').forEach((el) => {
+    el.classList.remove('seqnotes-unlinked');
+    if (el.hasAttribute('data-seqnotes-mark')) {
+      el.removeAttribute('data-seqnotes-mark');
+      el.removeAttribute('title');
+    }
+  });
+  for (const attr of ['data-line', 'data-seqnotes-line', 'data-seqnotes-jump', 'data-seqnotes-meta']) {
+    content.querySelectorAll(`[${attr}]`).forEach((el) => el.removeAttribute(attr));
+  }
+  return content.innerHTML;
 }
 
 // ---------------------------------------------------------------------------
@@ -935,6 +914,12 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       break;
     case 'markLine':
       markLine(message.line, true);
+      break;
+    case 'export':
+      exportBody(message.id, message.html).then(
+        (body) => vscode.postMessage({ type: 'exported', id: message.id, body }),
+        (error: unknown) => vscode.postMessage({ type: 'exported', id: message.id, error: error instanceof Error ? error.message : String(error) }),
+      );
       break;
   }
 });

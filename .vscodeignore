@@ -2,6 +2,8 @@
 !dist/extension.js
 !dist/webview.js
 !dist/webview.css
+!dist/export.js
+!dist/export.css
 !images/icon.png
 !images/preview.svg
 !package.nls.json

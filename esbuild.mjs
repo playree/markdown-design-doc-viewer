@@ -22,7 +22,7 @@ const contexts = await Promise.all([
   }),
   esbuild.context({
     ...common,
-    entryPoints: { webview: 'webview/main.ts' },
+    entryPoints: { webview: 'webview/main.ts', export: 'webview/export.ts' },
     outdir: 'dist',
     platform: 'browser',
     format: 'iife',
@@ -30,7 +30,7 @@ const contexts = await Promise.all([
   }),
   esbuild.context({
     ...common,
-    entryPoints: { webview: 'webview/preview.css' },
+    entryPoints: { webview: 'webview/preview.css', export: 'webview/export.css' },
     outdir: 'dist',
   }),
 ]);
