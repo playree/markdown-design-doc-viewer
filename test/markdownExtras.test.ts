@@ -80,6 +80,16 @@ describe('parseFrontMatter', () => {
     ]);
   });
 
+  it('drops trailing comments, but not a # in quotes or in a word', () => {
+    expect(parseFrontMatter(doc('title: Draft # internal note', 'quoted: "a # b" # note', 'issue: C#7', 'tags: # list', '  - a # first', 'summary: | # note', '  # kept in a block'))).toEqual([
+      { key: 'title', value: 'Draft' },
+      { key: 'quoted', value: 'a # b' },
+      { key: 'issue', value: 'C#7' },
+      { key: 'tags', value: 'a' },
+      { key: 'summary', value: '# kept in a block' },
+    ]);
+  });
+
   it('skips comments and an empty value stays empty', () => {
     expect(parseFrontMatter(doc('# comment', 'a:', 'b: 1'))).toEqual([
       { key: 'a', value: '' },

@@ -29,6 +29,16 @@ export interface FrontMatterEntry {
 
 const unquote = (s: string): string => (/^(["']).*\1$/.test(s) ? s.slice(1, -1) : s);
 
+/** Drops a trailing ` # comment` from a value. A `#` inside quotes or without a space before it is part of the value. */
+function stripComment(s: string): string {
+  const quoted = /^(["'])(?:(?!\1).)*\1/.exec(s);
+  if (quoted) {
+    return /^\s*(?:#.*)?$/.test(s.slice(quoted[0].length)) ? quoted[0] : s;
+  }
+  const comment = /(?:^|\s)#/.exec(s);
+  return comment ? s.slice(0, comment.index).trimEnd() : s;
+}
+
 /**
  * Reads the top-level `key: value` entries of a YAML front matter block, without a YAML parser:
  * the lines that follow a key (indented or not) are its value. A list (`- item` or `[a, b]`) is joined
@@ -39,7 +49,7 @@ export function parseFrontMatter(yaml: string): FrontMatterEntry[] {
   for (const line of yaml.split(/\r?\n/)) {
     const m = /^\S/.test(line) ? YAML_KEY_RE.exec(line) : null;
     if (m) {
-      entries.push({ key: unquote(m[0].replace(/\s*:\s*$/, '')), rest: line.slice(m[0].length).trim(), lines: [] });
+      entries.push({ key: unquote(m[0].replace(/\s*:\s*$/, '')), rest: stripComment(line.slice(m[0].length).trim()), lines: [] });
     } else if (entries.length > 0 && !/^#/.test(line)) {
       entries[entries.length - 1].lines.push(line);
     }
@@ -54,7 +64,7 @@ export function parseFrontMatter(yaml: string): FrontMatterEntry[] {
     if (/^[|>][+-]?\d*$/.test(rest)) {
       value = body.join(rest.startsWith('>') ? ' ' : '\n');
     } else if (rest === '' && body.length > 0 && body.every((l) => /^-(\s|$)/.test(l))) {
-      value = body.map((l) => unquote(l.slice(1).trim())).join(', ');
+      value = body.map((l) => unquote(stripComment(l.slice(1).trim()))).join(', ');
     } else if (body.length === 0 && /^\[.*\]$/.test(rest)) {
       value = rest
         .slice(1, -1)

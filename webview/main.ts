@@ -653,8 +653,10 @@ function closeZoom(): void {
 function setZoomSvg(): boolean {
   const holders = diagramHolders();
   if (zoom) {
-    // The same diagram; or, when it was edited, the one at the same place if no diagram was added or removed.
-    const index = holders.findIndex((holder) => diagramSources.get(holder) === zoom!.source);
+    // The same diagram: still at its place (which tells apart diagrams with the same source), or moved.
+    // When it was edited, the one at the same place if no diagram was added or removed.
+    const unmoved = diagramSources.get(holders[zoom.index]) === zoom.source;
+    const index = unmoved ? zoom.index : holders.findIndex((holder) => diagramSources.get(holder) === zoom!.source);
     zoom.index = index >= 0 ? index : holders.length === zoom.count ? zoom.index : -1;
     zoom.source = diagramSources.get(holders[zoom.index]);
     zoom.count = holders.length;

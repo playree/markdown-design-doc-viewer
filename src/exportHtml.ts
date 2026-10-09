@@ -42,6 +42,20 @@ function linkFrom(target: vscode.Uri, image: vscode.Uri): string {
   return path.posix.relative(path.posix.dirname(target.path), image.path).split('/').map(encodeURIComponent).join('/');
 }
 
+/** true when `uri` is in `folder` (or is it). */
+function isIn(uri: vscode.Uri, folder: vscode.Uri): boolean {
+  const dir = folder.path.endsWith('/') ? folder.path : `${folder.path}/`;
+  return uri.scheme === folder.scheme && uri.authority === folder.authority && (uri.path === folder.path || uri.path.startsWith(dir));
+}
+
+/**
+ * The folders whose images are embedded: the same as the preview can show (`localResourceRoots`), so that an
+ * export does not put other local files into a file to be shared.
+ */
+function embeddableFolders(document: vscode.Uri): vscode.Uri[] {
+  return [vscode.Uri.joinPath(document, '..'), ...(vscode.workspace.workspaceFolders ?? []).map((f) => f.uri)];
+}
+
 /** Renders the document for the exported file, with its local images embedded as data URIs. */
 async function renderWithImages(md: ReturnType<typeof createMarkdown>, source: string, uri: vscode.Uri, target: vscode.Uri, settings: Settings): Promise<string> {
   const images: vscode.Uri[] = [];
@@ -59,17 +73,19 @@ async function renderWithImages(md: ReturnType<typeof createMarkdown>, source: s
       return `${RESOURCE_PLACEHOLDER}${images.length - 1}`;
     },
   });
+  const folders = embeddableFolders(uri);
   const embedded = await Promise.all(
     images.map(async (image) => {
       const type = IMAGE_TYPES[image.path.split('.').pop()?.toLowerCase() ?? ''];
       try {
-        if (type) {
+        if (type && folders.some((folder) => isIn(image, folder))) {
           return `data:${type};base64,${Buffer.from(await vscode.workspace.fs.readFile(image)).toString('base64')}`;
         }
       } catch {
         // Linked instead, see below.
       }
-      // An unknown type or a file that cannot be read is linked, which works as long as the files stay where they are.
+      // An image of an unknown type, outside those folders or that cannot be read is linked instead,
+      // which works as long as the files stay where they are.
       return linkFrom(target, image);
     }),
   );
