@@ -1,4 +1,5 @@
 {
+  "displayName": "Markdown Design Doc Viewer",
   "description": "Preview design documents written in Markdown: mermaid sequence diagrams side by side with their linked step descriptions, a table of contents, GitHub alerts and task lists.",
   "category": "Markdown Design Doc Viewer",
   "mdDesignDoc.openPreview.title": "Open Design Doc Preview",

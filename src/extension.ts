@@ -18,7 +18,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const open = (column: vscode.ViewColumn) => (arg: unknown) => {
     const uri = targetUri(arg);
     if (!uri) {
-      void vscode.window.showWarningMessage(vscode.l10n.t('Open a Markdown file to preview it with Markdown Design Doc Viewer.'));
+      void vscode.window.showWarningMessage(vscode.l10n.t('Open a Markdown file to preview it.'));
       return;
     }
     manager.show(uri, column);

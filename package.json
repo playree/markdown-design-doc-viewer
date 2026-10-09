@@ -1,6 +1,6 @@
 {
   "name": "markdown-design-doc-viewer",
-  "displayName": "Markdown Design Doc Viewer",
+  "displayName": "%displayName%",
   "description": "%description%",
   "version": "0.1.0",
   "publisher": "playree",
@@ -84,7 +84,7 @@
       ]
     },
     "configuration": {
-      "title": "Markdown Design Doc Viewer",
+      "title": "%displayName%",
       "properties": {
         "mdDesignDoc.splitMinWidth": {
           "type": "number",
