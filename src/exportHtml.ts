@@ -1,7 +1,8 @@
+import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { headingText } from './linker';
 import { parseFrontMatter } from './markdownExtras';
-import { isExternalUrl, readSettings, resolveDocumentPath, safeDecode, type PreviewManager } from './previewPanel';
+import { isExternalUrl, readSettings, resolveDocumentPath, safeDecode, type PreviewManager, type Settings } from './previewPanel';
 import { createMarkdown, escapeHtml, renderDocument } from './render';
 
 const IMAGE_TYPES: Record<string, string> = {
@@ -33,31 +34,43 @@ function documentTitle(md: ReturnType<typeof createMarkdown>, source: string, ur
   return (h1 >= 0 && headingText(tokens[h1 + 1]).trim()) || (uri.path.split('/').pop() ?? '');
 }
 
-/** Renders the document like the preview, with its local images embedded as data URIs. */
-async function renderWithImages(md: ReturnType<typeof createMarkdown>, source: string, uri: vscode.Uri): Promise<string> {
-  const images: { src: string; uri: vscode.Uri }[] = [];
+/** A link to `image` from the exported file: relative to it when possible, so that it works next to it. */
+function linkFrom(target: vscode.Uri, image: vscode.Uri): string {
+  if (image.scheme !== target.scheme || image.authority !== target.authority) {
+    return image.toString();
+  }
+  return path.posix.relative(path.posix.dirname(target.path), image.path).split('/').map(encodeURIComponent).join('/');
+}
+
+/** Renders the document for the exported file, with its local images embedded as data URIs. */
+async function renderWithImages(md: ReturnType<typeof createMarkdown>, source: string, uri: vscode.Uri, target: vscode.Uri, settings: Settings): Promise<string> {
+  const images: vscode.Uri[] = [];
   const html = renderDocument(md, source, {
     t: vscode.l10n.t,
-    frontMatter: readSettings().frontMatter,
+    frontMatter: settings.frontMatter,
+    forExport: true,
     // Synchronous, so the images are only collected here and read below.
     resolveResource: (src) => {
       if (isExternalUrl(src)) {
         return src;
       }
-      const [path] = src.split(/[?#]/, 1);
-      images.push({ src, uri: resolveDocumentPath(uri, safeDecode(path)) });
+      const [imagePath] = src.split(/[?#]/, 1);
+      images.push(resolveDocumentPath(uri, safeDecode(imagePath)));
       return `${RESOURCE_PLACEHOLDER}${images.length - 1}`;
     },
   });
   const embedded = await Promise.all(
-    images.map(async ({ src, uri }) => {
-      const type = IMAGE_TYPES[uri.path.split('.').pop()?.toLowerCase() ?? ''];
+    images.map(async (image) => {
+      const type = IMAGE_TYPES[image.path.split('.').pop()?.toLowerCase() ?? ''];
       try {
-        // An unknown type or a missing file keeps the link, which still works next to the document.
-        return type ? `data:${type};base64,${Buffer.from(await vscode.workspace.fs.readFile(uri)).toString('base64')}` : src;
+        if (type) {
+          return `data:${type};base64,${Buffer.from(await vscode.workspace.fs.readFile(image)).toString('base64')}`;
+        }
       } catch {
-        return src;
+        // Linked instead, see below.
       }
+      // An unknown type or a file that cannot be read is linked, which works as long as the files stay where they are.
+      return linkFrom(target, image);
     }),
   );
   return html.replace(PLACEHOLDER_RE, (_, i: string) => escapeHtml(embedded[Number(i)]));
@@ -98,8 +111,9 @@ export async function exportHtml(manager: PreviewManager, extensionUri: vscode.U
       { location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Exporting {0}...', uri.path.split('/').pop() ?? '') },
       async () => {
         const md = createMarkdown();
+        const settings = readSettings();
         const source = (await vscode.workspace.openTextDocument(uri)).getText();
-        const html = await renderWithImages(md, source, uri);
+        const html = await renderWithImages(md, source, uri, target, settings);
         const preview = await manager.readyPreview(uri);
         const [body, style, exportStyle, script] = await Promise.all([
           preview.renderForExport(html),
@@ -117,7 +131,7 @@ export async function exportHtml(manager: PreviewManager, extensionUri: vscode.U
 ${(style + '\n' + exportStyle).replace(/<\/style/gi, '<\\/style')}
 </style>
 </head>
-<body class="vscode-light seqnotes-export" data-seqnotes-split-min-width="${readSettings().splitMinWidth}">
+<body class="vscode-light seqnotes-export" data-seqnotes-split-min-width="${Number.isFinite(Number(settings.splitMinWidth)) ? Number(settings.splitMinWidth) : 1000}">
 <div id="seqnotes-root">${body}</div>
 <script>
 ${script.replace(/<\/script/gi, '<\\/script')}

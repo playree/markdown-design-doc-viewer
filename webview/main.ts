@@ -96,6 +96,9 @@ let renderedDark = isDarkTheme();
 /** SVGs of the previous render keyed by theme + source, so unchanged diagrams are not re-rendered on every edit. */
 let svgCache = new Map<string, string>();
 
+/** mermaid source of each rendered diagram, so that the zoom overlay can follow its diagram across updates. */
+const diagramSources = new WeakMap<Element, string>();
+
 /** mermaid is configured globally, so renders run one at a time. */
 let renderQueue: Promise<unknown> = Promise.resolve();
 
@@ -131,6 +134,7 @@ async function renderDiagrams(container: HTMLElement, idPrefix: string, dark: bo
       const holder = document.createElement('div');
       holder.className = 'seqnotes-diagram';
       holder.innerHTML = svg;
+      diagramSources.set(holder, source);
       pre?.replaceWith(holder);
       const svgEl = holder.querySelector('svg');
       if (meta && svgEl) {
@@ -538,24 +542,13 @@ function openLink(href: string): void {
 // Export
 
 /**
- * Renders the document for an exported HTML file: with the light theme, and without what only helps
- * the author (warnings, marks of missing links) or the editor sync (source lines).
+ * Renders the HTML of an exported file (`renderDocument` with `forExport`) with the light theme,
+ * and returns the body without the data only the preview script uses.
  */
 async function exportBody(id: number, html: string): Promise<string> {
   const { content } = await buildContent(html, `seqnotes-export-${id}`, false);
   content.querySelectorAll('.seqnotes-pair').forEach(wrapSections);
-  // renderDocument puts the warnings first, see setUpWarnings.
-  if (content.firstElementChild?.matches('.seqnotes-warnings[data-seqnotes-key]')) {
-    content.firstElementChild.remove();
-  }
-  content.querySelectorAll('.seqnotes-unlinked').forEach((el) => {
-    el.classList.remove('seqnotes-unlinked');
-    if (el.hasAttribute('data-seqnotes-mark')) {
-      el.removeAttribute('data-seqnotes-mark');
-      el.removeAttribute('title');
-    }
-  });
-  for (const attr of ['data-line', 'data-seqnotes-line', 'data-seqnotes-jump', 'data-seqnotes-meta']) {
+  for (const attr of ['data-seqnotes-meta', 'data-seqnotes-line']) {
     content.querySelectorAll(`[${attr}]`).forEach((el) => el.removeAttribute(attr));
   }
   return content.innerHTML;
@@ -580,6 +573,11 @@ const FIT_ICON =
 interface Zoom {
   /** Index of the diagram among the `.seqnotes-diagram`s of the document. */
   index: number;
+  /** Its mermaid source and the number of diagrams, to find it again after an update. */
+  source: string | undefined;
+  count: number;
+  /** true while the whole diagram is shown, so that it is fitted again when the window is resized. */
+  fitted: boolean;
   scale: number;
   x: number;
   y: number;
@@ -636,7 +634,8 @@ function addZoomButtons(): void {
 }
 
 function openZoom(index: number): void {
-  zoom = { index, scale: 1, x: 0, y: 0, width: 0, height: 0 };
+  const holders = diagramHolders();
+  zoom = { index, source: diagramSources.get(holders[index]), count: holders.length, fitted: true, scale: 1, x: 0, y: 0, width: 0, height: 0 };
   zoomOverlay.hidden = false;
   if (setZoomSvg()) {
     fitZoom();
@@ -652,7 +651,15 @@ function closeZoom(): void {
 
 /** Puts a copy of the diagram into the overlay, keeping the scale and position. Closes it when the diagram is gone. */
 function setZoomSvg(): boolean {
-  const svg = zoom && diagramHolders()[zoom.index]?.querySelector<SVGSVGElement>(':scope > svg');
+  const holders = diagramHolders();
+  if (zoom) {
+    // The same diagram; or, when it was edited, the one at the same place if no diagram was added or removed.
+    const index = holders.findIndex((holder) => diagramSources.get(holder) === zoom!.source);
+    zoom.index = index >= 0 ? index : holders.length === zoom.count ? zoom.index : -1;
+    zoom.source = diagramSources.get(holders[zoom.index]);
+    zoom.count = holders.length;
+  }
+  const svg = zoom && holders[zoom.index]?.querySelector<SVGSVGElement>(':scope > svg');
   if (!zoom || !svg) {
     closeZoom();
     return false;
@@ -687,6 +694,7 @@ function fitZoom(): void {
   zoom.scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, Math.min((width - 2 * ZOOM_MARGIN) / zoom.width, (height - 2 * ZOOM_MARGIN) / zoom.height)));
   zoom.x = (width - zoom.width * zoom.scale) / 2;
   zoom.y = (height - zoom.height * zoom.scale) / 2;
+  zoom.fitted = true;
   applyZoom();
 }
 
@@ -699,6 +707,7 @@ function zoomAt(factor: number, x: number, y: number): void {
   zoom.x = x - ((x - zoom.x) * scale) / zoom.scale;
   zoom.y = y - ((y - zoom.y) * scale) / zoom.scale;
   zoom.scale = scale;
+  zoom.fitted = false;
   applyZoom();
 }
 
@@ -759,6 +768,7 @@ zoomOverlay.addEventListener('pointerdown', (e) => {
     if (zoom) {
       zoom.x = start.zoomX + dx;
       zoom.y = start.zoomY + dy;
+      zoom.fitted = false;
       applyZoom();
     }
   };
@@ -790,8 +800,9 @@ zoomStage.addEventListener('click', (e) => {
   activate({ pair, target: message.getAttribute('data-seqnotes-target')!, kind: 'message' });
 });
 
+// Not after the user zoomed or panned: they would lose their place, e.g. when a side bar is toggled.
 window.addEventListener('resize', () => {
-  if (zoom) {
+  if (zoom?.fitted) {
     fitZoom();
   }
 });

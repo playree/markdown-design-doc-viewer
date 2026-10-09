@@ -5,7 +5,8 @@
 import { activeFor, revealCounterpart, scrollToFragment, showActive, type Active } from './linking';
 
 const root = document.getElementById('seqnotes-root')!;
-const splitMinWidth = Number(document.body.dataset.seqnotesSplitMinWidth) || 1000;
+const width = Number(document.body.dataset.seqnotesSplitMinWidth);
+const splitMinWidth = Number.isFinite(width) ? width : 1000;
 
 let pinned: Active | undefined;
 let printing = false;

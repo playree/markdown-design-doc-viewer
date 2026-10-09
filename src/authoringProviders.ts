@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { inSequenceDiagram, quickFixes, refCandidates, type TextEdit } from './authoring';
+import { inSequenceDiagram, quickFixesByLine, refCandidates, type TextEdit } from './authoring';
 import { DIAGNOSTIC_SOURCE } from './diagnostics';
 import { createMarkdown } from './render';
 
@@ -59,11 +59,15 @@ export function registerAuthoringProviders(): vscode.Disposable {
   };
 
   const codeActions: vscode.CodeActionProvider = {
-    provideCodeActions(document, range, context) {
+    provideCodeActions(document, _range, context) {
       const diagnostics = context.diagnostics.filter((d) => d.source === DIAGNOSTIC_SOURCE);
+      if (diagnostics.length === 0) {
+        return [];
+      }
       const lines = [...new Set(diagnostics.map((d) => d.range.start.line))];
+      const fixes = quickFixesByLine(md, document.getText(), lines, vscode.l10n.t);
       return lines.flatMap((line) =>
-        quickFixes(md, document.getText(), line, vscode.l10n.t).map((fix) => {
+        (fixes.get(line) ?? []).map((fix) => {
           const action = new vscode.CodeAction(fix.title, vscode.CodeActionKind.QuickFix);
           action.edit = new vscode.WorkspaceEdit();
           action.edit.replace(document.uri, toRange(fix.edit), fix.edit.text);

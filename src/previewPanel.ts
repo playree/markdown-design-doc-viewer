@@ -137,7 +137,15 @@ export class PreviewManager implements vscode.Disposable {
   /** A preview of the document that has loaded, opened to the side if there is none. */
   async readyPreview(uri: vscode.Uri): Promise<Preview> {
     const preview = this.previews.get(uri.toString())?.values().next().value ?? this.show(uri, vscode.ViewColumn.Beside);
-    await preview.whenReady;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(vscode.l10n.t('The preview did not respond.'))), EXPORT_TIMEOUT_MS);
+    });
+    try {
+      await Promise.race([preview.whenReady, timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
     return preview;
   }
 
@@ -198,8 +206,12 @@ export class Preview {
   private disposed = false;
   private readonly messageListener: vscode.Disposable;
   private setReady!: () => void;
-  /** Resolved once the webview has loaded and received the document. */
-  readonly whenReady = new Promise<void>((resolve) => (this.setReady = resolve));
+  private setClosed!: (error: Error) => void;
+  /** Resolved once the webview has loaded and received the document, rejected when it is closed before. */
+  readonly whenReady = new Promise<void>((resolve, reject) => {
+    this.setReady = resolve;
+    this.setClosed = reject;
+  });
   private exportId = 0;
   private readonly exports = new Map<number, { resolve: (body: string) => void; reject: (error: Error) => void }>();
 
@@ -227,18 +239,25 @@ export class Preview {
     };
     panel.webview.html = this.shell();
     this.messageListener = panel.webview.onDidReceiveMessage((message: FromWebview) => this.onMessage(message));
+    // Only awaited by an export.
+    this.whenReady.catch(() => undefined);
   }
 
   dispose(): void {
     this.disposed = true;
     clearTimeout(this.timer);
     this.messageListener.dispose();
-    this.exports.forEach(({ reject }) => reject(new Error(vscode.l10n.t('The preview was closed.'))));
+    const closed = new Error(vscode.l10n.t('The preview was closed.'));
+    this.setClosed(closed);
+    this.exports.forEach(({ reject }) => reject(closed));
     this.exports.clear();
   }
 
   /** Has the webview render `html` (from `renderDocument`) for an exported file, and returns the rendered body. */
   renderForExport(html: string): Promise<string> {
+    if (this.disposed) {
+      return Promise.reject(new Error(vscode.l10n.t('The preview was closed.')));
+    }
     const id = ++this.exportId;
     return new Promise<string>((resolve, reject) => {
       const timer = setTimeout(() => {

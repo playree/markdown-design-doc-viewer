@@ -1,7 +1,7 @@
 import type { MarkdownIt } from 'markdown-it';
 import { formatMessage, type Translate } from './l10n';
-import { linkDiagrams, type DiagramInfo, type LinkedMessage, type OverviewHeading } from './linker';
-import { isSequenceDiagram, normalizeLabel } from './sequence';
+import { isSequenceFence, linkDiagrams, type DiagramInfo, type LinkedMessage, type OverviewHeading } from './linker';
+import { normalizeLabel } from './sequence';
 
 /** A 0-based position in the Markdown document. */
 export interface Position {
@@ -41,7 +41,7 @@ export function inSequenceDiagram(md: MarkdownIt, source: string, line: number):
   const lines = source.split(/\r?\n/);
   return md
     .parse(source, {})
-    .some((t) => t.type === 'fence' && t.info.trim().split(/\s+/)[0] === 'mermaid' && isSequenceDiagram(t.content) && inFence(lines, t.map, line));
+    .some((t) => isSequenceFence(t) && inFence(lines, t.map, line));
 }
 
 /**
@@ -56,7 +56,8 @@ export function refCandidates(md: MarkdownIt, source: string, line: number): Ref
     return undefined;
   }
   const targets = new Set(diagram.messages.map((m) => m.target));
-  const candidates = diagram.headings.filter((h) => h.text !== '').map((h) => ({ text: h.text, linked: targets.has(h.id) }));
+  // A heading with the text of an earlier one cannot be written as a `@ref`.
+  const candidates = diagram.headings.filter((h) => h.text !== '' && h.refTarget).map((h) => ({ text: h.text, linked: targets.has(h.id) }));
   return [...candidates.filter((c) => !c.linked), ...candidates.filter((c) => c.linked)];
 }
 
@@ -65,7 +66,7 @@ const indentOf = (line: string): string => /^\s*/.exec(line)![0];
 /** Headings an unlinked arrow can be linked to: the unlinked steps, or any heading when nothing is linked yet. */
 function linkableHeadings(diagram: DiagramInfo): OverviewHeading[] {
   const headings = diagram.stepLevel === undefined ? diagram.headings : diagram.headings.filter((h) => diagram.unlinkedHeadings.includes(h.index));
-  return headings.filter((h) => h.text !== '');
+  return headings.filter((h) => h.text !== '' && h.refTarget);
 }
 
 /** Links `message` to `heading` by rewriting its `%% @ref`, or by writing one above it. */
@@ -119,11 +120,20 @@ function addHeadingFix(lines: string[], tokens: ReturnType<MarkdownIt['parse']>,
  * a `%% @ref` to a missing heading and a step heading without an arrow.
  */
 export function quickFixes(md: MarkdownIt, source: string, line: number, t: Translate = formatMessage): QuickFix[] {
-  const lines = source.split(/\r?\n/);
-  const tokens = md.parse(source, {});
-  const fixes: QuickFix[] = [];
+  return quickFixesByLine(md, source, [line], t).get(line) ?? [];
+}
 
-  for (const diagram of linkDiagrams(tokens, t).diagrams.filter((d) => d.paired)) {
+/** `quickFixes` for several lines, parsing the document once. */
+export function quickFixesByLine(md: MarkdownIt, source: string, lines: number[], t: Translate = formatMessage): Map<number, QuickFix[]> {
+  const sourceLines = source.split(/\r?\n/);
+  const tokens = md.parse(source, {});
+  const diagrams = linkDiagrams(tokens, t).diagrams.filter((d) => d.paired);
+  return new Map(lines.map((line) => [line, fixesAt(sourceLines, tokens, diagrams, line, t)]));
+}
+
+function fixesAt(lines: string[], tokens: ReturnType<MarkdownIt['parse']>, diagrams: DiagramInfo[], line: number, t: Translate): QuickFix[] {
+  const fixes: QuickFix[] = [];
+  for (const diagram of diagrams) {
     // An arrow without a heading, or the `@ref` of one.
     const message = diagram.messages.find((m) => !m.target && (m.refLine === line || (m.line === line && (m.unlinked || m.ref !== undefined))));
     if (message) {
@@ -139,7 +149,7 @@ export function quickFixes(md: MarkdownIt, source: string, line: number, t: Tran
 
     // A step heading without an arrow.
     const step = diagram.headings.find((h) => h.line === line && diagram.unlinkedHeadings.includes(h.index));
-    if (step && step.text !== '') {
+    if (step && step.text !== '' && step.refTarget) {
       for (const m of diagram.messages.filter((m) => m.unlinked)) {
         const label = normalizeLabel(m.text) || `#${m.index + 1}`;
         fixes.push(linkFix(lines, m, step.text, t('Link arrow "{0}" to this heading with @ref', label)));

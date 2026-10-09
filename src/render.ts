@@ -13,6 +13,11 @@ export type RenderEnv = Env & {
   t?: Translate;
   /** false hides the YAML front matter instead of showing it as a table. */
   frontMatter?: boolean;
+  /**
+   * Renders for an exported file: without what only helps the author (warnings, marks of missing links)
+   * or the editor sync (source lines).
+   */
+  forExport?: boolean;
 };
 
 /** Diagram data embedded into the HTML for the webview script. */
@@ -46,6 +51,9 @@ function headingIds(md: MarkdownIt): void {
 
 function sourceLines(md: MarkdownIt): void {
   md.core.ruler.push('seqnotes_source_lines', (state) => {
+    if ((state.env as RenderEnv | undefined)?.forExport) {
+      return;
+    }
     for (const token of state.tokens) {
       if (token.map && token.nesting !== -1) {
         token.attrSet('data-line', String(token.map[0]));
@@ -56,23 +64,31 @@ function sourceLines(md: MarkdownIt): void {
 
 function mermaidFence(md: MarkdownIt): void {
   const defaultFence = md.renderer.rules.fence!;
-  md.renderer.rules.fence = (tokens, idx, options, env, self) => {
+  md.renderer.rules.fence = (tokens, idx, options, env: RenderEnv | undefined, self) => {
     const token = tokens[idx];
     if (!isMermaidFence(token)) {
       return defaultFence(tokens, idx, options, env, self);
     }
     const diagram = token.meta?.seqNotes as DiagramInfo | undefined;
-    const line = token.map?.[0] ?? 0;
-    let attrs = `data-line="${line}"`;
+    const forExport = env?.forExport === true;
+    let attrs = forExport ? '' : ` data-line="${token.map?.[0] ?? 0}"`;
     if (diagram) {
       const meta: DiagramMeta = {
         id: diagram.id,
         paired: diagram.paired,
-        messages: diagram.messages.map(({ index, line, text, number, numberInHeading, target, unlinked }) => ({ index, line, text, number, numberInHeading, target, unlinked })),
+        messages: diagram.messages.map(({ index, line, text, number, numberInHeading, target, unlinked }) => ({
+          index,
+          line,
+          text,
+          number,
+          numberInHeading,
+          target,
+          unlinked: forExport ? undefined : unlinked,
+        })),
       };
       attrs += ` data-seqnotes-meta="${escapeHtml(JSON.stringify(meta))}"`;
     }
-    return `<div class="seqnotes-mermaid" ${attrs}><pre class="seqnotes-mermaid-src">${escapeHtml(token.content)}</pre></div>\n`;
+    return `<div class="seqnotes-mermaid"${attrs}><pre class="seqnotes-mermaid-src">${escapeHtml(token.content)}</pre></div>\n`;
   };
 }
 
@@ -101,7 +117,7 @@ export function renderDocument(md: MarkdownIt, source: string, env: RenderEnv = 
   for (const diagram of diagrams) {
     const fence = tokens[diagram.fenceIndex];
     fence.meta = { ...fence.meta, seqNotes: diagram };
-    for (const index of diagram.unlinkedHeadings) {
+    for (const index of env.forExport ? [] : diagram.unlinkedHeadings) {
       tokens[index].attrJoin('class', 'seqnotes-unlinked');
       tokens[index].attrSet('title', t('No arrow in the sequence diagram is linked to this heading.'));
       // Shown by the CSS (`content: attr(...)`).
@@ -112,7 +128,7 @@ export function renderDocument(md: MarkdownIt, source: string, env: RenderEnv = 
   const render = (slice: Token[]): string => md.renderer.render(slice, md.options, env);
 
   let html = '';
-  if (warnings.length > 0) {
+  if (warnings.length > 0 && !env.forExport) {
     // Lets the webview keep the panel hidden while the warnings stay the same, even if their lines move.
     const key = warnings.map((w) => w.message).join('\n');
     html += `<div class="seqnotes-warnings" data-seqnotes-key="${escapeHtml(key)}">`;

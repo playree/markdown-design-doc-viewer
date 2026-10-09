@@ -23,6 +23,8 @@ export interface OverviewHeading {
   line: number;
   /** Normalized heading text, as compared with the arrows. */
   text: string;
+  /** true when `%% @ref <text>` links to this heading: it is the first heading of the range with the text. */
+  refTarget: boolean;
 }
 
 export interface DiagramInfo {
@@ -59,7 +61,7 @@ export function isMermaidFence(token: Token): boolean {
   return token.type === 'fence' && token.info.trim().split(/\s+/)[0] === 'mermaid';
 }
 
-function isSequenceFence(token: Token): boolean {
+export function isSequenceFence(token: Token): boolean {
   return isMermaidFence(token) && isSequenceDiagram(token.content);
 }
 
@@ -165,7 +167,7 @@ export function linkDiagrams(tokens: Token[], translate: Translate = formatMessa
         // Headings inside lists or blockquotes are not steps of the overview.
         const key = normalizeLabel(headingText(tokens[i + 1]));
         if (t.level === 0) {
-          headingTokens.push({ index: i, id: String(id), level: Number(t.tag.slice(1)), line: t.map?.[0] ?? 0, text: key });
+          headingTokens.push({ index: i, id: String(id), level: Number(t.tag.slice(1)), line: t.map?.[0] ?? 0, text: key, refTarget: !headings.has(key) });
         }
         if (!headings.has(key)) {
           headings.set(key, String(id));

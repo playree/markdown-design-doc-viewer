@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { inSequenceDiagram, quickFixes, refCandidates, type TextEdit } from '../src/authoring';
+import { inSequenceDiagram, quickFixes, quickFixesByLine, refCandidates, type TextEdit } from '../src/authoring';
 import { collectIssues } from '../src/issues';
 import { createMarkdown } from '../src/render';
 
@@ -85,6 +85,24 @@ describe('quickFixes', () => {
   it('adds the heading of the first arrow before the first step', () => {
     const src = doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', '    A->>B: 一', '    A->>B: 二', '```', '', '## 概要', '', '### 二');
     expect(apply(src, quickFixes(md, src, 3)[0].edit)).toBe(doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', '    A->>B: 一', '    A->>B: 二', '```', '', '## 概要', '', '### 一', '', '### 二'));
+  });
+
+  it('does not offer a @ref to a heading with the text of an earlier one, which @ref cannot tell apart', () => {
+    const src = doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', '    A->>B: 一', '    A->>B: 二', '```', '', '## 一', '### 確認', '## 三', '### 確認');
+    // `### 確認` are below the step level; the unlinked step is `三`.
+    expect(quickFixes(md, src, 4).map((f) => f.title)).toEqual(['Link to heading "三" with @ref', 'Add heading "二" to the overview']);
+    const steps = doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', '    A->>B: 一', '    A->>B: 二', '```', '', '## 一', '## 確認', '## 確認');
+    expect(quickFixes(md, steps, 4).map((f) => f.title)).toEqual(['Link to heading "確認" with @ref', 'Add heading "二" to the overview']);
+    expect(quickFixes(md, steps, 9)).toEqual([]);
+    expect(refCandidates(md, steps, 4)?.map((c) => c.text)).toEqual(['確認', '一']);
+  });
+
+  it('gives the fixes of several lines at once', () => {
+    const fixes = quickFixesByLine(md, base, [4, 13, 3]);
+    expect([...fixes.keys()]).toEqual([4, 13, 3]);
+    expect(fixes.get(4)).toEqual(quickFixes(md, base, 4));
+    expect(fixes.get(13)).toEqual(quickFixes(md, base, 13));
+    expect(fixes.get(3)).toEqual([]);
   });
 
   it('offers nothing for linked lines and translates the titles', () => {
