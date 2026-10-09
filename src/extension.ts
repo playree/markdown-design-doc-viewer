@@ -18,7 +18,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const open = (column: vscode.ViewColumn) => (arg: unknown) => {
     const uri = targetUri(arg);
     if (!uri) {
-      void vscode.window.showWarningMessage(vscode.l10n.t('Open a Markdown file to preview it with Sequence Side Notes.'));
+      void vscode.window.showWarningMessage(vscode.l10n.t('Open a Markdown file to preview it with Markdown Design Doc Viewer.'));
       return;
     }
     manager.show(uri, column);
@@ -26,8 +26,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     manager,
-    vscode.commands.registerCommand('seqNotes.openPreview', open(vscode.ViewColumn.Active)),
-    vscode.commands.registerCommand('seqNotes.openPreviewToSide', open(vscode.ViewColumn.Beside)),
+    vscode.commands.registerCommand('mdDesignDoc.openPreview', open(vscode.ViewColumn.Active)),
+    vscode.commands.registerCommand('mdDesignDoc.openPreviewToSide', open(vscode.ViewColumn.Beside)),
   );
 }
 

@@ -1,8 +1,8 @@
-# Markdown Sequence Side Notes
+# Markdown Design Doc Viewer
 
 [English](README.md) | 日本語
 
-設計書としてのMarkdownを、**mermaidのシーケンス図と処理概要を横並びにして**プレビューする拡張機能です。
+設計書としてのMarkdownをプレビューする拡張機能（Markdown 設計書ビューア）です。主な機能として、**mermaidのシーケンス図と処理概要を横並びにして**表示します。
 図の矢印と処理概要の見出しが紐付き、相互にハイライト・スクロールできます。
 
 ![左にシーケンス図、右に紐付いた処理概要](images/screenshot.png)
@@ -21,13 +21,13 @@
 
 Markdownファイルを開いてエディタのタイトルバーにあるプレビューアイコンをクリックするか、コマンドパレットから次のコマンドを実行します。
 
-- `Markdown Sequence Side Notes: Sequence Side Notes プレビューを横に開く`
-- `Markdown Sequence Side Notes: Sequence Side Notes プレビューを開く`
+- `Markdown 設計書ビューア: 設計書プレビューを横に開く`
+- `Markdown 設計書ビューア: 設計書プレビューを開く`
 
-テキストエディタの代わりに開くこともできます。コマンド **エディターを再度開くアプリケーションの選択...**（タブ右上の「テキスト エディター」と表示されている部分）から **Sequence Side Notes プレビュー** を選んでください。Markdownファイルを常にこのプレビューで開くには、同じリストの「'*.md' の既定値を設定する」を選ぶか、設定に次を追加します。
+テキストエディタの代わりに開くこともできます。コマンド **エディターを再度開くアプリケーションの選択...**（タブ右上の「テキスト エディター」と表示されている部分）から **設計書プレビュー** を選んでください。Markdownファイルを常にこのプレビューで開くには、同じリストの「'*.md' の既定値を設定する」を選ぶか、設定に次を追加します。
 
 ```json
-"workbench.editorAssociations": { "*.md": "seqNotes.editor", "*.markdown": "seqNotes.editor" }
+"workbench.editorAssociations": { "*.md": "mdDesignDoc.editor", "*.markdown": "mdDesignDoc.editor" }
 ```
 
 ## 書き方
@@ -77,6 +77,6 @@ ID をキーにユーザーを 1 件取得する。
 
 | 設定 | 既定値 | 説明 |
 |---|---|---|
-| `seqNotes.splitMinWidth` | `1000` | 横並び表示にする最小のプレビュー幅 (px) |
-| `seqNotes.syncEditor` | `true` | エディタとの同期、ダブルクリックでのジャンプを有効にする |
-| `seqNotes.toc` | `true` | プレビュー右端に目次を表示する |
+| `mdDesignDoc.splitMinWidth` | `1000` | 横並び表示にする最小のプレビュー幅 (px) |
+| `mdDesignDoc.syncEditor` | `true` | エディタとの同期、ダブルクリックでのジャンプを有効にする |
+| `mdDesignDoc.toc` | `true` | プレビュー右端に目次を表示する |

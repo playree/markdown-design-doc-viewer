@@ -1,9 +1,10 @@
 {
-  "description": "設計書Markdownのmermaidシーケンス図と処理概要を横並びでプレビューし、矢印と見出しを紐付けて表示します。",
-  "seqNotes.openPreview.title": "Sequence Side Notes プレビューを開く",
-  "seqNotes.openPreviewToSide.title": "Sequence Side Notes プレビューを横に開く",
-  "seqNotes.editor.displayName": "Sequence Side Notes プレビュー",
-  "seqNotes.splitMinWidth.description": "シーケンス図と処理概要を横並びで表示する最小のプレビュー幅 (px)。",
-  "seqNotes.syncEditor.description": "エディタのカーソル・スクロール位置にプレビューを追従させ、プレビューのダブルクリックでエディタの該当行へ移動します。",
-  "seqNotes.toc.description": "プレビューの右端にマウスを乗せると開く目次（見出し h1〜h3）を表示します。"
+  "description": "設計書としてのMarkdownをプレビューします。mermaidのシーケンス図と処理概要を横並びにして矢印と見出しを紐付けるほか、目次、GitHubのアラート、タスクリストを表示します。",
+  "category": "Markdown 設計書ビューア",
+  "mdDesignDoc.openPreview.title": "設計書プレビューを開く",
+  "mdDesignDoc.openPreviewToSide.title": "設計書プレビューを横に開く",
+  "mdDesignDoc.editor.displayName": "設計書プレビュー",
+  "mdDesignDoc.splitMinWidth.description": "シーケンス図と処理概要を横並びで表示する最小のプレビュー幅 (px)。",
+  "mdDesignDoc.syncEditor.description": "エディタのカーソル・スクロール位置にプレビューを追従させ、プレビューのダブルクリックでエディタの該当行へ移動します。",
+  "mdDesignDoc.toc.description": "プレビューの右端にマウスを乗せると開く目次（見出し h1〜h3）を表示します。"
 }

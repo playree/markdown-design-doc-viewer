@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 概要
 
-VS Code 拡張「Markdown Sequence Side Notes」。設計書 Markdown 内の mermaid シーケンス図と、その後ろの処理概要（見出し）を横並びでプレビューし、矢印と見出しを相互に紐付ける。記法・挙動の仕様は [README.md](README.md)（英語）と [README.ja.md](README.ja.md)（日本語）が正（両方を同じ内容で保守する）。
+VS Code 拡張「Markdown Design Doc Viewer」（日本語表記: Markdown 設計書ビューア）。設計書 Markdown のビューアで、主な機能として設計書内の mermaid シーケンス図と、その後ろの処理概要（見出し）を横並びでプレビューし、矢印と見出しを相互に紐付ける。記法・挙動の仕様は [README.md](README.md)（英語）と [README.ja.md](README.ja.md)（日本語）が正（両方を同じ内容で保守する）。
 
 ## コマンド
 
@@ -50,7 +50,7 @@ webview は `src/protocol.ts`（メッセージ型）、`src/render.ts`（`Diagr
 ### webview 側
 
 - `DOMPurify.sanitize` → `mermaid.render`（テーマとソースをキーに SVG をキャッシュ）→ `annotateMessages` の順に処理する。`annotateMessages` は SVG 内のメッセージ要素を、パーサの結果と描画順で対応付ける。数が合わないときだけラベル一致で対応付けるので、`sequence.ts` のメッセージ抽出は mermaid の解釈と件数・順序が一致している必要がある。
-- 横並びにするかはウィンドウ幅（`seqNotes.splitMinWidth`）で決まり、`body.seqnotes-wide` クラスで切り替える。カラム幅はドラッグで変えられ、`vscode.setState` に保存される。
+- 横並びにするかはウィンドウ幅（`mdDesignDoc.splitMinWidth`）で決まり、`body.seqnotes-wide` クラスで切り替える。カラム幅はドラッグで変えられ、`vscode.setState` に保存される。
 
 ## テスト
 

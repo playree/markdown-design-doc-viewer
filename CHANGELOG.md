@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-- Hovering the right edge of the preview opens a table of contents (h1–h3) that jumps to the heading on click. It can be turned off with `seqNotes.toc`.
+- Renamed to **Markdown Design Doc Viewer** (extension ID `playree.markdown-design-doc-viewer`). It is published as a new extension, so uninstall Markdown Sequence Side Notes and install this one.
+- Breaking: settings, commands and the custom editor are renamed from `seqNotes.*` to `mdDesignDoc.*` (for example `seqNotes.splitMinWidth` → `mdDesignDoc.splitMinWidth`, and `seqNotes.editor` → `mdDesignDoc.editor` in `workbench.editorAssociations`). Update your settings accordingly. The document syntax (`%% @seq-notes`, `%% @ref`, `<!-- seq-notes:end -->`) is unchanged.
+- Hovering the right edge of the preview opens a table of contents (h1–h3) that jumps to the heading on click. It can be turned off with `mdDesignDoc.toc`.
 - The × button temporarily hides the warnings at the top of the preview; they are shown again when they change.
 - Warnings, marks and tooltips in the preview follow the VS Code display language (English and Japanese).
 - YAML front matter is hidden instead of being rendered as a heading. Code blocks are syntax highlighted, and GitHub alerts and task lists are rendered.
