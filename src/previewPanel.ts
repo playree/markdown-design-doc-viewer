@@ -10,29 +10,45 @@ const UPDATE_DELAY_MS = 300;
 const SCROLL_SUPPRESS_MS = 500;
 
 const SCHEME_RE = /^[a-z][a-z0-9+.-]*:/i;
+/** An exported document is rendered by the preview; it gives up after this long. */
+const EXPORT_TIMEOUT_MS = 60_000;
 
-interface Settings {
+export interface Settings {
   splitMinWidth: number;
   syncEditor: boolean;
   toc: boolean;
+  frontMatter: boolean;
 }
 
-function readSettings(): Settings {
+export function readSettings(): Settings {
   const c = vscode.workspace.getConfiguration('mdDesignDoc');
   return {
     splitMinWidth: c.get<number>('splitMinWidth', 1000),
     syncEditor: c.get<boolean>('syncEditor', true),
     toc: c.get<boolean>('toc', true),
+    frontMatter: c.get<boolean>('frontMatter', true),
   };
 }
 
 /** decodeURIComponent that leaves malformed escapes (e.g. `100%.md`) as they are. */
-function safeDecode(path: string): string {
+export function safeDecode(path: string): string {
   try {
     return decodeURIComponent(path);
   } catch {
     return path;
   }
+}
+
+/** true for a URL that is not a path relative to the document (`https:`, `data:`, `//host`, `#id`). */
+export const isExternalUrl = (src: string): boolean => SCHEME_RE.test(src) || src.startsWith('//') || src.startsWith('#');
+
+/** Resolves a link or image path of a Markdown document: relative to it, or to its workspace folder with a leading `/`. */
+export function resolveDocumentPath(document: vscode.Uri, path: string): vscode.Uri {
+  if (path.startsWith('/')) {
+    const folder = vscode.workspace.getWorkspaceFolder(document);
+    return vscode.Uri.joinPath(folder?.uri ?? vscode.Uri.joinPath(document, '..'), path);
+  }
+  return vscode.Uri.joinPath(document, '..', path);
 }
 
 function nonce(): string {
@@ -64,8 +80,12 @@ export class PreviewManager implements vscode.Disposable {
       }),
       vscode.window.registerCustomEditorProvider(
         EDITOR_VIEW_TYPE,
-        { resolveCustomTextEditor: (document, panel) => this.attach(panel, document.uri, 'editor') },
-        { webviewOptions: { retainContextWhenHidden: true }, supportsMultipleEditorsPerDocument: true },
+        {
+          resolveCustomTextEditor: (document, panel) => {
+            this.attach(panel, document.uri, 'editor');
+          },
+        },
+        { webviewOptions: { retainContextWhenHidden: true, enableFindWidget: true }, supportsMultipleEditorsPerDocument: true },
       ),
       vscode.workspace.onDidChangeTextDocument((e) => this.forEach(e.document.uri, (p) => p.scheduleUpdate())),
       vscode.workspace.onDidChangeConfiguration((e) => {
@@ -88,24 +108,52 @@ export class PreviewManager implements vscode.Disposable {
     );
   }
 
-  show(uri: vscode.Uri, column: vscode.ViewColumn): void {
+  show(uri: vscode.Uri, column: vscode.ViewColumn): Preview {
     const existing = [...(this.previews.get(uri.toString()) ?? [])].find((p) => p.kind === 'panel');
     if (existing) {
       existing.panel.reveal(column);
-      return;
+      return existing;
     }
     const panel = vscode.window.createWebviewPanel(VIEW_TYPE, '', { viewColumn: column, preserveFocus: true }, {
       enableScripts: true,
       retainContextWhenHidden: true,
+      enableFindWidget: true,
     });
-    this.attach(panel, uri, 'panel');
+    return this.attach(panel, uri, 'panel');
+  }
+
+  /** The document of the preview (panel or custom editor) that has the focus. */
+  activeUri(): vscode.Uri | undefined {
+    for (const set of this.previews.values()) {
+      for (const preview of set) {
+        if (preview.panel.active) {
+          return preview.uri;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  /** A preview of the document that has loaded, opened to the side if there is none. */
+  async readyPreview(uri: vscode.Uri): Promise<Preview> {
+    const preview = this.previews.get(uri.toString())?.values().next().value ?? this.show(uri, vscode.ViewColumn.Beside);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(vscode.l10n.t('The preview did not respond.'))), EXPORT_TIMEOUT_MS);
+    });
+    try {
+      await Promise.race([preview.whenReady, timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
+    return preview;
   }
 
   private forEach(uri: vscode.Uri, fn: (preview: Preview) => void): void {
     this.previews.get(uri.toString())?.forEach(fn);
   }
 
-  private attach(panel: vscode.WebviewPanel, uri: vscode.Uri, kind: PreviewKind): void {
+  private attach(panel: vscode.WebviewPanel, uri: vscode.Uri, kind: PreviewKind): Preview {
     const key = uri.toString();
     const preview = new Preview(panel, uri, kind, this.extensionUri, this.md, {
       settings: () => this.settings,
@@ -126,6 +174,7 @@ export class PreviewManager implements vscode.Disposable {
         this.previews.delete(key);
       }
     });
+    return preview;
   }
 
   private async revealLine(uri: vscode.Uri, line: number, fallbackColumn: vscode.ViewColumn): Promise<void> {
@@ -151,15 +200,24 @@ interface PreviewHost {
   revealLine(line: number): void;
 }
 
-class Preview {
+export class Preview {
   private timer: ReturnType<typeof setTimeout> | undefined;
   private ready = false;
   private disposed = false;
   private readonly messageListener: vscode.Disposable;
+  private setReady!: () => void;
+  private setClosed!: (error: Error) => void;
+  /** Resolved once the webview has loaded and received the document, rejected when it is closed before. */
+  readonly whenReady = new Promise<void>((resolve, reject) => {
+    this.setReady = resolve;
+    this.setClosed = reject;
+  });
+  private exportId = 0;
+  private readonly exports = new Map<number, { resolve: (body: string) => void; reject: (error: Error) => void }>();
 
   constructor(
     readonly panel: vscode.WebviewPanel,
-    private readonly uri: vscode.Uri,
+    readonly uri: vscode.Uri,
     readonly kind: PreviewKind,
     private readonly extensionUri: vscode.Uri,
     private readonly md: ReturnType<typeof createMarkdown>,
@@ -181,12 +239,39 @@ class Preview {
     };
     panel.webview.html = this.shell();
     this.messageListener = panel.webview.onDidReceiveMessage((message: FromWebview) => this.onMessage(message));
+    // Only awaited by an export.
+    this.whenReady.catch(() => undefined);
   }
 
   dispose(): void {
     this.disposed = true;
     clearTimeout(this.timer);
     this.messageListener.dispose();
+    const closed = new Error(vscode.l10n.t('The preview was closed.'));
+    this.setClosed(closed);
+    this.exports.forEach(({ reject }) => reject(closed));
+    this.exports.clear();
+  }
+
+  /** Has the webview render `html` (from `renderDocument`) for an exported file, and returns the rendered body. */
+  renderForExport(html: string): Promise<string> {
+    if (this.disposed) {
+      return Promise.reject(new Error(vscode.l10n.t('The preview was closed.')));
+    }
+    const id = ++this.exportId;
+    return new Promise<string>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.exports.delete(id);
+        reject(new Error(vscode.l10n.t('The preview did not respond.')));
+      }, EXPORT_TIMEOUT_MS);
+      const done = (fn: () => void) => {
+        clearTimeout(timer);
+        this.exports.delete(id);
+        fn();
+      };
+      this.exports.set(id, { resolve: (body) => done(() => resolve(body)), reject: (error) => done(() => reject(error)) });
+      this.post({ type: 'export', id, html });
+    });
   }
 
   post(message: ToWebview): void {
@@ -206,8 +291,9 @@ class Preview {
     if (this.disposed) {
       return;
     }
-    const html = renderDocument(this.md, document.getText(), { resolveResource: (src) => this.resolveResource(src), t: vscode.l10n.t });
-    this.post({ type: 'update', uri: this.uri.toString(), html, ...this.host.settings() });
+    const { frontMatter, ...settings } = this.host.settings();
+    const html = renderDocument(this.md, document.getText(), { resolveResource: (src) => this.resolveResource(src), t: vscode.l10n.t, frontMatter });
+    this.post({ type: 'update', uri: this.uri.toString(), html, ...settings });
   }
 
   private async onMessage(message: FromWebview): Promise<void> {
@@ -215,6 +301,7 @@ class Preview {
       case 'ready': {
         this.ready = true;
         await this.update();
+        this.setReady();
         const editor = vscode.window.visibleTextEditors.find((e) => e.document.uri.toString() === this.uri.toString());
         if (editor && this.host.settings().syncEditor) {
           this.post({ type: 'markLine', line: editor.selection.active.line });
@@ -227,6 +314,15 @@ class Preview {
       case 'openLink':
         await this.openLink(message.href);
         break;
+      case 'exported': {
+        const pending = this.exports.get(message.id);
+        if (message.body !== undefined) {
+          pending?.resolve(message.body);
+        } else {
+          pending?.reject(new Error(message.error ?? ''));
+        }
+        break;
+      }
     }
   }
 
@@ -238,24 +334,16 @@ class Preview {
       return;
     }
     const [path, fragment] = href.split('#', 2);
-    const target = this.resolvePath(safeDecode(path));
+    const target = resolveDocumentPath(this.uri, safeDecode(path));
     await vscode.commands.executeCommand('vscode.open', fragment ? target.with({ fragment }) : target);
   }
 
-  private resolvePath(path: string): vscode.Uri {
-    if (path.startsWith('/')) {
-      const folder = vscode.workspace.getWorkspaceFolder(this.uri);
-      return vscode.Uri.joinPath(folder?.uri ?? vscode.Uri.joinPath(this.uri, '..'), path);
-    }
-    return vscode.Uri.joinPath(this.uri, '..', path);
-  }
-
   private resolveResource(src: string): string {
-    if (SCHEME_RE.test(src) || src.startsWith('//') || src.startsWith('#')) {
+    if (isExternalUrl(src)) {
       return src;
     }
     const [path] = src.split(/[?#]/, 1);
-    return this.panel.webview.asWebviewUri(this.resolvePath(safeDecode(path))).toString();
+    return this.panel.webview.asWebviewUri(resolveDocumentPath(this.uri, safeDecode(path))).toString();
   }
 
   private shell(): string {
@@ -275,6 +363,15 @@ class Preview {
     const splitterTitle = escapeHtml(vscode.l10n.t('Drag to resize, double-click to reset'));
     const hideWarningsTitle = escapeHtml(vscode.l10n.t('Hide warnings'));
     const tocTitle = escapeHtml(vscode.l10n.t('Contents'));
+    const zoomTitles = [
+      ['zoom-title', vscode.l10n.t('Zoom diagram')],
+      ['zoom-in-title', vscode.l10n.t('Zoom in')],
+      ['zoom-out-title', vscode.l10n.t('Zoom out')],
+      ['zoom-fit-title', vscode.l10n.t('Fit to window')],
+      ['zoom-close-title', vscode.l10n.t('Close')],
+    ]
+      .map(([name, title]) => ` data-seqnotes-${name}="${escapeHtml(title)}"`)
+      .join('');
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -283,7 +380,7 @@ class Preview {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="${style}">
 </head>
-<body data-seqnotes-splitter-title="${splitterTitle}" data-seqnotes-hide-warnings-title="${hideWarningsTitle}" data-seqnotes-toc-title="${tocTitle}">
+<body data-seqnotes-splitter-title="${splitterTitle}" data-seqnotes-hide-warnings-title="${hideWarningsTitle}" data-seqnotes-toc-title="${tocTitle}"${zoomTitles}>
 <div id="seqnotes-root"></div>
 <script nonce="${n}" src="${script}"></script>
 </body>

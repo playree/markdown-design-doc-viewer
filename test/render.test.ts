@@ -184,6 +184,20 @@ describe('renderDocument', () => {
     expect(html).toMatch(/<h2 id="sn-二" data-line="6" class="seqnotes-unlinked" title="[^"]+" data-seqnotes-mark="no arrow">/);
   });
 
+  it('leaves out the warnings, marks and source lines for an export', () => {
+    const src = doc('---', 'title: T', '---', '```mermaid', '%% @seq-notes', 'sequenceDiagram', 'A->>B: 一', '%% @ref 無い', 'A->>B: 二', '```', '## 一', '## 三');
+    const html = renderDocument(md, src, { forExport: true });
+    expect(html).not.toContain('seqnotes-warnings');
+    expect(html).not.toContain('seqnotes-unlinked');
+    expect(html).not.toContain('data-line');
+    expect(html).not.toContain('unlinked&quot;');
+    expect(html).toContain('<table class="seqnotes-front-matter">');
+    expect(html).toContain('<div class="seqnotes-mermaid" data-seqnotes-meta=');
+    expect(html).toContain('<h2 id="sn-三">三</h2>');
+    // The preview still has them.
+    expect(renderDocument(md, src)).toContain('unlinked&quot;:true');
+  });
+
   it('escapes the mermaid source and embedded metadata', () => {
     const html = renderDocument(md, doc('```mermaid', 'sequenceDiagram', 'A->>B: "</pre><b>', '```'));
     expect(html).not.toMatch(/<b>/);

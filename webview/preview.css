@@ -56,6 +56,16 @@ table { border-collapse: collapse; margin-bottom: 1em; }
 th, td { border: 1px solid var(--seqnotes-border); padding: 4px 10px; }
 th { background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1)); }
 
+/* YAML front matter, shown as the document's metadata */
+.seqnotes-front-matter { font-size: 0.9em; }
+.seqnotes-front-matter th {
+  text-align: left;
+  font-weight: normal;
+  color: var(--seqnotes-muted);
+  background: none;
+}
+.seqnotes-front-matter td { white-space: pre-wrap; }
+
 img { max-width: 100%; }
 hr { border: 0; border-top: 1px solid var(--seqnotes-border); }
 
@@ -114,7 +124,81 @@ body:is(.vscode-light, .vscode-high-contrast-light) {
 /* ---------------------------------------------------------------- Diagrams */
 
 .seqnotes-mermaid { margin: 1em 0; }
+.seqnotes-diagram { position: relative; }
 .seqnotes-diagram svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+
+/* ---------------------------------------------------------------- Diagram zoom */
+
+.seqnotes-zoom-button,
+.seqnotes-zoom-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--vscode-icon-foreground, currentColor);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.seqnotes-zoom-button:hover,
+.seqnotes-zoom-toolbar button:hover { background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2)); }
+.seqnotes-zoom-button:focus-visible,
+.seqnotes-zoom-toolbar button:focus-visible { outline: 1px solid var(--vscode-focusBorder); }
+
+/* Shown over the top right corner of a diagram while hovering it. */
+.seqnotes-zoom-button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  opacity: 0;
+  border: 1px solid var(--vscode-editorWidget-border, var(--seqnotes-border));
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  transition: opacity 0.15s;
+}
+.seqnotes-diagram:hover > .seqnotes-zoom-button,
+.seqnotes-zoom-button:focus-visible { opacity: 1; }
+
+.seqnotes-zoom {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  overflow: hidden;
+  background: var(--vscode-editor-background);
+  outline: none;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.seqnotes-zoom[hidden] { display: none; }
+
+.seqnotes-zoom-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+.seqnotes-zoom-stage svg { display: block; }
+.seqnotes-zoom.seqnotes-zoom-dragging { cursor: grabbing; }
+
+.seqnotes-zoom-toolbar {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--vscode-editorWidget-border, var(--seqnotes-border));
+  border-radius: 6px;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.36));
+}
 .seqnotes-mermaid-src { white-space: pre; }
 
 .seqnotes-error-message {

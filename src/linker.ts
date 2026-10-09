@@ -13,6 +13,20 @@ export interface LinkedMessage extends SequenceMessage {
   numberInHeading?: boolean;
 }
 
+/** A top-level heading in the overview range of a paired diagram. */
+export interface OverviewHeading {
+  /** Token index of the `heading_open`. */
+  index: number;
+  id: string;
+  level: number;
+  /** 0-based line in the Markdown document. */
+  line: number;
+  /** Normalized heading text, as compared with the arrows. */
+  text: string;
+  /** true when `%% @ref <text>` links to this heading: it is the first heading of the range with the text. */
+  refTarget: boolean;
+}
+
 export interface DiagramInfo {
   /** Sequential number of the sequence diagram in the document. */
   id: number;
@@ -25,6 +39,10 @@ export interface DiagramInfo {
    * most linked headings have. Empty when the diagram links to no heading at all.
    */
   unlinkedHeadings: number[];
+  /** Top-level headings of the overview range, in document order. Only filled when `paired`. */
+  headings: OverviewHeading[];
+  /** Heading level of the steps (see `stepLevel`). Undefined when no message is linked. */
+  stepLevel?: number;
   /** true when the diagram has a `%% @seq-notes` marker and is top-level, so it is laid out side by side. */
   paired: boolean;
 }
@@ -43,7 +61,7 @@ export function isMermaidFence(token: Token): boolean {
   return token.type === 'fence' && token.info.trim().split(/\s+/)[0] === 'mermaid';
 }
 
-function isSequenceFence(token: Token): boolean {
+export function isSequenceFence(token: Token): boolean {
   return isMermaidFence(token) && isSequenceDiagram(token.content);
 }
 
@@ -119,7 +137,8 @@ export function linkDiagrams(tokens: Token[], translate: Translate = formatMessa
         });
       }
       const paired = markerLine !== undefined && token.level === 0;
-      return { id, fenceIndex: index, rangeEnd: index + 1, messages, unlinkedHeadings: [], paired };
+      const diagram: DiagramInfo = { id, fenceIndex: index, rangeEnd: index + 1, messages, unlinkedHeadings: [], headings: [], paired };
+      return diagram;
     });
 
   const pairedFences = new Set(diagrams.filter((d) => d.paired).map((d) => d.fenceIndex));
@@ -140,16 +159,16 @@ export function linkDiagrams(tokens: Token[], translate: Translate = formatMessa
     // Numbered headings (`3. Fetch user`) by their text without the number, used when no heading matches exactly.
     const numberedHeadings = new Map<string, string[]>();
     const steps = new Map<string, StepNumber>();
-    const headingTokens: { index: number; id: string; level: number }[] = [];
+    const headingTokens = diagram.headings;
     for (let i = index + 1; i < end; i++) {
       const t = tokens[i];
       const id = t.type === 'heading_open' ? t.attrGet('id') : null;
       if (id) {
         // Headings inside lists or blockquotes are not steps of the overview.
-        if (t.level === 0) {
-          headingTokens.push({ index: i, id: String(id), level: Number(t.tag.slice(1)) });
-        }
         const key = normalizeLabel(headingText(tokens[i + 1]));
+        if (t.level === 0) {
+          headingTokens.push({ index: i, id: String(id), level: Number(t.tag.slice(1)), line: t.map?.[0] ?? 0, text: key, refTarget: !headings.has(key) });
+        }
         if (!headings.has(key)) {
           headings.set(key, String(id));
         }
@@ -189,6 +208,7 @@ export function linkDiagrams(tokens: Token[], translate: Translate = formatMessa
       message.unlinked = true;
     }
     const level = stepLevel(headingTokens.filter((h) => targets.has(h.id)).map((h) => h.level));
+    diagram.stepLevel = level;
     diagram.unlinkedHeadings = headingTokens.filter((h) => h.level === level && !targets.has(h.id)).map((h) => h.index);
   }
 

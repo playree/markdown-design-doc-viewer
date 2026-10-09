@@ -1,0 +1,64 @@
+/*
+ * Styles added to webview.css in an exported HTML file: the values VS Code gives the preview
+ * (Light Modern theme), and the layout for printing.
+ */
+
+:root {
+  --vscode-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, "Noto Sans JP", sans-serif;
+  --vscode-markdown-font-family: var(--vscode-font-family);
+  --vscode-markdown-font-size: 14px;
+  --vscode-markdown-line-height: 1.6;
+  --vscode-editor-font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --vscode-editor-background: #ffffff;
+  --vscode-editor-foreground: #3b3b3b;
+  --vscode-foreground: #3b3b3b;
+  --vscode-descriptionForeground: #717171;
+  --vscode-icon-foreground: #3b3b3b;
+  --vscode-errorForeground: #f85149;
+  --vscode-focusBorder: #005fb8;
+  --vscode-textLink-foreground: #005fb8;
+  --vscode-textLink-activeForeground: #005fb8;
+  --vscode-textCodeBlock-background: #f3f3f3;
+  --vscode-textBlockQuote-border: #e5e5e5;
+  --vscode-textBlockQuote-foreground: #616161;
+  --vscode-panel-border: #e5e5e5;
+  --vscode-editorLineNumber-activeForeground: #171184;
+  --vscode-editorWidget-background: #f8f8f8;
+  --vscode-editorWidget-border: #c8c8c8;
+  --vscode-widget-shadow: rgba(0, 0, 0, 0.16);
+  --vscode-list-hoverBackground: #f2f2f2;
+  --vscode-toolbar-hoverBackground: rgba(184, 184, 184, 0.31);
+  --vscode-sash-hoverBorder: #005fb8;
+  --vscode-inputValidation-warningBackground: #f6f5d2;
+  --vscode-inputValidation-warningBorder: #b89500;
+  --vscode-charts-blue: #1a85ff;
+  --vscode-charts-green: #388a34;
+  --vscode-charts-purple: #652d90;
+  --vscode-charts-red: #e51400;
+  --vscode-charts-yellow: #bf8803;
+}
+
+body.seqnotes-export {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 16px 26px 40px;
+}
+
+/* No splitter in an exported file: the gap takes its place. */
+body.seqnotes-export.seqnotes-wide .seqnotes-pair {
+  grid-template-columns: minmax(0, var(--seqnotes-split, 55%)) minmax(0, 1fr);
+  column-gap: 24px;
+}
+
+@media print {
+  body.seqnotes-export { max-width: none; padding: 0; }
+
+  /* In case the layout script did not run (e.g. printed without scripts). */
+  body.seqnotes-wide .seqnotes-pair { display: block; }
+  body.seqnotes-wide .seqnotes-seq-col { position: static; max-height: none; overflow: visible; }
+  .seqnotes-splitter { display: none !important; }
+
+  .seqnotes-section.seqnotes-active { background: none; border-left-color: transparent; }
+  .seqnotes-diagram, pre, table, .markdown-alert { break-inside: avoid; }
+  h1, h2, h3, h4, h5, h6 { break-after: avoid; }
+}

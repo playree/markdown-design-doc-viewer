@@ -3,7 +3,7 @@ import mermaid from 'mermaid';
 import type { FromWebview, ToWebview, WebviewState } from '../src/protocol';
 import type { DiagramMeta } from '../src/render';
 import { normalizeLabel } from '../src/sequence';
-import { HEADING_ID_PREFIX, slugify } from '../src/slug';
+import { activeFor, isWide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, type Active } from './linking';
 
 interface VsCodeApi {
   postMessage(message: FromWebview): void;
@@ -12,15 +12,9 @@ interface VsCodeApi {
 }
 declare function acquireVsCodeApi(): VsCodeApi;
 
-interface Active {
-  pair: Element;
-  target: string;
-}
-
 const vscode = acquireVsCodeApi();
 const root = document.getElementById('seqnotes-root')!;
 
-const ACTIVE = 'seqnotes-active';
 const CURRENT = 'seqnotes-current';
 const HEADING_RE = /^H([1-6])$/;
 
@@ -36,8 +30,6 @@ let dismissedWarnings: string | undefined;
 
 // ---------------------------------------------------------------------------
 // Layout
-
-const isWide = (): boolean => document.body.classList.contains('seqnotes-wide');
 
 function applyLayout(): void {
   document.body.classList.toggle('seqnotes-wide', window.innerWidth >= splitMinWidth);
@@ -104,13 +96,25 @@ let renderedDark = isDarkTheme();
 /** SVGs of the previous render keyed by theme + source, so unchanged diagrams are not re-rendered on every edit. */
 let svgCache = new Map<string, string>();
 
-async function renderDiagrams(container: HTMLElement, seq: number): Promise<void> {
-  renderedDark = isDarkTheme();
+/** mermaid source of each rendered diagram, so that the zoom overlay can follow its diagram across updates. */
+const diagramSources = new WeakMap<Element, string>();
+
+/** mermaid is configured globally, so renders run one at a time. */
+let renderQueue: Promise<unknown> = Promise.resolve();
+
+function queueRender<T>(render: () => Promise<T>): Promise<T> {
+  const result = renderQueue.then(render);
+  renderQueue = result.catch(() => undefined);
+  return result;
+}
+
+/** Renders the mermaid blocks of `container` and returns the SVGs it used, keyed like `svgCache`. */
+async function renderDiagrams(container: HTMLElement, idPrefix: string, dark: boolean): Promise<Map<string, string>> {
   const cache = new Map<string, string>();
   mermaid.initialize({
     startOnLoad: false,
     securityLevel: 'strict',
-    theme: renderedDark ? 'dark' : 'default',
+    theme: dark ? 'dark' : 'default',
     fontFamily: getComputedStyle(document.body).fontFamily,
   });
 
@@ -119,9 +123,9 @@ async function renderDiagrams(container: HTMLElement, seq: number): Promise<void
     const pre = block.querySelector('.seqnotes-mermaid-src');
     const metaJson = block.getAttribute('data-seqnotes-meta');
     const meta = metaJson ? (JSON.parse(metaJson) as DiagramMeta) : undefined;
-    const id = `seqnotes-svg-${seq}-${i}`;
+    const id = `${idPrefix}-${i}`;
     const source = pre?.textContent ?? '';
-    const key = `${renderedDark}\n${source}`;
+    const key = `${dark}\n${source}`;
     try {
       // A cached SVG carries the element ids of its first render, so reuse it only once per document.
       const cached = cache.has(key) ? undefined : svgCache.get(key);
@@ -130,6 +134,7 @@ async function renderDiagrams(container: HTMLElement, seq: number): Promise<void
       const holder = document.createElement('div');
       holder.className = 'seqnotes-diagram';
       holder.innerHTML = svg;
+      diagramSources.set(holder, source);
       pre?.replaceWith(holder);
       const svgEl = holder.querySelector('svg');
       if (meta && svgEl) {
@@ -144,7 +149,16 @@ async function renderDiagrams(container: HTMLElement, seq: number): Promise<void
       block.prepend(message);
     }
   }
-  svgCache = cache;
+  return cache;
+}
+
+/** Sanitizes the HTML from the extension host and renders its diagrams into a new element. */
+async function buildContent(html: string, idPrefix: string, dark: boolean): Promise<{ content: HTMLElement; cache: Map<string, string> }> {
+  const content = document.createElement('div');
+  // Raw HTML in Markdown is allowed, so sanitize like the built-in preview does.
+  content.append(DOMPurify.sanitize(html, { RETURN_DOM_FRAGMENT: true }));
+  const cache = await queueRender(() => renderDiagrams(content, idPrefix, dark));
+  return { content, cache };
 }
 
 /** Ties the SVG elements of each message (label texts + arrow) to the parsed message data. */
@@ -281,10 +295,11 @@ function headingLevel(el: Element): number | undefined {
 async function update(html: string): Promise<void> {
   lastHtml = html;
   const seq = ++renderSeq;
-  const next = document.createElement('div');
-  // Raw HTML in Markdown is allowed, so sanitize like the built-in preview does.
-  next.append(DOMPurify.sanitize(html, { RETURN_DOM_FRAGMENT: true }));
-  await renderDiagrams(next, seq);
+  // Set before rendering, so that other class changes of the body do not start another update meanwhile.
+  const dark = (renderedDark = isDarkTheme());
+  const { content: next, cache } = await buildContent(html, `seqnotes-svg-${seq}`, dark);
+  // Kept even when a newer update is waiting: it renders next and can reuse these.
+  svgCache = cache;
   if (seq !== renderSeq) {
     return;
   }
@@ -299,6 +314,10 @@ async function update(html: string): Promise<void> {
     addSplitter(pair);
   });
   setUpWarnings();
+  addZoomButtons();
+  if (zoom) {
+    setZoomSvg();
+  }
 
   window.scrollTo(0, scrollY);
   root.querySelectorAll('.seqnotes-seq-col').forEach((col, i) => (col.scrollTop = colScroll[i] ?? 0));
@@ -473,47 +492,7 @@ new ResizeObserver(scheduleTocCurrent).observe(root);
 // Message <-> heading highlighting
 
 function showActive(active: Active | undefined): void {
-  root.querySelectorAll(`.${ACTIVE}`).forEach((el) => el.classList.remove(ACTIVE));
-  if (!active) {
-    return;
-  }
-  const target = CSS.escape(active.target);
-  active.pair.querySelectorAll(`[data-seqnotes-target="${target}"], [data-seqnotes-section="${target}"]`).forEach((el) => el.classList.add(ACTIVE));
-}
-
-/** The message or linked heading under an event target. */
-function activeFor(el: Element | null): (Active & { kind: 'message' | 'heading' }) | undefined {
-  const pair = el?.closest('.seqnotes-pair');
-  if (!el || !pair) {
-    return undefined;
-  }
-  const message = el.closest('[data-seqnotes-target]');
-  if (message) {
-    return { pair, target: message.getAttribute('data-seqnotes-target')!, kind: 'message' };
-  }
-  // Only the heading that owns the section; unlinked sub-headings inside it do not count.
-  const heading = el.closest(':is(h1, h2, h3, h4, h5, h6)[id]');
-  if (heading && heading.parentElement?.getAttribute('data-seqnotes-section') === heading.id) {
-    return { pair, target: heading.id, kind: 'heading' };
-  }
-  return undefined;
-}
-
-function scrollColumnTo(el: Element, smooth: boolean): void {
-  const col = el.closest('.seqnotes-seq-col');
-  const behavior: ScrollBehavior = smooth ? 'smooth' : 'auto';
-  if (col && isWide()) {
-    const r = el.getBoundingClientRect();
-    const c = col.getBoundingClientRect();
-    col.scrollBy({ top: r.top - c.top - c.height / 2, behavior });
-    // The sticky column itself may be off screen when the pair is only partly visible.
-    const pr = col.parentElement!.getBoundingClientRect();
-    if (pr.top > 0 || pr.bottom < window.innerHeight / 2) {
-      col.parentElement!.scrollIntoView({ block: 'start', behavior });
-    }
-  } else {
-    el.scrollIntoView({ block: 'center', behavior });
-  }
+  showActiveIn(root, active);
 }
 
 root.addEventListener('mouseover', (e) => showActive(activeFor(e.target as Element) ?? pinned));
@@ -528,24 +507,23 @@ root.addEventListener('click', (e) => {
     return;
   }
   const active = activeFor(target);
-  if (!active) {
-    return;
-  }
-  pinned = { pair: active.pair, target: active.target };
-  showActive(pinned);
-  const escaped = CSS.escape(active.target);
-  if (active.kind === 'message') {
-    // 'nearest' keeps the page still when the section is already visible, so the sticky diagram stays in view.
-    active.pair.querySelector(`[data-seqnotes-section="${escaped}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  } else {
-    const arrow = active.pair.querySelector(`[data-et="message"][data-seqnotes-target="${escaped}"]`);
-    if (arrow) {
-      scrollColumnTo(arrow, true);
-    }
+  if (active) {
+    activate(active);
   }
 });
 
+/** Pins a clicked message or heading and scrolls its counterpart into view. */
+function activate(active: Active & { kind: 'message' | 'heading' }): void {
+  pinned = { pair: active.pair, target: active.target };
+  showActive(pinned);
+  revealCounterpart(active);
+}
+
 document.addEventListener('keydown', (e) => {
+  if (zoom) {
+    zoomKey(e);
+    return;
+  }
   if (e.key === 'Escape') {
     pinned = undefined;
     showActive(undefined);
@@ -554,21 +532,282 @@ document.addEventListener('keydown', (e) => {
 
 function openLink(href: string): void {
   if (href.startsWith('#')) {
-    let name = href.slice(1);
-    try {
-      name = decodeURIComponent(name);
-    } catch {
-      // keep the raw fragment
-    }
-    const target =
-      document.getElementById(HEADING_ID_PREFIX + name) ??
-      document.getElementById(HEADING_ID_PREFIX + slugify(name)) ??
-      document.getElementById(name);
-    target?.scrollIntoView({ block: 'start' });
+    scrollToFragment(href);
   } else {
     vscode.postMessage({ type: 'openLink', href });
   }
 }
+
+// ---------------------------------------------------------------------------
+// Export
+
+/**
+ * Renders the HTML of an exported file (`renderDocument` with `forExport`) with the light theme,
+ * and returns the body without the data only the preview script uses.
+ */
+async function exportBody(id: number, html: string): Promise<string> {
+  const { content } = await buildContent(html, `seqnotes-export-${id}`, false);
+  content.querySelectorAll('.seqnotes-pair').forEach(wrapSections);
+  for (const attr of ['data-seqnotes-meta', 'data-seqnotes-line']) {
+    content.querySelectorAll(`[${attr}]`).forEach((el) => el.removeAttribute(attr));
+  }
+  return content.innerHTML;
+}
+
+// ---------------------------------------------------------------------------
+// Diagram zoom
+
+const ZOOM_STEP = 1.25;
+const MIN_SCALE = 0.05;
+const MAX_SCALE = 20;
+/** Space kept around a diagram fitted to the overlay, in px. */
+const ZOOM_MARGIN = 24;
+/** A pointer that moves farther than this (px) pans instead of clicking. */
+const DRAG_THRESHOLD = 4;
+
+const ZOOM_ICON =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10 10l4.5 4.5M4.5 6.5h4M6.5 4.5v4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+const FIT_ICON =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+
+interface Zoom {
+  /** Index of the diagram among the `.seqnotes-diagram`s of the document. */
+  index: number;
+  /** Its mermaid source and the number of diagrams, to find it again after an update. */
+  source: string | undefined;
+  count: number;
+  /** true while the whole diagram is shown, so that it is fitted again when the window is resized. */
+  fitted: boolean;
+  scale: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** The open zoom overlay, if any. */
+let zoom: Zoom | undefined;
+
+const zoomOverlay = document.createElement('div');
+zoomOverlay.className = 'seqnotes-zoom';
+zoomOverlay.hidden = true;
+zoomOverlay.tabIndex = -1;
+const zoomStage = document.createElement('div');
+zoomStage.className = 'seqnotes-zoom-stage';
+const zoomToolbar = document.createElement('div');
+zoomToolbar.className = 'seqnotes-zoom-toolbar';
+
+/** A toolbar button. Titles are translated by the extension host (`shell()` in previewPanel.ts). */
+function zoomButton(content: string, title: string | undefined, onClick: () => void): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.innerHTML = content;
+  button.title = title ?? '';
+  button.setAttribute('aria-label', button.title);
+  button.addEventListener('click', onClick);
+  return button;
+}
+
+const zoomCenter = (): [number, number] => [zoomOverlay.clientWidth / 2, zoomOverlay.clientHeight / 2];
+const titles = document.body.dataset;
+zoomToolbar.append(
+  zoomButton('+', titles.seqnotesZoomInTitle, () => zoomAt(ZOOM_STEP, ...zoomCenter())),
+  zoomButton('&minus;', titles.seqnotesZoomOutTitle, () => zoomAt(1 / ZOOM_STEP, ...zoomCenter())),
+  zoomButton(FIT_ICON, titles.seqnotesZoomFitTitle, () => fitZoom()),
+  zoomButton('&times;', titles.seqnotesZoomCloseTitle, () => closeZoom()),
+);
+zoomOverlay.append(zoomStage, zoomToolbar);
+// Outside the root, so the arrow / heading handlers on it do not see the events.
+document.body.append(zoomOverlay);
+
+const diagramHolders = (): Element[] => Array.from(root.querySelectorAll('.seqnotes-diagram'));
+
+/** Adds a button that opens the diagram in the zoom overlay, shown when hovering it. */
+function addZoomButtons(): void {
+  diagramHolders().forEach((holder, index) => {
+    const button = zoomButton(ZOOM_ICON, titles.seqnotesZoomTitle, () => openZoom(index));
+    button.className = 'seqnotes-zoom-button';
+    // Not a jump to the source line.
+    button.addEventListener('dblclick', (e) => e.stopPropagation());
+    holder.prepend(button);
+  });
+}
+
+function openZoom(index: number): void {
+  const holders = diagramHolders();
+  zoom = { index, source: diagramSources.get(holders[index]), count: holders.length, fitted: true, scale: 1, x: 0, y: 0, width: 0, height: 0 };
+  zoomOverlay.hidden = false;
+  if (setZoomSvg()) {
+    fitZoom();
+    zoomOverlay.focus();
+  }
+}
+
+function closeZoom(): void {
+  zoom = undefined;
+  zoomOverlay.hidden = true;
+  zoomStage.replaceChildren();
+}
+
+/** Puts a copy of the diagram into the overlay, keeping the scale and position. Closes it when the diagram is gone. */
+function setZoomSvg(): boolean {
+  const holders = diagramHolders();
+  if (zoom) {
+    // The same diagram: still at its place (which tells apart diagrams with the same source), or moved.
+    // When it was edited, the one at the same place if no diagram was added or removed.
+    const unmoved = diagramSources.get(holders[zoom.index]) === zoom.source;
+    const index = unmoved ? zoom.index : holders.findIndex((holder) => diagramSources.get(holder) === zoom!.source);
+    zoom.index = index >= 0 ? index : holders.length === zoom.count ? zoom.index : -1;
+    zoom.source = diagramSources.get(holders[zoom.index]);
+    zoom.count = holders.length;
+  }
+  const svg = zoom && holders[zoom.index]?.querySelector<SVGSVGElement>(':scope > svg');
+  if (!zoom || !svg) {
+    closeZoom();
+    return false;
+  }
+  const box = svg.viewBox.baseVal;
+  const rect = svg.getBoundingClientRect();
+  zoom.width = box?.width || rect.width;
+  zoom.height = box?.height || rect.height;
+  const copy = svg.cloneNode(true) as SVGSVGElement;
+  // mermaid sizes the SVG to its container with a max-width.
+  copy.removeAttribute('style');
+  copy.setAttribute('width', String(zoom.width));
+  copy.setAttribute('height', String(zoom.height));
+  zoomStage.replaceChildren(copy);
+  applyZoom();
+  return true;
+}
+
+function applyZoom(): void {
+  if (zoom) {
+    zoomStage.style.transform = `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.scale})`;
+  }
+}
+
+/** Shows the whole diagram in the middle of the overlay. */
+function fitZoom(): void {
+  if (!zoom || zoom.width === 0 || zoom.height === 0) {
+    return;
+  }
+  const width = zoomOverlay.clientWidth;
+  const height = zoomOverlay.clientHeight;
+  zoom.scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, Math.min((width - 2 * ZOOM_MARGIN) / zoom.width, (height - 2 * ZOOM_MARGIN) / zoom.height)));
+  zoom.x = (width - zoom.width * zoom.scale) / 2;
+  zoom.y = (height - zoom.height * zoom.scale) / 2;
+  zoom.fitted = true;
+  applyZoom();
+}
+
+/** Scales by `factor` keeping the point (x, y) of the overlay where it is. */
+function zoomAt(factor: number, x: number, y: number): void {
+  if (!zoom) {
+    return;
+  }
+  const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, zoom.scale * factor));
+  zoom.x = x - ((x - zoom.x) * scale) / zoom.scale;
+  zoom.y = y - ((y - zoom.y) * scale) / zoom.scale;
+  zoom.scale = scale;
+  zoom.fitted = false;
+  applyZoom();
+}
+
+function zoomKey(e: KeyboardEvent): void {
+  const [x, y] = zoomCenter();
+  switch (e.key) {
+    case 'Escape':
+      closeZoom();
+      break;
+    case '+':
+    case '=':
+      zoomAt(ZOOM_STEP, x, y);
+      break;
+    case '-':
+      zoomAt(1 / ZOOM_STEP, x, y);
+      break;
+    case '0':
+      fitZoom();
+      break;
+    default:
+      return;
+  }
+  e.preventDefault();
+}
+
+zoomOverlay.addEventListener(
+  'wheel',
+  (e) => {
+    e.preventDefault();
+    const r = zoomOverlay.getBoundingClientRect();
+    zoomAt(Math.exp(-e.deltaY * 0.002), e.clientX - r.left, e.clientY - r.top);
+  },
+  { passive: false },
+);
+
+/** true while the pointer pans, so that releasing it is not taken as a click. */
+let zoomDragged = false;
+
+// On the whole overlay, so that the empty space around a small diagram pans it too.
+zoomOverlay.addEventListener('pointerdown', (e) => {
+  if (!zoom || e.button !== 0 || zoomToolbar.contains(e.target as Node)) {
+    return;
+  }
+  const start = { x: e.clientX, y: e.clientY, zoomX: zoom.x, zoomY: zoom.y };
+  zoomDragged = false;
+  const move = (ev: PointerEvent) => {
+    const dx = ev.clientX - start.x;
+    const dy = ev.clientY - start.y;
+    if (!zoomDragged && Math.hypot(dx, dy) < DRAG_THRESHOLD) {
+      return;
+    }
+    if (!zoomDragged) {
+      // Captured only now: a capture from the start would make a click on an arrow target the overlay.
+      zoomDragged = true;
+      zoomOverlay.setPointerCapture(ev.pointerId);
+      zoomOverlay.classList.add('seqnotes-zoom-dragging');
+    }
+    if (zoom) {
+      zoom.x = start.zoomX + dx;
+      zoom.y = start.zoomY + dy;
+      zoom.fitted = false;
+      applyZoom();
+    }
+  };
+  const up = () => {
+    zoomOverlay.classList.remove('seqnotes-zoom-dragging');
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    window.removeEventListener('pointercancel', up);
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', up);
+});
+
+zoomOverlay.addEventListener('dblclick', (e) => {
+  if (!zoomToolbar.contains(e.target as Node)) {
+    fitZoom();
+  }
+});
+
+// A linked arrow in the overlay: close it and show the step, like a click on the arrow in the preview.
+zoomStage.addEventListener('click', (e) => {
+  const message = (e.target as Element).closest('[data-seqnotes-target]');
+  const pair = zoom && diagramHolders()[zoom.index]?.closest('.seqnotes-pair');
+  if (zoomDragged || !message || !pair) {
+    return;
+  }
+  closeZoom();
+  activate({ pair, target: message.getAttribute('data-seqnotes-target')!, kind: 'message' });
+});
+
+// Not after the user zoomed or panned: they would lose their place, e.g. when a side bar is toggled.
+window.addEventListener('resize', () => {
+  if (zoom?.fitted) {
+    fitZoom();
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Editor sync
@@ -688,6 +927,12 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       break;
     case 'markLine':
       markLine(message.line, true);
+      break;
+    case 'export':
+      exportBody(message.id, message.html).then(
+        (body) => vscode.postMessage({ type: 'exported', id: message.id, body }),
+        (error: unknown) => vscode.postMessage({ type: 'exported', id: message.id, error: error instanceof Error ? error.message : String(error) }),
+      );
       break;
   }
 });

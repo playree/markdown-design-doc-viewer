@@ -3,7 +3,7 @@
  * by itself: YAML front matter, GitHub alerts and task lists, plus code highlighting.
  */
 import hljs from 'highlight.js/lib/common';
-import type { MarkdownIt, StateBlock, StateCore, Token } from 'markdown-it';
+import type { Env, MarkdownIt, StateBlock, StateCore, Token } from 'markdown-it';
 
 /** `highlight` option of markdown-it. An empty string makes markdown-it escape the code itself. */
 export function highlight(code: string, lang: string): string {
@@ -21,22 +21,100 @@ export function highlight(code: string, lang: string): string {
 // Keys may be non-ASCII (`タイトル:`) or quoted.
 const YAML_KEY_RE = /^(?:"[^"]*"|'[^']*'|[^\s#:"'-][^:]*?)\s*:(?:\s|$)/;
 
-/** Hides a YAML front matter block at the top of the document, like the built-in preview does by default. */
+/** A top-level entry of a front matter block, as shown in the preview. */
+export interface FrontMatterEntry {
+  key: string;
+  value: string;
+}
+
+const unquote = (s: string): string => (/^(["']).*\1$/.test(s) ? s.slice(1, -1) : s);
+
+/** Drops a trailing ` # comment` from a value. A `#` inside quotes or without a space before it is part of the value. */
+function stripComment(s: string): string {
+  const quoted = /^(["'])(?:(?!\1).)*\1/.exec(s);
+  if (quoted) {
+    return /^\s*(?:#.*)?$/.test(s.slice(quoted[0].length)) ? quoted[0] : s;
+  }
+  const comment = /(?:^|\s)#/.exec(s);
+  return comment ? s.slice(0, comment.index).trimEnd() : s;
+}
+
+/**
+ * Reads the top-level `key: value` entries of a YAML front matter block, without a YAML parser:
+ * the lines that follow a key (indented or not) are its value. A list (`- item` or `[a, b]`) is joined
+ * with commas, a block scalar (`|`, `>`) and other nested values keep their lines.
+ */
+export function parseFrontMatter(yaml: string): FrontMatterEntry[] {
+  const entries: { key: string; rest: string; lines: string[] }[] = [];
+  for (const line of yaml.split(/\r?\n/)) {
+    const m = /^\S/.test(line) ? YAML_KEY_RE.exec(line) : null;
+    if (m) {
+      entries.push({ key: unquote(m[0].replace(/\s*:\s*$/, '')), rest: stripComment(line.slice(m[0].length).trim()), lines: [] });
+    } else if (entries.length > 0 && !/^#/.test(line)) {
+      entries[entries.length - 1].lines.push(line);
+    }
+  }
+  return entries.map(({ key, rest, lines }) => {
+    while (lines.length > 0 && lines[lines.length - 1].trim() === '') {
+      lines.pop();
+    }
+    const indent = Math.min(...lines.filter((l) => l.trim() !== '').map((l) => /^\s*/.exec(l)![0].length));
+    const body = lines.map((l) => l.slice(indent));
+    let value: string;
+    if (/^[|>][+-]?\d*$/.test(rest)) {
+      value = body.join(rest.startsWith('>') ? ' ' : '\n');
+    } else if (rest === '' && body.length > 0 && body.every((l) => /^-(\s|$)/.test(l))) {
+      value = body.map((l) => unquote(stripComment(l.slice(1).trim()))).join(', ');
+    } else if (body.length === 0 && /^\[.*\]$/.test(rest)) {
+      value = rest
+        .slice(1, -1)
+        .split(',')
+        .map((item) => unquote(item.trim()))
+        .filter((item) => item !== '')
+        .join(', ');
+    } else {
+      value = [unquote(rest), ...body].filter((l, i) => i > 0 || l !== '').join('\n');
+    }
+    return { key, value };
+  });
+}
+
+/**
+ * Turns a YAML front matter block at the top of the document into a `front_matter` token, shown as a table
+ * of its entries, or hidden like the built-in preview does when `env.frontMatter` is false.
+ */
 function frontMatter(md: MarkdownIt): void {
-  md.block.ruler.before('table', 'seqnotes_front_matter', (state: StateBlock, startLine: number, endLine: number) => {
+  md.block.ruler.before('table', 'seqnotes_front_matter', (state: StateBlock, startLine: number, endLine: number, silent: boolean) => {
     const line = (n: number): string => state.src.slice(state.bMarks[n], state.eMarks[n]).trimEnd();
     if (startLine !== 0 || state.parentType !== 'root' || line(0) !== '---' || endLine < 2 || !YAML_KEY_RE.test(line(1))) {
       return false;
     }
     for (let n = 1; n < endLine; n++) {
       if (line(n) === '---' || line(n) === '...') {
-        // No token: the lines are skipped, and later blocks keep their source lines.
+        if (!silent) {
+          const token = state.push('front_matter', '', 0);
+          token.block = true;
+          token.map = [0, n + 1];
+          token.content = n > 1 ? state.src.slice(state.bMarks[1], state.eMarks[n - 1]) : '';
+        }
         state.line = n + 1;
         return true;
       }
     }
     return false;
   });
+
+  md.renderer.rules.front_matter = (tokens, idx, _options, env: Env | undefined, self) => {
+    const entries = env?.frontMatter === false ? [] : parseFrontMatter(tokens[idx].content);
+    if (entries.length === 0) {
+      return '';
+    }
+    const escape = md.utils.escapeHtml;
+    const token = tokens[idx];
+    token.attrJoin('class', 'seqnotes-front-matter');
+    const rows = entries.map(({ key, value }) => `<tr><th>${escape(key)}</th><td>${escape(value)}</td></tr>\n`).join('');
+    return `<table${self.renderAttrs(token)}>\n<tbody>\n${rows}</tbody>\n</table>\n`;
+  };
 }
 
 const ALERT_RE = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*(?:\n|$)/i;
