@@ -5,7 +5,7 @@ This file has deliberate mistakes, to show how the preview reports arrows and he
 ## Diagram with mistakes
 
 ```mermaid
-%% @seq-notes
+%% @link-headings
 sequenceDiagram
     autonumber
     participant App
@@ -38,12 +38,12 @@ No arrow is linked to this heading, so it gets a "no arrow" mark.
 
 Arrow 3 (`Cache miss`) has no heading, and the `@ref` of arrow 4 points to a heading that does not exist, which is reported as a warning. Both arrows are shown faded.
 
-<!-- seq-notes:end -->
+<!-- link-headings:end -->
 
 ## Diagram without links
 
 ```mermaid
-%% @seq-notes
+%% @link-headings
 sequenceDiagram
     Client->>Server: Ping
     Server-->>Client: Pong
@@ -53,19 +53,19 @@ sequenceDiagram
 
 No arrow of this diagram is linked, so nothing is faded or marked in the preview. The Problems panel reports it once, at the diagram.
 
-<!-- seq-notes:end -->
+<!-- link-headings:end -->
 
 ## Other warnings
 
-- `%% @seq-notes` has no effect inside a list:
+- `%% @link-headings` has no effect inside a list:
 
   ```mermaid
-  %% @seq-notes
+  %% @link-headings
   sequenceDiagram
       A->>B: Inside a list
   ```
 
-A diagram without `%% @seq-notes` is not paired, so its `@ref` is reported:
+A diagram without `%% @link-headings` is not paired, so its `@ref` is reported:
 
 ```mermaid
 sequenceDiagram

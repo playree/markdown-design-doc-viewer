@@ -1,5 +1,5 @@
 /**
- * Highlighting of the linked arrows and steps, shared by the preview (`main.ts`) and exported HTML (`export.ts`).
+ * Highlighting of the linked arrows / nodes and steps, shared by the preview (`main.ts`) and exported HTML (`export.ts`).
  */
 import { HEADING_ID_PREFIX, slugify } from '../src/slug';
 
@@ -11,7 +11,10 @@ export interface Active {
 
 const ACTIVE = 'seqnotes-active';
 
-export const isWide = (): boolean => document.body.classList.contains('seqnotes-wide');
+const isWide = (): boolean => document.body.classList.contains('seqnotes-wide');
+
+/** true when `el` is in a pair laid out side by side now (a stacked pair never is). */
+export const isSideBySide = (el: Element): boolean => isWide() && !el.closest('.seqnotes-pair-stacked');
 
 /** Highlights the arrows and the section of `active`, and clears the previous highlight in `root`. */
 export function showActive(root: Element, active: Active | undefined): void {
@@ -44,7 +47,7 @@ export function activeFor(el: Element | null): (Active & { kind: 'message' | 'he
 export function scrollColumnTo(el: Element, smooth: boolean): void {
   const col = el.closest('.seqnotes-seq-col');
   const behavior: ScrollBehavior = smooth ? 'smooth' : 'auto';
-  if (col && isWide()) {
+  if (col && isSideBySide(col)) {
     const r = el.getBoundingClientRect();
     const c = col.getBoundingClientRect();
     col.scrollBy({ top: r.top - c.top - c.height / 2, behavior });
@@ -65,9 +68,9 @@ export function revealCounterpart(active: Active & { kind: 'message' | 'heading'
     // 'nearest' keeps the page still when the section is already visible, so the sticky diagram stays in view.
     active.pair.querySelector(`[data-seqnotes-section="${escaped}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   } else {
-    const arrow = active.pair.querySelector(`[data-et="message"][data-seqnotes-target="${escaped}"]`);
-    if (arrow) {
-      scrollColumnTo(arrow, true);
+    const item = active.pair.querySelector(`.seqnotes-item[data-seqnotes-target="${escaped}"]`);
+    if (item) {
+      scrollColumnTo(item, true);
     }
   }
 }

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Breaking: the marker is renamed to fit any diagram kind: `%% @seq-notes` → `%% @link-headings`, and `<!-- seq-notes:end -->` → `<!-- link-headings:end -->`. The old names are no longer recognized: diagrams with only the old marker are shown as plain diagrams, and the old markers are reported as warnings so that you can replace them.
+- Flowcharts (`graph` / `flowchart`) can be linked to their step headings like sequence diagrams: each node is linked to the heading with the text of its label, or with `%% @ref` above the line defining it. Horizontal flowcharts (`LR` / `RL`) are always shown above their steps instead of beside them.
+- `mdDesignDoc.diagramLook` switches the mermaid diagrams to the flat `classic` look, without the shadows of mermaid's default `neo` look.
 - YAML front matter is shown at the top of the preview as a table of the document's metadata (title, version, status...). It can be hidden again with `mdDesignDoc.frontMatter`.
 - `Ctrl+F` / `Cmd+F` searches the preview.
 - In the editor, `%% @ref ` completes the headings of the overview, and the missing-link diagnostics have quick fixes: write a `@ref` to a heading without an arrow, add a heading for the arrow, or fix a broken `@ref`.

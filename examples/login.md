@@ -8,7 +8,7 @@ version: 1.0
 ## Sequence
 
 ```mermaid
-%% @seq-notes
+%% @link-headings
 sequenceDiagram
     actor User
     participant FE as Frontend
@@ -184,11 +184,11 @@ Example response:
 }
 ```
 
-<!-- seq-notes:end -->
+<!-- link-headings:end -->
 
 ## Appendix (not paired)
 
 ```mermaid
 sequenceDiagram
-    A->>B: Diagrams without @seq-notes render normally
+    A->>B: Diagrams without @link-headings render normally
 ```

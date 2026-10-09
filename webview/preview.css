@@ -282,7 +282,7 @@ body:is(.vscode-light, .vscode-high-contrast-light) {
 
 /* ---------------------------------------------------------------- Side-by-side layout */
 
-body.seqnotes-wide .seqnotes-pair {
+body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) {
   display: grid;
   grid-template-columns: minmax(0, var(--seqnotes-split, 55%)) 24px minmax(0, 1fr);
   align-items: stretch;
@@ -311,7 +311,7 @@ body.seqnotes-wide .seqnotes-splitter:active::after {
   background: var(--vscode-sash-hoverBorder, var(--seqnotes-accent));
 }
 
-body.seqnotes-wide .seqnotes-seq-col {
+body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-seq-col {
   align-self: start;
   position: sticky;
   top: 0;
@@ -321,13 +321,13 @@ body.seqnotes-wide .seqnotes-seq-col {
   padding: 8px 0;
 }
 
-body.seqnotes-wide .seqnotes-seq-col .seqnotes-mermaid { margin: 0; }
+body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-seq-col .seqnotes-mermaid { margin: 0; }
 
 /* The overview column starts flush with the diagram. */
-body.seqnotes-wide .seqnotes-overview-col > :first-child,
-body.seqnotes-wide .seqnotes-overview-col > :first-child > :first-child { margin-top: 8px; }
+body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-overview-col > :first-child,
+body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-overview-col > :first-child > :first-child { margin-top: 8px; }
 
-/* ---------------------------------------------------------------- Links between arrows and steps */
+/* ---------------------------------------------------------------- Links between arrows / nodes and steps */
 
 .seqnotes-linked { cursor: pointer; }
 
@@ -349,6 +349,18 @@ body.seqnotes-wide .seqnotes-overview-col > :first-child > :first-child { margin
   stroke-width: 3px !important;
 }
 
+/* Flowchart nodes: the outline of the shape, not what is inside the label. mermaid's own styles use ids, hence !important. */
+.seqnotes-node.seqnotes-linked .nodeLabel { text-decoration: underline dotted; }
+.seqnotes-node.seqnotes-active :is(rect, polygon, circle, ellipse, path, polyline):not(.label *) {
+  stroke: var(--seqnotes-accent) !important;
+  stroke-width: 3px !important;
+}
+.seqnotes-node.seqnotes-active .nodeLabel {
+  color: var(--seqnotes-accent) !important;
+  font-weight: bold;
+}
+.seqnotes-node.seqnotes-active text { fill: var(--seqnotes-accent) !important; font-weight: bold; }
+
 .seqnotes-section {
   display: flow-root;
   margin: 0.8em 0;
@@ -362,11 +374,11 @@ body.seqnotes-wide .seqnotes-overview-col > :first-child > :first-child { margin
   background: var(--seqnotes-accent-bg);
 }
 /* Side by side: a line between top-level linked steps, drawn in the gap so the highlight box is unaffected. */
-body.seqnotes-wide .seqnotes-overview-col > .seqnotes-section ~ .seqnotes-section {
+body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-overview-col > .seqnotes-section ~ .seqnotes-section {
   position: relative;
   margin-top: 1.6em;
 }
-body.seqnotes-wide .seqnotes-overview-col > .seqnotes-section ~ .seqnotes-section::before {
+body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-overview-col > .seqnotes-section ~ .seqnotes-section::before {
   content: '';
   position: absolute;
   top: -0.8em;
@@ -393,8 +405,9 @@ body.seqnotes-wide .seqnotes-overview-col > .seqnotes-section ~ .seqnotes-sectio
   box-sizing: border-box;
 }
 
-/* Arrows without a step, and steps at the level of the linked ones without an arrow. */
+/* Arrows / nodes without a step, and steps at the level of the linked ones without an arrow / node. */
 .messageText.seqnotes-unlinked:not(.seqnotes-current) { opacity: 0.55; }
+.seqnotes-node.seqnotes-unlinked:not(.seqnotes-current) .label { opacity: 0.55; }
 .seqnotes-unlinked:is(h1, h2, h3, h4, h5, h6)::after {
   content: attr(data-seqnotes-mark);
   margin-left: 0.6em;
@@ -414,6 +427,8 @@ body.seqnotes-wide .seqnotes-overview-col > .seqnotes-section ~ .seqnotes-sectio
 }
 .messageText.seqnotes-current { font-weight: bold; text-decoration: underline; }
 .seqnotes-msg.seqnotes-current:not(.seqnotes-hit, .messageText) { stroke-width: 3px !important; }
+.seqnotes-node.seqnotes-current :is(rect, polygon, circle, ellipse, path, polyline):not(.label *) { stroke-width: 3px !important; }
+.seqnotes-node.seqnotes-current .nodeLabel { font-weight: bold; text-decoration: underline; }
 
 /* ---------------------------------------------------------------- Table of contents */
 

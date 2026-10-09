@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { FromWebview, ToWebview, WebviewState } from './protocol';
+import type { DiagramLook, FromWebview, ToWebview, WebviewState } from './protocol';
 import { createMarkdown, escapeHtml, renderDocument } from './render';
 
 const VIEW_TYPE = 'mdDesignDoc.preview';
@@ -18,6 +18,7 @@ export interface Settings {
   syncEditor: boolean;
   toc: boolean;
   frontMatter: boolean;
+  diagramLook: DiagramLook;
 }
 
 export function readSettings(): Settings {
@@ -27,6 +28,7 @@ export function readSettings(): Settings {
     syncEditor: c.get<boolean>('syncEditor', true),
     toc: c.get<boolean>('toc', true),
     frontMatter: c.get<boolean>('frontMatter', true),
+    diagramLook: c.get<string>('diagramLook') === 'classic' ? 'classic' : 'neo',
   };
 }
 

@@ -11,7 +11,7 @@ const SAMPLE = doc(
   '# シーケンス',
   '',
   '```mermaid',
-  '%% @seq-notes',
+  '%% @link-headings',
   'sequenceDiagram',
   '    Auth->>DB: ユーザー情報を取得',
   '    %% @ref トークン発行処理',
@@ -27,7 +27,7 @@ const SAMPLE = doc(
   '',
   '## トークン発行処理',
   '',
-  '<!-- seq-notes:end -->',
+  '<!-- link-headings:end -->',
   '',
   '# 補足',
 );
@@ -46,9 +46,9 @@ describe('linkDiagrams', () => {
 
   it('stops the overview range at the next sequence diagram', () => {
     const src = doc(
-      '```mermaid', 'sequenceDiagram', '%% @seq-notes', 'A->>B: 一', '```',
+      '```mermaid', 'sequenceDiagram', '%% @link-headings', 'A->>B: 一', '```',
       '## 一',
-      '```mermaid', 'sequenceDiagram', '%% @seq-notes', 'A->>B: 二', '```',
+      '```mermaid', 'sequenceDiagram', '%% @link-headings', 'A->>B: 二', '```',
       '## 二',
     );
     const tokens = md.parse(src, {});
@@ -59,7 +59,7 @@ describe('linkDiagrams', () => {
 
   it('extends the overview range over unmarked diagrams', () => {
     const src = doc(
-      '```mermaid', 'sequenceDiagram', '%% @seq-notes', 'A->>B: 一', '```',
+      '```mermaid', 'sequenceDiagram', '%% @link-headings', 'A->>B: 一', '```',
       '```mermaid', 'sequenceDiagram', 'A->>B: 二', '```',
       '## 二',
     );
@@ -72,7 +72,7 @@ describe('linkDiagrams', () => {
   });
 
   it('pairs a marked diagram without links and warns on unresolved @ref', () => {
-    const src = doc('```mermaid', 'sequenceDiagram', '%% @seq-notes', '%% @ref 無い見出し', 'A->>B: x', '```', '## y');
+    const src = doc('```mermaid', 'sequenceDiagram', '%% @link-headings', '%% @ref 無い見出し', 'A->>B: x', '```', '## y');
     const { diagrams, warnings } = linkDiagrams(md.parse(src, {}));
     expect(diagrams[0].paired).toBe(true);
     expect(warnings).toEqual([{ line: 3, message: expect.stringContaining('無い見出し') }]);
@@ -83,28 +83,81 @@ describe('linkDiagrams', () => {
     const { diagrams, warnings } = linkDiagrams(md.parse(src, {}));
     expect(diagrams[0].paired).toBe(false);
     expect(diagrams[0].messages.map((m) => m.target)).toEqual([undefined, undefined]);
-    expect(warnings).toEqual([{ line: 2, message: expect.stringContaining('@seq-notes') }]);
+    expect(warnings).toEqual([{ line: 2, message: expect.stringContaining('@link-headings') }]);
   });
 
   it('warns on a marked diagram nested in a list', () => {
-    const src = doc('- item', '', '  ```mermaid', '  sequenceDiagram', '  %% @seq-notes', '  A->>B: x', '  ```', '## x');
+    const src = doc('- item', '', '  ```mermaid', '  sequenceDiagram', '  %% @link-headings', '  A->>B: x', '  ```', '## x');
     const { diagrams, warnings } = linkDiagrams(md.parse(src, {}));
     expect(diagrams[0].paired).toBe(false);
     expect(warnings).toEqual([{ line: 4, message: expect.stringContaining('list or blockquote') }]);
   });
 
-  it('ignores headings before the diagram and non-sequence mermaid', () => {
-    const src = doc('## x', '```mermaid', 'flowchart TD', '%% @seq-notes', 'A-->B', '```', '```mermaid', 'sequenceDiagram', '%% @seq-notes', 'A->>B: x', '```');
+  it('ignores headings before the diagram and other mermaid diagrams', () => {
+    const src = doc('## x', '```mermaid', 'pie', '%% @link-headings', '"x": 1', '```', '```mermaid', 'sequenceDiagram', '%% @link-headings', 'A->>B: x', '```');
     const { diagrams } = linkDiagrams(md.parse(src, {}));
     expect(diagrams).toHaveLength(1);
     expect(diagrams[0].messages[0].target).toBeUndefined();
   });
 
+  it('does not recognize the old @seq-notes markers but reports them', () => {
+    const src = doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', 'A->>B: x', '```', '## x', '<!-- seq-notes:end -->');
+    const { diagrams, warnings } = linkDiagrams(md.parse(src, {}));
+    expect(diagrams[0].paired).toBe(false);
+    expect(warnings).toEqual([
+      { line: 1, message: '"%% @seq-notes" is no longer supported. Write "%% @link-headings" instead.' },
+      { line: 6, message: '"<!-- seq-notes:end -->" is no longer supported. Write "<!-- link-headings:end -->" instead.' },
+    ]);
+  });
+
+  it('links flowchart nodes and marks horizontal flowcharts as stacked', () => {
+    const src = doc(
+      '```mermaid', '%% @link-headings', 'flowchart TD', '  A[取得] --> B{判定}', '  %% @ref 終了処理', '  B --> C([終了])', '  B --> D', '```',
+      '## 取得', '## 判定', '## 終了処理', '## 予備',
+      '```mermaid', 'graph LR', '  %% @link-headings', '  X[二つ目]', '```',
+      '## 二つ目',
+    );
+    const tokens = md.parse(src, {});
+    const { diagrams, warnings } = linkDiagrams(tokens);
+    expect(warnings).toEqual([]);
+    expect(diagrams.map((d) => [d.kind, d.paired, d.stacked])).toEqual([
+      ['flowchart', true, false],
+      ['flowchart', true, true],
+    ]);
+    const [flow, lr] = diagrams;
+    expect(flow.messages.map((m) => [m.nodeId, m.target, m.unlinked])).toEqual([
+      ['A', hid('取得'), undefined],
+      ['B', hid('判定'), undefined],
+      ['C', hid('終了処理'), undefined],
+      // A node without a label is not marked.
+      ['D', undefined, undefined],
+    ]);
+    expect(flow.rangeEnd).toBe(lr.fenceIndex);
+    expect(flow.unlinkedHeadings.map((i) => tokens[i].attrGet('id'))).toEqual([hid('予備')]);
+    expect(lr.messages[0].target).toBe(hid('二つ目'));
+  });
+
+  it('ends the overview of a sequence diagram at a marked flowchart', () => {
+    const src = doc('```mermaid', '%% @link-headings', 'sequenceDiagram', 'A->>B: 一', '```', '## 一', '```mermaid', '%% @link-headings', 'flowchart TD', 'A[二]', '```', '## 二');
+    const { diagrams } = linkDiagrams(md.parse(src, {}));
+    expect(diagrams.map((d) => d.kind)).toEqual(['sequence', 'flowchart']);
+    expect(diagrams[0].rangeEnd).toBe(diagrams[1].fenceIndex);
+    expect(diagrams.map((d) => d.messages[0].target)).toEqual([hid('一'), hid('二')]);
+  });
+
+  it('words the flowchart warnings for flowcharts', () => {
+    const src = doc('```mermaid', 'flowchart TD', '%% @ref x', 'A[a]', '```', '```mermaid', '%% @link-headings', 'flowchart TD', '%% @ref 無い', 'B[b]', '```');
+    expect(linkDiagrams(md.parse(src, {})).warnings.map((w) => w.message)).toEqual([
+      '@ref is ignored because the flowchart has no "%% @link-headings" marker.',
+      '@ref target heading "無い" was not found after the flowchart.',
+    ]);
+  });
+
   it('collects the unlinked headings at the level most linked headings have', () => {
     const src = doc(
-      '```mermaid', '%% @seq-notes', 'sequenceDiagram', 'A->>B: 一', 'B->>C: 二', '%% @ref 概要', 'C-->>A: 応答', 'A->>A: 無し', '```',
+      '```mermaid', '%% @link-headings', 'sequenceDiagram', 'A->>B: 一', 'B->>C: 二', '%% @ref 概要', 'C-->>A: 応答', 'A->>A: 無し', '```',
       '# 概要', '## 一', '### 詳細', '## 二', '#### 深い', '## 三', '> ## 引用', '',
-      '<!-- seq-notes:end -->',
+      '<!-- link-headings:end -->',
       '## 範囲外',
     );
     const tokens = md.parse(src, {});
@@ -115,7 +168,7 @@ describe('linkDiagrams', () => {
   });
 
   it('marks nothing in a diagram without any link', () => {
-    const tokens = md.parse(doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', 'A->>B: x', '```', '## 見出し'), {});
+    const tokens = md.parse(doc('```mermaid', '%% @link-headings', 'sequenceDiagram', 'A->>B: x', '```', '## 見出し'), {});
     const [d] = linkDiagrams(tokens).diagrams;
     expect(d.unlinkedHeadings).toEqual([]);
     expect(d.messages[0].unlinked).toBeUndefined();
@@ -124,7 +177,7 @@ describe('linkDiagrams', () => {
 
 describe('numbered headings', () => {
   const src = doc(
-    '```mermaid', '%% @seq-notes', 'sequenceDiagram', 'autonumber', 'A->>B: 取得', 'B-->>A: 結果', 'A->>A: 保存', '```',
+    '```mermaid', '%% @link-headings', 'sequenceDiagram', 'autonumber', 'A->>B: 取得', 'B-->>A: 結果', 'A->>A: 保存', '```',
     '## 1. 取得', '## 2) 結果', '## 保存', '## 4. 保存',
   );
 
@@ -158,7 +211,7 @@ describe('numbered headings', () => {
   });
 
   it('picks the heading with the arrow number among headings with the same text', () => {
-    const tokens = md.parse(doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', 'autonumber', 'A->>B: 取得', 'B->>C: 取得', '```', '## 1. 取得', '## 2. 取得'), {});
+    const tokens = md.parse(doc('```mermaid', '%% @link-headings', 'sequenceDiagram', 'autonumber', 'A->>B: 取得', 'B->>C: 取得', '```', '## 1. 取得', '## 2. 取得'), {});
     const { diagrams, warnings } = linkDiagrams(tokens);
     expect(diagrams[0].messages.map((m) => m.target)).toEqual([hid('1. 取得'), hid('2. 取得')]);
     expect(warnings).toEqual([]);
@@ -179,13 +232,22 @@ describe('renderDocument', () => {
   });
 
   it('marks the unlinked headings', () => {
-    const html = renderDocument(md, doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', 'A->>B: 一', '```', '## 一', '## 二'));
+    const html = renderDocument(md, doc('```mermaid', '%% @link-headings', 'sequenceDiagram', 'A->>B: 一', '```', '## 一', '## 二'));
     expect(html).toContain('<h2 id="sn-一" data-line="5">');
     expect(html).toMatch(/<h2 id="sn-二" data-line="6" class="seqnotes-unlinked" title="[^"]+" data-seqnotes-mark="no arrow">/);
   });
 
+  it('renders flowcharts with their node ids and stacks horizontal ones', () => {
+    const html = renderDocument(md, doc('```mermaid', '%% @link-headings', 'graph LR', 'A[一] --> B[二]', '```', '## 一', '## 予備'));
+    expect(html).toContain('<div class="seqnotes-pair seqnotes-pair-stacked" data-diagram="0">');
+    expect(html).toContain('&quot;kind&quot;:&quot;flowchart&quot;');
+    expect(html).toContain('&quot;nodeId&quot;:&quot;A&quot;');
+    expect(html).toMatch(/<h2 id="sn-予備" data-line="6" class="seqnotes-unlinked" title="No node in the flowchart is linked to this heading." data-seqnotes-mark="no node">/);
+    expect(renderDocument(md, doc('```mermaid', '%% @link-headings', 'graph TD', 'A[一]', '```', '## 一'))).toContain('<div class="seqnotes-pair" data-diagram="0">');
+  });
+
   it('leaves out the warnings, marks and source lines for an export', () => {
-    const src = doc('---', 'title: T', '---', '```mermaid', '%% @seq-notes', 'sequenceDiagram', 'A->>B: 一', '%% @ref 無い', 'A->>B: 二', '```', '## 一', '## 三');
+    const src = doc('---', 'title: T', '---', '```mermaid', '%% @link-headings', 'sequenceDiagram', 'A->>B: 一', '%% @ref 無い', 'A->>B: 二', '```', '## 一', '## 三');
     const html = renderDocument(md, src, { forExport: true });
     expect(html).not.toContain('seqnotes-warnings');
     expect(html).not.toContain('seqnotes-unlinked');
@@ -218,13 +280,13 @@ describe('renderDocument', () => {
   });
 
   it('puts warnings above the content without data-line', () => {
-    const html = renderDocument(md, doc('para', '', '```mermaid', 'sequenceDiagram', '%% @seq-notes', '%% @ref 無い', 'A->>B: x', '```'));
+    const html = renderDocument(md, doc('para', '', '```mermaid', 'sequenceDiagram', '%% @link-headings', '%% @ref 無い', 'A->>B: x', '```'));
     expect(html).toMatch(/^<div class="seqnotes-warnings" data-seqnotes-key="[^"]+"><p data-seqnotes-jump="5">/);
     expect(html.indexOf('data-line')).toBeGreaterThan(html.indexOf('</div>'));
   });
 
   it('keys the warnings by their messages, without the line numbers', () => {
-    const src = doc('```mermaid', 'sequenceDiagram', '%% @seq-notes', '%% @ref 無い', 'A->>B: x', '```');
+    const src = doc('```mermaid', 'sequenceDiagram', '%% @link-headings', '%% @ref 無い', 'A->>B: x', '```');
     const key = (html: string): string | undefined => /data-seqnotes-key="([^"]*)"/.exec(html)?.[1];
     expect(key(renderDocument(md, src))).toBe('@ref target heading &quot;無い&quot; was not found after the sequence diagram.');
     expect(key(renderDocument(md, doc('para', '', src)))).toBe(key(renderDocument(md, src)));
@@ -235,7 +297,7 @@ describe('renderDocument', () => {
     const t = (message: string, ...args: (string | number)[]): string => `[${message}|${args.join('|')}]`;
     const html = renderDocument(
       md,
-      doc('```mermaid', '%% @seq-notes', 'sequenceDiagram', 'A->>B: 一', '%% @ref 無い', 'A->>B: 二', '```', '## 一', '## 三'),
+      doc('```mermaid', '%% @link-headings', 'sequenceDiagram', 'A->>B: 一', '%% @ref 無い', 'A->>B: 二', '```', '## 一', '## 三'),
       { t },
     );
     expect(html).toContain(

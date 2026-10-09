@@ -1,14 +1,17 @@
 {
   "displayName": "Markdown Design Doc Viewer",
-  "description": "Preview design documents written in Markdown: mermaid sequence diagrams side by side with their linked step descriptions, a table of contents, GitHub alerts and task lists.",
+  "description": "Preview design documents written in Markdown: mermaid sequence diagrams and flowcharts side by side with their linked step descriptions, a table of contents, GitHub alerts and task lists.",
   "category": "Markdown Design Doc Viewer",
   "mdDesignDoc.openPreview.title": "Open Design Doc Preview",
   "mdDesignDoc.openPreviewToSide.title": "Open Design Doc Preview to the Side",
   "mdDesignDoc.exportHtml.title": "Export Design Doc as HTML",
   "mdDesignDoc.editor.displayName": "Design Doc Preview",
-  "mdDesignDoc.splitMinWidth.description": "Minimum preview width (px) at which a sequence diagram and its step descriptions are shown side by side.",
+  "mdDesignDoc.splitMinWidth.description": "Minimum preview width (px) at which a sequence diagram or flowchart and its step descriptions are shown side by side. Horizontal flowcharts (LR / RL) are always shown above their step descriptions.",
   "mdDesignDoc.syncEditor.description": "Synchronize the preview with the editor cursor and scroll position, and jump to the source line on double-click in the preview.",
   "mdDesignDoc.toc.description": "Show a table of contents (headings h1-h3) that opens when hovering the right edge of the preview.",
+  "mdDesignDoc.diagramLook.description": "Look of the mermaid diagrams in the preview and in exported HTML. A diagram can still choose its own with `config: look:` in its front matter.",
+  "mdDesignDoc.diagramLook.neo": "mermaid's default look: rounder shapes, with shadows on flowchart nodes.",
+  "mdDesignDoc.diagramLook.classic": "The flat look of earlier mermaid versions, without shadows.",
   "mdDesignDoc.frontMatter.description": "Show the YAML front matter at the top of the document as a table of its metadata (title, version, status...). When off, it is hidden.",
   "mdDesignDoc.diagnostics.description": "Report link warnings and arrows or headings without a link in the Problems panel for open Markdown files, even when no preview is open."
 }

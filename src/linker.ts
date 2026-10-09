@@ -1,10 +1,24 @@
 import type { Token } from 'markdown-it';
 import { formatMessage, type Translate } from './l10n';
+import { isFlowchart, parseFlowchart } from './flowchart';
 import { isSequenceDiagram, normalizeLabel, parseSequence, stripStepNumber, type SequenceMessage, type StepNumber } from './sequence';
 
-export const END_MARKER_RE = /^\s*<!--\s*seq-notes:end\s*-->\s*$/;
+export const END_MARKER_RE = /^\s*<!--\s*link-headings:end\s*-->\s*$/;
 
+/** The end marker before it was renamed. No longer recognized, only reported. */
+const LEGACY_END_MARKER_RE = /^\s*<!--\s*seq-notes:end\s*-->\s*$/;
+
+/** Diagrams whose items can be linked to headings: the arrows of a sequence diagram, the nodes of a flowchart. */
+export type DiagramKind = 'sequence' | 'flowchart';
+
+/** An arrow of a sequence diagram or a node of a flowchart. */
 export interface LinkedMessage extends SequenceMessage {
+  /** Node id (flowcharts only). */
+  nodeId?: string;
+  /** false for a flowchart node without a label of its own. */
+  labeled?: boolean;
+  /** false for a flowchart node that a `%% @ref` above its line would not go to (another node on the line gets it). */
+  refable?: boolean;
   /** id of the heading this message is linked to. */
   target?: string;
   /** true when the message has no target although other messages of the diagram have one. */
@@ -28,8 +42,9 @@ export interface OverviewHeading {
 }
 
 export interface DiagramInfo {
-  /** Sequential number of the sequence diagram in the document. */
+  /** Sequential number of the linkable diagram in the document. */
   id: number;
+  kind: DiagramKind;
   fenceIndex: number;
   /** Exclusive end of the overview range (token index). Only meaningful when `paired`. */
   rangeEnd: number;
@@ -43,8 +58,10 @@ export interface DiagramInfo {
   headings: OverviewHeading[];
   /** Heading level of the steps (see `stepLevel`). Undefined when no message is linked. */
   stepLevel?: number;
-  /** true when the diagram has a `%% @seq-notes` marker and is top-level, so it is laid out side by side. */
+  /** true when the diagram has a `%% @link-headings` marker and is top-level, so it is laid out with its overview. */
   paired: boolean;
+  /** true when the overview is always put below the diagram instead of beside it (a horizontal flowchart). */
+  stacked: boolean;
 }
 
 export interface LinkWarning {
@@ -61,8 +78,15 @@ export function isMermaidFence(token: Token): boolean {
   return token.type === 'fence' && token.info.trim().split(/\s+/)[0] === 'mermaid';
 }
 
-export function isSequenceFence(token: Token): boolean {
-  return isMermaidFence(token) && isSequenceDiagram(token.content);
+/** The kind of a mermaid fence whose items can be linked to headings, if it is one. */
+export function diagramKind(token: Token): DiagramKind | undefined {
+  if (!isMermaidFence(token)) {
+    return undefined;
+  }
+  if (isSequenceDiagram(token.content)) {
+    return 'sequence';
+  }
+  return isFlowchart(token.content) ? 'flowchart' : undefined;
 }
 
 /** Plain text of a heading's inline token. */
@@ -109,8 +133,8 @@ function stepLevel(linkedLevels: number[]): number | undefined {
 }
 
 /**
- * Finds sequence diagrams and resolves the message → heading links of the ones
- * marked with `%% @seq-notes`. Headings must already carry an `id` attribute.
+ * Finds sequence diagrams and flowcharts and resolves the arrow / node → heading links of the ones
+ * marked with `%% @link-headings`. Headings must already carry an `id` attribute.
  *
  * Only top-level (level 0) fences are paired, so the overview range always
  * starts and ends on a top-level block boundary and can be rendered on its own.
@@ -119,29 +143,50 @@ export function linkDiagrams(tokens: Token[], translate: Translate = formatMessa
   const warnings: LinkWarning[] = [];
 
   const diagrams: DiagramInfo[] = tokens
-    .map((token, index) => ({ token, index }))
-    .filter(({ token }) => isSequenceFence(token))
-    .map(({ token, index }, id) => {
-      const { messages, markerLine } = parseSequence(token.content, (token.map?.[0] ?? 0) + 1);
+    .map((token, index) => ({ token, index, kind: diagramKind(token) }))
+    .filter((d): d is { token: Token; index: number; kind: DiagramKind } => d.kind !== undefined)
+    .map(({ token, index, kind }, id) => {
+      const firstLine = (token.map?.[0] ?? 0) + 1;
+      const flowchart = kind === 'flowchart' ? parseFlowchart(token.content, firstLine) : undefined;
+      const { messages, markerLine, legacyMarkerLine }: { messages: LinkedMessage[]; markerLine?: number; legacyMarkerLine?: number } = flowchart
+        ? { messages: flowchart.nodes, markerLine: flowchart.markerLine, legacyMarkerLine: flowchart.legacyMarkerLine }
+        : parseSequence(token.content, firstLine);
+      if (legacyMarkerLine !== undefined) {
+        warnings.push({ line: legacyMarkerLine, message: translate('"%% @seq-notes" is no longer supported. Write "%% @link-headings" instead.') });
+      }
       if (markerLine === undefined) {
         for (const m of messages.filter((m) => m.ref !== undefined)) {
           warnings.push({
             line: m.refLine ?? m.line,
-            message: translate('@ref is ignored because the sequence diagram has no "%% @seq-notes" marker.'),
+            message: flowchart
+              ? translate('@ref is ignored because the flowchart has no "%% @link-headings" marker.')
+              : translate('@ref is ignored because the sequence diagram has no "%% @link-headings" marker.'),
           });
         }
       } else if (token.level !== 0) {
         warnings.push({
           line: markerLine,
-          message: translate('@seq-notes is ignored for a sequence diagram inside a list or blockquote.'),
+          message: flowchart
+            ? translate('@link-headings is ignored for a flowchart inside a list or blockquote.')
+            : translate('@link-headings is ignored for a sequence diagram inside a list or blockquote.'),
         });
       }
       const paired = markerLine !== undefined && token.level === 0;
-      const diagram: DiagramInfo = { id, fenceIndex: index, rangeEnd: index + 1, messages, unlinkedHeadings: [], headings: [], paired };
+      const stacked = flowchart?.horizontal ?? false;
+      const diagram: DiagramInfo = { id, kind, fenceIndex: index, rangeEnd: index + 1, messages, unlinkedHeadings: [], headings: [], paired, stacked };
       return diagram;
     });
 
   const pairedFences = new Set(diagrams.filter((d) => d.paired).map((d) => d.fenceIndex));
+
+  for (const token of tokens) {
+    if (token.level === 0 && token.type === 'html_block' && LEGACY_END_MARKER_RE.test(token.content)) {
+      warnings.push({
+        line: token.map?.[0] ?? 0,
+        message: translate('"<!-- seq-notes:end -->" is no longer supported. Write "<!-- link-headings:end -->" instead.'),
+      });
+    }
+  }
 
   for (const diagram of diagrams.filter((d) => d.paired)) {
     const index = diagram.fenceIndex;
@@ -195,7 +240,10 @@ export function linkDiagrams(tokens: Token[], translate: Translate = formatMessa
       } else if (message.ref !== undefined) {
         warnings.push({
           line: message.refLine ?? message.line,
-          message: translate('@ref target heading "{0}" was not found after the sequence diagram.', message.ref),
+          message:
+            diagram.kind === 'flowchart'
+              ? translate('@ref target heading "{0}" was not found after the flowchart.', message.ref)
+              : translate('@ref target heading "{0}" was not found after the sequence diagram.', message.ref),
         });
       }
     }
@@ -204,7 +252,8 @@ export function linkDiagrams(tokens: Token[], translate: Translate = formatMessa
     if (targets.size === 0) {
       continue;
     }
-    for (const message of diagram.messages.filter((m) => !m.target)) {
+    // A flowchart node without a label is not a step, like an arrow without a label.
+    for (const message of diagram.messages.filter((m) => !m.target && m.labeled !== false)) {
       message.unlinked = true;
     }
     const level = stepLevel(headingTokens.filter((h) => targets.has(h.id)).map((h) => h.level));
