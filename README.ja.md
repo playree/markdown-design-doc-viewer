@@ -1,5 +1,10 @@
 # Markdown Design Doc Viewer
 
+[![CI](https://github.com/playree/markdown-design-doc-viewer/actions/workflows/ci.yml/badge.svg)](https://github.com/playree/markdown-design-doc-viewer/actions/workflows/ci.yml)
+[![Visual Studio Marketplace Version](https://vsmarketplacebadges.dev/version/playree.markdown-design-doc-viewer.svg)](https://marketplace.visualstudio.com/items?itemName=playree.markdown-design-doc-viewer)
+[![Visual Studio Marketplace Installs](https://vsmarketplacebadges.dev/installs/playree.markdown-design-doc-viewer.svg)](https://marketplace.visualstudio.com/items?itemName=playree.markdown-design-doc-viewer)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 [English](README.md) | 日本語
 
 設計書としてのMarkdownをプレビューする拡張機能（Markdown 設計書ビューア）です。主な機能として、**mermaidのシーケンス図と処理概要を横並びにして**表示します。
