@@ -1,8 +1,8 @@
-# Markdown Sequence Side Notes
+# Markdown Design Doc Viewer
 
 English | [日本語](README.ja.md)
 
-Preview design documents written in Markdown with **mermaid sequence diagrams shown side by side with their step descriptions**.
+A viewer for design documents written in Markdown. Its main feature shows **mermaid sequence diagrams side by side with their step descriptions**.
 Each arrow in the diagram is linked to a heading in the description, so you can jump back and forth between them.
 
 ![Sequence diagram on the left, linked step descriptions on the right](images/screenshot.png)
@@ -21,13 +21,13 @@ Each arrow in the diagram is linked to a heading in the description, so you can 
 
 Open a Markdown file and click the preview icon in the editor title bar, or run one of these commands from the Command Palette:
 
-- `Markdown Sequence Side Notes: Open Sequence Side Notes Preview to the Side`
-- `Markdown Sequence Side Notes: Open Sequence Side Notes Preview`
+- `Markdown Design Doc Viewer: Open Design Doc Preview to the Side`
+- `Markdown Design Doc Viewer: Open Design Doc Preview`
 
-It can also be opened in place of the text editor: choose **Sequence Side Notes Preview** from **Reopen Editor With...** (the editor picker at the top right of the tab bar). To always open Markdown files with it, pick "Configure default editor for '*.md'" in that list, or add this to your settings:
+It can also be opened in place of the text editor: choose **Design Doc Preview** from **Reopen Editor With...** (the editor picker at the top right of the tab bar). To always open Markdown files with it, pick "Configure default editor for '*.md'" in that list, or add this to your settings:
 
 ```json
-"workbench.editorAssociations": { "*.md": "seqNotes.editor", "*.markdown": "seqNotes.editor" }
+"workbench.editorAssociations": { "*.md": "mdDesignDoc.editor", "*.markdown": "mdDesignDoc.editor" }
 ```
 
 ## Writing linked documents
@@ -79,6 +79,6 @@ Rules:
 
 | Setting | Default | Description |
 |---|---|---|
-| `seqNotes.splitMinWidth` | `1000` | Minimum preview width (px) for the side-by-side layout. |
-| `seqNotes.syncEditor` | `true` | Sync the preview with the editor and enable double-click to jump to the source. |
-| `seqNotes.toc` | `true` | Show the table of contents at the right edge of the preview. |
+| `mdDesignDoc.splitMinWidth` | `1000` | Minimum preview width (px) for the side-by-side layout. |
+| `mdDesignDoc.syncEditor` | `true` | Sync the preview with the editor and enable double-click to jump to the source. |
+| `mdDesignDoc.toc` | `true` | Show the table of contents at the right edge of the preview. |

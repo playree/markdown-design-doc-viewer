@@ -2,9 +2,9 @@ import * as vscode from 'vscode';
 import type { FromWebview, ToWebview, WebviewState } from './protocol';
 import { createMarkdown, escapeHtml, renderDocument } from './render';
 
-const VIEW_TYPE = 'seqNotes.preview';
+const VIEW_TYPE = 'mdDesignDoc.preview';
 /** Custom editor shown in "Reopen Editor With..." for Markdown files. */
-const EDITOR_VIEW_TYPE = 'seqNotes.editor';
+const EDITOR_VIEW_TYPE = 'mdDesignDoc.editor';
 const UPDATE_DELAY_MS = 300;
 /** Editor scroll events caused by our own reveal are ignored for this long. */
 const SCROLL_SUPPRESS_MS = 500;
@@ -18,7 +18,7 @@ interface Settings {
 }
 
 function readSettings(): Settings {
-  const c = vscode.workspace.getConfiguration('seqNotes');
+  const c = vscode.workspace.getConfiguration('mdDesignDoc');
   return {
     splitMinWidth: c.get<number>('splitMinWidth', 1000),
     syncEditor: c.get<boolean>('syncEditor', true),
@@ -69,7 +69,7 @@ export class PreviewManager implements vscode.Disposable {
       ),
       vscode.workspace.onDidChangeTextDocument((e) => this.forEach(e.document.uri, (p) => p.scheduleUpdate())),
       vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration('seqNotes')) {
+        if (e.affectsConfiguration('mdDesignDoc')) {
           this.settings = readSettings();
           this.previews.forEach((set) => set.forEach((p) => p.update()));
         }

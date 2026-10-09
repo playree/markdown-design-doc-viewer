@@ -1,18 +1,18 @@
 {
-  "name": "markdown-sequence-side-notes",
-  "displayName": "Markdown Sequence Side Notes",
+  "name": "markdown-design-doc-viewer",
+  "displayName": "%displayName%",
   "description": "%description%",
   "version": "0.1.0",
   "publisher": "playree",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/playree/markdown-sequence-side-notes.git"
+    "url": "https://github.com/playree/markdown-design-doc-viewer.git"
   },
   "bugs": {
-    "url": "https://github.com/playree/markdown-sequence-side-notes/issues"
+    "url": "https://github.com/playree/markdown-design-doc-viewer/issues"
   },
-  "homepage": "https://github.com/playree/markdown-sequence-side-notes#readme",
+  "homepage": "https://github.com/playree/markdown-design-doc-viewer#readme",
   "icon": "images/icon.png",
   "l10n": "./l10n",
   "engines": {
@@ -32,27 +32,27 @@
   "main": "./dist/extension.js",
   "activationEvents": [
     "onLanguage:markdown",
-    "onWebviewPanel:seqNotes.preview"
+    "onWebviewPanel:mdDesignDoc.preview"
   ],
   "contributes": {
     "commands": [
       {
-        "command": "seqNotes.openPreview",
-        "title": "%seqNotes.openPreview.title%",
+        "command": "mdDesignDoc.openPreview",
+        "title": "%mdDesignDoc.openPreview.title%",
         "category": "%category%",
         "icon": "$(open-preview)"
       },
       {
-        "command": "seqNotes.openPreviewToSide",
-        "title": "%seqNotes.openPreviewToSide.title%",
+        "command": "mdDesignDoc.openPreviewToSide",
+        "title": "%mdDesignDoc.openPreviewToSide.title%",
         "category": "%category%",
         "icon": "$(open-preview)"
       }
     ],
     "customEditors": [
       {
-        "viewType": "seqNotes.editor",
-        "displayName": "%seqNotes.editor.displayName%",
+        "viewType": "mdDesignDoc.editor",
+        "displayName": "%mdDesignDoc.editor.displayName%",
         "selector": [
           {
             "filenamePattern": "*.md"
@@ -67,40 +67,40 @@
     "menus": {
       "editor/title": [
         {
-          "command": "seqNotes.openPreviewToSide",
+          "command": "mdDesignDoc.openPreviewToSide",
           "when": "editorLangId == markdown",
           "group": "navigation"
         }
       ],
       "commandPalette": [
         {
-          "command": "seqNotes.openPreview",
+          "command": "mdDesignDoc.openPreview",
           "when": "editorLangId == markdown"
         },
         {
-          "command": "seqNotes.openPreviewToSide",
+          "command": "mdDesignDoc.openPreviewToSide",
           "when": "editorLangId == markdown"
         }
       ]
     },
     "configuration": {
-      "title": "Markdown Sequence Side Notes",
+      "title": "%displayName%",
       "properties": {
-        "seqNotes.splitMinWidth": {
+        "mdDesignDoc.splitMinWidth": {
           "type": "number",
           "default": 1000,
           "minimum": 0,
-          "description": "%seqNotes.splitMinWidth.description%"
+          "description": "%mdDesignDoc.splitMinWidth.description%"
         },
-        "seqNotes.syncEditor": {
+        "mdDesignDoc.syncEditor": {
           "type": "boolean",
           "default": true,
-          "description": "%seqNotes.syncEditor.description%"
+          "description": "%mdDesignDoc.syncEditor.description%"
         },
-        "seqNotes.toc": {
+        "mdDesignDoc.toc": {
           "type": "boolean",
           "default": true,
-          "description": "%seqNotes.toc.description%"
+          "description": "%mdDesignDoc.toc.description%"
         }
       }
     }
