@@ -69,6 +69,16 @@ WHERE lower(email) = lower($1);
 
 The lookup ignores case. Users with `status = 'disabled'` are treated as not found.
 
+<details>
+<summary>Why not a case-insensitive column?</summary>
+
+Changing the column type to `citext` was considered, but:
+
+- **Every** query on `email` would change behaviour, not only this one.
+- An index on `lower(email)` already exists for the login form.
+
+</details>
+
 ### Store reset token
 
 Generates a random token and stores only its hash, so a leaked table cannot be used to reset passwords.

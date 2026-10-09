@@ -6,6 +6,7 @@
 - `Ctrl+F` / `Cmd+F` searches the preview.
 - In the editor, `%% @ref ` completes the headings of the overview, and the missing-link diagnostics have quick fixes: write a `@ref` to a heading without an arrow, add a heading for the arrow, or fix a broken `@ref`.
 - `Export Design Doc as HTML` writes the document to a single HTML file to share or print to PDF from a browser, with the diagrams rendered, images embedded and the arrow ⇔ heading highlighting working.
+- Collapsible `<details>` sections are shown in a box, with a chevron that turns when opened and a pointer cursor on the summary, so that they look clickable.
 - Diagrams can be opened full screen with the button shown when hovering them, then zoomed with the wheel and panned by dragging.
 - Link warnings, arrows without a heading and headings without an arrow are reported in the Problems panel for open Markdown files, even when no preview is open. It can be turned off with `mdDesignDoc.diagnostics`.
 - Added an [authoring guide for AI assistants](docs/ai-authoring-guide.md) to copy into `CLAUDE.md`, `AGENTS.md` or similar instructions files.
