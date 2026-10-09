@@ -14,6 +14,7 @@ const SCHEME_RE = /^[a-z][a-z0-9+.-]*:/i;
 interface Settings {
   splitMinWidth: number;
   syncEditor: boolean;
+  toc: boolean;
 }
 
 function readSettings(): Settings {
@@ -21,6 +22,7 @@ function readSettings(): Settings {
   return {
     splitMinWidth: c.get<number>('splitMinWidth', 1000),
     syncEditor: c.get<boolean>('syncEditor', true),
+    toc: c.get<boolean>('toc', true),
   };
 }
 
@@ -272,6 +274,7 @@ class Preview {
     ].join('; ');
     const splitterTitle = escapeHtml(vscode.l10n.t('Drag to resize, double-click to reset'));
     const hideWarningsTitle = escapeHtml(vscode.l10n.t('Hide warnings'));
+    const tocTitle = escapeHtml(vscode.l10n.t('Contents'));
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -280,7 +283,7 @@ class Preview {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="${style}">
 </head>
-<body data-seqnotes-splitter-title="${splitterTitle}" data-seqnotes-hide-warnings-title="${hideWarningsTitle}">
+<body data-seqnotes-splitter-title="${splitterTitle}" data-seqnotes-hide-warnings-title="${hideWarningsTitle}" data-seqnotes-toc-title="${tocTitle}">
 <div id="seqnotes-root"></div>
 <script nonce="${n}" src="${script}"></script>
 </body>

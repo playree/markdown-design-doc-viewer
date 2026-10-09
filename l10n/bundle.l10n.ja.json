@@ -8,5 +8,6 @@
   "Drag to resize, double-click to reset": "ドラッグで幅を変更、ダブルクリックで元に戻す",
   "Open a Markdown file to preview it with Sequence Side Notes.": "Sequence Side Notes でプレビューする Markdown ファイルを開いてください。",
   "Preview {0}": "プレビュー {0}",
-  "Hide warnings": "警告を隠す"
+  "Hide warnings": "警告を隠す",
+  "Contents": "目次"
 }

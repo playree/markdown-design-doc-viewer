@@ -96,6 +96,11 @@
           "type": "boolean",
           "default": true,
           "description": "%seqNotes.syncEditor.description%"
+        },
+        "seqNotes.toc": {
+          "type": "boolean",
+          "default": true,
+          "description": "%seqNotes.toc.description%"
         }
       }
     }

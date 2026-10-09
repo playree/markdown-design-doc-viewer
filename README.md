@@ -15,6 +15,7 @@ Each arrow in the diagram is linked to a heading in the description, so you can 
 - **Plain Markdown** — the link syntax is made of mermaid comments and HTML comments, so the same file still renders correctly on GitHub and in the built-in Markdown preview.
 - **Design document friendly** — YAML front matter is hidden, code blocks are syntax highlighted, and GitHub alerts (`> [!NOTE]`) and task lists (`- [ ]`) are rendered.
 - **Resizable** — drag the boundary between the columns to resize them; double-click it to reset.
+- **Table of contents** — hover the short lines at the right edge of the preview to open a table of contents (h1–h3) and jump to a heading. The highlighted line shows where you are.
 
 ## Usage
 
@@ -80,3 +81,4 @@ Rules:
 |---|---|---|
 | `seqNotes.splitMinWidth` | `1000` | Minimum preview width (px) for the side-by-side layout. |
 | `seqNotes.syncEditor` | `true` | Sync the preview with the editor and enable double-click to jump to the source. |
+| `seqNotes.toc` | `true` | Show the table of contents at the right edge of the preview. |

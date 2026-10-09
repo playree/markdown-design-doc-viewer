@@ -5,5 +5,6 @@
   "seqNotes.openPreviewToSide.title": "Open Sequence Side Notes Preview to the Side",
   "seqNotes.editor.displayName": "Sequence Side Notes Preview",
   "seqNotes.splitMinWidth.description": "Minimum preview width (px) at which a sequence diagram and its step descriptions are shown side by side.",
-  "seqNotes.syncEditor.description": "Synchronize the preview with the editor cursor and scroll position, and jump to the source line on double-click in the preview."
+  "seqNotes.syncEditor.description": "Synchronize the preview with the editor cursor and scroll position, and jump to the source line on double-click in the preview.",
+  "seqNotes.toc.description": "Show a table of contents (headings h1-h3) that opens when hovering the right edge of the preview."
 }

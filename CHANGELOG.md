@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Hovering the right edge of the preview opens a table of contents (h1–h3) that jumps to the heading on click. It can be turned off with `seqNotes.toc`.
 - The × button temporarily hides the warnings at the top of the preview; they are shown again when they change.
 - Warnings, marks and tooltips in the preview follow the VS Code display language (English and Japanese).
 - YAML front matter is hidden instead of being rendered as a heading. Code blocks are syntax highlighted, and GitHub alerts and task lists are rendered.
