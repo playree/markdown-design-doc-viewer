@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { DiagnosticsManager } from './diagnostics';
 import { PreviewManager } from './previewPanel';
 
 function targetUri(arg: unknown): vscode.Uri | undefined {
@@ -26,6 +27,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     manager,
+    new DiagnosticsManager(),
     vscode.commands.registerCommand('mdDesignDoc.openPreview', open(vscode.ViewColumn.Active)),
     vscode.commands.registerCommand('mdDesignDoc.openPreviewToSide', open(vscode.ViewColumn.Beside)),
   );

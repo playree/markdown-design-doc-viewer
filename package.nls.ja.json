@@ -7,5 +7,6 @@
   "mdDesignDoc.editor.displayName": "設計書プレビュー",
   "mdDesignDoc.splitMinWidth.description": "シーケンス図と処理概要を横並びで表示する最小のプレビュー幅 (px)。",
   "mdDesignDoc.syncEditor.description": "エディタのカーソル・スクロール位置にプレビューを追従させ、プレビューのダブルクリックでエディタの該当行へ移動します。",
-  "mdDesignDoc.toc.description": "プレビューの右端にマウスを乗せると開く目次（見出し h1〜h3）を表示します。"
+  "mdDesignDoc.toc.description": "プレビューの右端にマウスを乗せると開く目次（見出し h1〜h3）を表示します。",
+  "mdDesignDoc.diagnostics.description": "開いている Markdown ファイルについて、紐付けの警告と、紐付いていない矢印・見出しを、プレビューを開いていなくても「問題」パネルに表示します。"
 }

@@ -1,6 +1,6 @@
 # Link Checks
 
-This file has deliberate mistakes, to show how the preview reports arrows and headings that do not match.
+This file has deliberate mistakes, to show how the preview reports arrows and headings that do not match. The same problems are listed in the Problems panel.
 
 ## Diagram with mistakes
 
@@ -51,7 +51,7 @@ sequenceDiagram
 
 ### Health check
 
-No arrow of this diagram is linked, so nothing is faded or marked.
+No arrow of this diagram is linked, so nothing is faded or marked in the preview. The Problems panel reports it once, at the diagram.
 
 <!-- seq-notes:end -->
 
