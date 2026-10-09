@@ -15,6 +15,7 @@ interface Settings {
   splitMinWidth: number;
   syncEditor: boolean;
   toc: boolean;
+  frontMatter: boolean;
 }
 
 function readSettings(): Settings {
@@ -23,6 +24,7 @@ function readSettings(): Settings {
     splitMinWidth: c.get<number>('splitMinWidth', 1000),
     syncEditor: c.get<boolean>('syncEditor', true),
     toc: c.get<boolean>('toc', true),
+    frontMatter: c.get<boolean>('frontMatter', true),
   };
 }
 
@@ -65,7 +67,7 @@ export class PreviewManager implements vscode.Disposable {
       vscode.window.registerCustomEditorProvider(
         EDITOR_VIEW_TYPE,
         { resolveCustomTextEditor: (document, panel) => this.attach(panel, document.uri, 'editor') },
-        { webviewOptions: { retainContextWhenHidden: true }, supportsMultipleEditorsPerDocument: true },
+        { webviewOptions: { retainContextWhenHidden: true, enableFindWidget: true }, supportsMultipleEditorsPerDocument: true },
       ),
       vscode.workspace.onDidChangeTextDocument((e) => this.forEach(e.document.uri, (p) => p.scheduleUpdate())),
       vscode.workspace.onDidChangeConfiguration((e) => {
@@ -97,6 +99,7 @@ export class PreviewManager implements vscode.Disposable {
     const panel = vscode.window.createWebviewPanel(VIEW_TYPE, '', { viewColumn: column, preserveFocus: true }, {
       enableScripts: true,
       retainContextWhenHidden: true,
+      enableFindWidget: true,
     });
     this.attach(panel, uri, 'panel');
   }
@@ -206,8 +209,9 @@ class Preview {
     if (this.disposed) {
       return;
     }
-    const html = renderDocument(this.md, document.getText(), { resolveResource: (src) => this.resolveResource(src), t: vscode.l10n.t });
-    this.post({ type: 'update', uri: this.uri.toString(), html, ...this.host.settings() });
+    const { frontMatter, ...settings } = this.host.settings();
+    const html = renderDocument(this.md, document.getText(), { resolveResource: (src) => this.resolveResource(src), t: vscode.l10n.t, frontMatter });
+    this.post({ type: 'update', uri: this.uri.toString(), html, ...settings });
   }
 
   private async onMessage(message: FromWebview): Promise<void> {

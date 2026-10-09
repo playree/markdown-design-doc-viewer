@@ -102,6 +102,11 @@
           "default": true,
           "description": "%mdDesignDoc.toc.description%"
         },
+        "mdDesignDoc.frontMatter": {
+          "type": "boolean",
+          "default": true,
+          "description": "%mdDesignDoc.frontMatter.description%"
+        },
         "mdDesignDoc.diagnostics": {
           "type": "boolean",
           "default": true,

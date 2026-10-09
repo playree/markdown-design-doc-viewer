@@ -56,6 +56,16 @@ table { border-collapse: collapse; margin-bottom: 1em; }
 th, td { border: 1px solid var(--seqnotes-border); padding: 4px 10px; }
 th { background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1)); }
 
+/* YAML front matter, shown as the document's metadata */
+.seqnotes-front-matter { font-size: 0.9em; }
+.seqnotes-front-matter th {
+  text-align: left;
+  font-weight: normal;
+  color: var(--seqnotes-muted);
+  background: none;
+}
+.seqnotes-front-matter td { white-space: pre-wrap; }
+
 img { max-width: 100%; }
 hr { border: 0; border-top: 1px solid var(--seqnotes-border); }
 

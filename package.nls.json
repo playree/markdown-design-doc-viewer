@@ -8,5 +8,6 @@
   "mdDesignDoc.splitMinWidth.description": "Minimum preview width (px) at which a sequence diagram and its step descriptions are shown side by side.",
   "mdDesignDoc.syncEditor.description": "Synchronize the preview with the editor cursor and scroll position, and jump to the source line on double-click in the preview.",
   "mdDesignDoc.toc.description": "Show a table of contents (headings h1-h3) that opens when hovering the right edge of the preview.",
+  "mdDesignDoc.frontMatter.description": "Show the YAML front matter at the top of the document as a table of its metadata (title, version, status...). When off, it is hidden.",
   "mdDesignDoc.diagnostics.description": "Report link warnings and arrows or headings without a link in the Problems panel for open Markdown files, even when no preview is open."
 }

@@ -11,6 +11,8 @@ export type RenderEnv = Env & {
   resolveResource?: (src: string) => string;
   /** Translates the texts the preview adds (warnings, marks). English by default. */
   t?: Translate;
+  /** false hides the YAML front matter instead of showing it as a table. */
+  frontMatter?: boolean;
 };
 
 /** Diagram data embedded into the HTML for the webview script. */
