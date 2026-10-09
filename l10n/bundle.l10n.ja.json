@@ -17,5 +17,13 @@
   "Close": "閉じる",
   "No arrow in the sequence diagram is linked to a heading. Write the steps as headings after the diagram, with the same text as the arrows.": "シーケンス図のどの矢印も見出しと紐付いていません。処理概要を、矢印と同じ文言の見出しとして図の後ろに書いてください。",
   "Arrow \"{0}\" is not linked to any heading. Add a heading with the same text after the diagram, or write \"%% @ref <heading>\" above the arrow.": "矢印「{0}」がどの見出しとも紐付いていません。同じ文言の見出しを図の後ろに追加するか、矢印の直前に \"%% @ref <見出し>\" を書いてください。",
+  "Link to heading \"{0}\" with @ref": "@ref で見出し「{0}」に紐付ける",
+  "Change @ref to heading \"{0}\"": "@ref を見出し「{0}」に変更する",
+  "Add heading \"{0}\" to the overview": "見出し「{0}」を処理概要に追加する",
+  "Link arrow \"{0}\" to this heading with @ref": "矢印「{0}」を @ref でこの見出しに紐付ける",
+  "Already linked to an arrow": "矢印と紐付け済み",
+  "No arrow linked yet": "まだ矢印と紐付いていない",
+  "Show this sequence diagram side by side with the step headings after it.": "このシーケンス図を、後ろにある処理概要の見出しと横並びで表示します。",
+  "Link the next arrow to a heading.": "直後の矢印を見出しに紐付けます。",
   "No arrow in the sequence diagram is linked to heading \"{0}\".": "シーケンス図に見出し「{0}」と紐付いた矢印がありません。"
 }

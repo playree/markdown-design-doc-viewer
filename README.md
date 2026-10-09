@@ -76,6 +76,7 @@ Rules:
 - With `autonumber`, linked headings show the arrow's number, unless the heading already starts with it (`## 3. Fetch user`).
 - To help spot missing descriptions, arrows without a linked heading are shown faded, and headings at the same level as the linked ones but without an arrow get a "no arrow" mark. Diagrams with no links at all get no marks.
 - The same warnings and missing links are also reported in the Problems panel for open Markdown files, even when no preview is open. A diagram with `%% @seq-notes` but no links at all is reported there too.
+- In the editor, the headings of the overview are completed after `%% @ref ` (those without an arrow first). The missing-link diagnostics come with quick fixes (light bulb, `Ctrl+.`): link the arrow to a heading without an arrow by writing a `@ref`, add a heading with the arrow's text to the overview, or point a broken `@ref` to an existing heading.
 - Warnings, marks and tooltips are shown in English or Japanese, following the VS Code display language.
 
 ## Writing with AI

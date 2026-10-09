@@ -4,6 +4,9 @@ import { createMarkdown } from './render';
 
 const UPDATE_DELAY_MS = 300;
 
+/** `source` of the diagnostics, also used by the quick fixes to find them. */
+export const DIAGNOSTIC_SOURCE = 'Markdown Design Doc';
+
 /** Virtual documents such as the original side of a git diff are not reported, as they cannot be fixed. */
 const SCHEMES = new Set(['file', 'untitled']);
 
@@ -79,7 +82,7 @@ export class DiagnosticsManager implements vscode.Disposable {
         issue.message,
         issue.severity === 'warning' ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Information,
       );
-      diagnostic.source = 'Markdown Design Doc';
+      diagnostic.source = DIAGNOSTIC_SOURCE;
       return diagnostic;
     });
     this.collection.set(document.uri, diagnostics);

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { registerAuthoringProviders } from './authoringProviders';
 import { DiagnosticsManager } from './diagnostics';
 import { PreviewManager } from './previewPanel';
 
@@ -28,6 +29,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     manager,
     new DiagnosticsManager(),
+    registerAuthoringProviders(),
     vscode.commands.registerCommand('mdDesignDoc.openPreview', open(vscode.ViewColumn.Active)),
     vscode.commands.registerCommand('mdDesignDoc.openPreviewToSide', open(vscode.ViewColumn.Beside)),
   );
