@@ -30,6 +30,9 @@ let syncEditor = true;
 let renderSeq = 0;
 let pinned: Active | undefined;
 let currentLine: number | undefined;
+let currentUri: string | undefined;
+/** `data-seqnotes-key` of the warnings the user closed. They stay hidden until the warnings change. */
+let dismissedWarnings: string | undefined;
 
 // ---------------------------------------------------------------------------
 // Layout
@@ -241,6 +244,30 @@ function addStepBadge(heading: Element, numbers: string[] | undefined): void {
   heading.prepend(badge);
 }
 
+/** Adds a close button to the warnings panel, and keeps the panel hidden while the closed warnings stay the same. */
+function setUpWarnings(): void {
+  const panel = root.querySelector<HTMLElement>('.seqnotes-warnings');
+  const key = panel?.dataset.seqnotesKey;
+  if (!panel || key !== dismissedWarnings) {
+    dismissedWarnings = undefined;
+  }
+  if (!panel) {
+    return;
+  }
+  panel.hidden = key === dismissedWarnings;
+  const close = document.createElement('button');
+  close.className = 'seqnotes-warnings-close';
+  // Translated by the extension host (`shell()` in previewPanel.ts).
+  close.title = document.body.dataset.seqnotesHideWarningsTitle ?? '';
+  close.setAttribute('aria-label', close.title);
+  close.textContent = '×';
+  close.addEventListener('click', () => {
+    dismissedWarnings = key;
+    panel.hidden = true;
+  });
+  panel.prepend(close);
+}
+
 function headingLevel(el: Element): number | undefined {
   const m = HEADING_RE.exec(el.tagName);
   return m ? Number(m[1]) : undefined;
@@ -266,6 +293,7 @@ async function update(html: string): Promise<void> {
     wrapSections(pair);
     addSplitter(pair);
   });
+  setUpWarnings();
 
   window.scrollTo(0, scrollY);
   root.querySelectorAll('.seqnotes-seq-col').forEach((col, i) => (col.scrollTop = colScroll[i] ?? 0));
@@ -488,6 +516,10 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       splitMinWidth = message.splitMinWidth;
       syncEditor = message.syncEditor;
       vscode.setState({ ...vscode.getState(), uri: message.uri });
+      if (message.uri !== currentUri) {
+        currentUri = message.uri;
+        dismissedWarnings = undefined;
+      }
       applyLayout();
       void update(message.html);
       break;

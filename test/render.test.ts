@@ -205,8 +205,16 @@ describe('renderDocument', () => {
 
   it('puts warnings above the content without data-line', () => {
     const html = renderDocument(md, doc('para', '', '```mermaid', 'sequenceDiagram', '%% @seq-notes', '%% @ref 無い', 'A->>B: x', '```'));
-    expect(html).toMatch(/^<div class="seqnotes-warnings"><p data-seqnotes-jump="5">/);
+    expect(html).toMatch(/^<div class="seqnotes-warnings" data-seqnotes-key="[^"]+"><p data-seqnotes-jump="5">/);
     expect(html.indexOf('data-line')).toBeGreaterThan(html.indexOf('</div>'));
+  });
+
+  it('keys the warnings by their messages, without the line numbers', () => {
+    const src = doc('```mermaid', 'sequenceDiagram', '%% @seq-notes', '%% @ref 無い', 'A->>B: x', '```');
+    const key = (html: string): string | undefined => /data-seqnotes-key="([^"]*)"/.exec(html)?.[1];
+    expect(key(renderDocument(md, src))).toBe('@ref target heading &quot;無い&quot; was not found after the sequence diagram.');
+    expect(key(renderDocument(md, doc('para', '', src)))).toBe(key(renderDocument(md, src)));
+    expect(renderDocument(md, doc('para'))).not.toContain('seqnotes-warnings');
   });
 
   it('translates the warnings and marks with env.t', () => {

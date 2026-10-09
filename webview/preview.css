@@ -124,13 +124,31 @@ body:is(.vscode-light, .vscode-high-contrast-light) {
 }
 
 .seqnotes-warnings {
+  position: relative;
   margin: 12px 0;
-  padding: 6px 12px;
+  padding: 6px 2em 6px 12px;
   border: 1px solid var(--vscode-inputValidation-warningBorder, #b89500);
   background: var(--vscode-inputValidation-warningBackground, rgba(184, 149, 0, 0.15));
   border-radius: 4px;
 }
 .seqnotes-warnings p { margin: 4px 0; }
+.seqnotes-warnings-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 1.6em;
+  height: 1.6em;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--vscode-icon-foreground, currentColor);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+.seqnotes-warnings-close:hover { background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2)); }
+.seqnotes-warnings-close:focus-visible { outline: 1px solid var(--vscode-focusBorder); }
 
 /* ---------------------------------------------------------------- Side-by-side layout */
 

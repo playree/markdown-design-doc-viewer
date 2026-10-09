@@ -271,6 +271,7 @@ class Preview {
       `font-src ${webview.cspSource}`,
     ].join('; ');
     const splitterTitle = escapeHtml(vscode.l10n.t('Drag to resize, double-click to reset'));
+    const hideWarningsTitle = escapeHtml(vscode.l10n.t('Hide warnings'));
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -279,7 +280,7 @@ class Preview {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="${style}">
 </head>
-<body data-seqnotes-splitter-title="${splitterTitle}">
+<body data-seqnotes-splitter-title="${splitterTitle}" data-seqnotes-hide-warnings-title="${hideWarningsTitle}">
 <div id="seqnotes-root"></div>
 <script nonce="${n}" src="${script}"></script>
 </body>

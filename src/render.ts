@@ -111,7 +111,9 @@ export function renderDocument(md: MarkdownIt, source: string, env: RenderEnv = 
 
   let html = '';
   if (warnings.length > 0) {
-    html += '<div class="seqnotes-warnings">';
+    // Lets the webview keep the panel hidden while the warnings stay the same, even if their lines move.
+    const key = warnings.map((w) => w.message).join('\n');
+    html += `<div class="seqnotes-warnings" data-seqnotes-key="${escapeHtml(key)}">`;
     for (const w of warnings) {
       // Not data-line: the warnings sit above the content, and the scroll sync expects data-line in document order.
       html += `<p data-seqnotes-jump="${w.line}">${escapeHtml(t('⚠ Line {0}: {1}', w.line + 1, w.message))}</p>`;

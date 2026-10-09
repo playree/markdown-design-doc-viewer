@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The warnings at the top of the preview can be hidden with the × button until they change.
 - Warnings, marks and tooltips in the preview follow the VS Code display language (English and Japanese).
 - YAML front matter is hidden instead of being rendered as a heading. Code blocks are syntax highlighted, and GitHub alerts and task lists are rendered.
 - With `autonumber`, linked headings show the arrow's number. Numbered headings such as `## 3. Fetch user` link to the arrow `Fetch user`.
