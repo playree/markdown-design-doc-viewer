@@ -69,7 +69,7 @@ Rules:
 - Labels and headings are compared after trimming and collapsing whitespace; `<br/>` in a label counts as a space.
 - Only diagrams with `%% @seq-notes` are shown side by side (even if no arrow is linked). Other diagrams are rendered normally, and an `@ref` in them is reported as a warning.
 - `%% @seq-notes` has no effect on a diagram inside a list or blockquote; this is reported as a warning.
-- An `@ref` whose heading cannot be found is reported as a warning at the top of the preview. The warnings can be hidden with the × button until they change.
+- An `@ref` whose heading cannot be found is reported as a warning at the top of the preview. The × button hides the warnings temporarily; they are shown again when they change.
 - With `autonumber`, linked headings show the arrow's number, unless the heading already starts with it (`## 3. Fetch user`).
 - To help spot missing descriptions, arrows without a linked heading are shown faded, and headings at the same level as the linked ones but without an arrow get a "no arrow" mark. Diagrams with no links at all get no marks.
 - Warnings, marks and tooltips are shown in English or Japanese, following the VS Code display language.

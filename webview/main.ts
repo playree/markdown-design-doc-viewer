@@ -30,8 +30,7 @@ let syncEditor = true;
 let renderSeq = 0;
 let pinned: Active | undefined;
 let currentLine: number | undefined;
-let currentUri: string | undefined;
-/** `data-seqnotes-key` of the warnings the user closed. They stay hidden until the warnings change. */
+/** `data-seqnotes-key` of the warnings the user closed. The panel is hidden while the warnings are the same. */
 let dismissedWarnings: string | undefined;
 
 // ---------------------------------------------------------------------------
@@ -246,14 +245,13 @@ function addStepBadge(heading: Element, numbers: string[] | undefined): void {
 
 /** Adds a close button to the warnings panel, and keeps the panel hidden while the closed warnings stay the same. */
 function setUpWarnings(): void {
-  const panel = root.querySelector<HTMLElement>('.seqnotes-warnings');
-  const key = panel?.dataset.seqnotesKey;
-  if (!panel || key !== dismissedWarnings) {
-    dismissedWarnings = undefined;
-  }
-  if (!panel) {
+  // renderDocument puts the panel first; a `.seqnotes-warnings` written in the Markdown is not it.
+  const panel = root.firstElementChild;
+  if (!(panel instanceof HTMLElement) || !panel.matches('.seqnotes-warnings[data-seqnotes-key]')) {
     return;
   }
+  const key = panel.dataset.seqnotesKey;
+  // Not cleared when the warnings change for a moment while typing: the panel hides again when they come back.
   panel.hidden = key === dismissedWarnings;
   const close = document.createElement('button');
   close.className = 'seqnotes-warnings-close';
@@ -262,8 +260,14 @@ function setUpWarnings(): void {
   close.setAttribute('aria-label', close.title);
   close.textContent = '×';
   close.addEventListener('click', () => {
+    // Keep what is below the panel where it is on the screen.
+    const anchor = panel.nextElementSibling;
+    const top = anchor?.getBoundingClientRect().top;
     dismissedWarnings = key;
     panel.hidden = true;
+    if (anchor && top !== undefined) {
+      window.scrollBy(0, anchor.getBoundingClientRect().top - top);
+    }
   });
   panel.prepend(close);
 }
@@ -516,10 +520,6 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       splitMinWidth = message.splitMinWidth;
       syncEditor = message.syncEditor;
       vscode.setState({ ...vscode.getState(), uri: message.uri });
-      if (message.uri !== currentUri) {
-        currentUri = message.uri;
-        dismissedWarnings = undefined;
-      }
       applyLayout();
       void update(message.html);
       break;
