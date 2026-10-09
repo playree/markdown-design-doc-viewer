@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
 - Renamed to **Markdown Design Doc Viewer** (extension ID `playree.markdown-design-doc-viewer`). It is published as a new extension, so uninstall Markdown Sequence Side Notes and install this one.
 - Breaking: settings, commands and the custom editor are renamed from `seqNotes.*` to `mdDesignDoc.*` (for example `seqNotes.splitMinWidth` → `mdDesignDoc.splitMinWidth`, and `seqNotes.editor` → `mdDesignDoc.editor` in `workbench.editorAssociations`). Update your settings accordingly. The document syntax (`%% @seq-notes`, `%% @ref`, `<!-- seq-notes:end -->`) is unchanged.
