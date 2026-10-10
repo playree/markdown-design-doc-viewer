@@ -562,15 +562,19 @@ root.addEventListener('click', (e) => {
     openLink(link.getAttribute('href')!);
     return;
   }
-  const image = target.closest<HTMLImageElement>('img.seqnotes-zoomable');
-  // Not one that failed to load: there is nothing to show.
-  if (image && !(image.complete && image.naturalWidth === 0)) {
-    openZoom('image', zoomTargets('image').indexOf(image));
+  if (openImageZoom(target)) {
     return;
   }
   const active = activeFor(target);
   if (active) {
     activate(active);
+  }
+});
+
+// Images are focusable (`markZoomableImages`): open them with the keys of a button too.
+root.addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && openImageZoom(e.target as Element)) {
+    e.preventDefault();
   }
 });
 
@@ -707,15 +711,31 @@ function addZoomButtons(): void {
 }
 
 /**
- * Marks the images that open in the zoom overlay on click. Not those in a link, which opens the link,
- * in a heading, which is pinned instead (e.g. an icon), nor in a diagram.
+ * Marks the images that open in the zoom overlay on click, and makes them buttons for the keyboard.
+ * Not those in a link, which opens the link, in a heading, which is pinned instead (e.g. an icon), nor in a diagram.
  */
 function markZoomableImages(): void {
   for (const image of Array.from(root.querySelectorAll('img'))) {
     if (!image.closest('a[href], h1, h2, h3, h4, h5, h6, .seqnotes-diagram')) {
       image.classList.add('seqnotes-zoomable');
+      image.tabIndex = 0;
+      image.setAttribute('role', 'button');
+      // As a button, the alt text is no longer read: keep it in the name.
+      const title = titles.seqnotesZoomImageTitle ?? '';
+      image.setAttribute('aria-label', image.alt ? `${title}: ${image.alt}` : title);
     }
   }
+}
+
+/** Opens the zoomable image `target` in the overlay. false when it is not one. */
+function openImageZoom(target: Element): boolean {
+  const image = target.closest<HTMLImageElement>('img.seqnotes-zoomable');
+  // Not one that failed to load: there is nothing to show.
+  if (!image || (image.complete && image.naturalWidth === 0)) {
+    return false;
+  }
+  openZoom('image', zoomTargets('image').indexOf(image));
+  return true;
 }
 
 function openZoom(kind: ZoomKind, index: number): void {
@@ -729,9 +749,13 @@ function openZoom(kind: ZoomKind, index: number): void {
 }
 
 function closeZoom(): void {
+  // Back to what opened it, so that the keyboard goes on from there.
+  const target = zoom && zoomOverlay.contains(document.activeElement) ? zoomTargets(zoom.kind)[zoom.index] : undefined;
+  const opener = target?.matches('img') ? target : target?.querySelector(':scope > .seqnotes-zoom-button');
   zoom = undefined;
   zoomOverlay.hidden = true;
   zoomStage.replaceChildren();
+  (opener as HTMLElement | null | undefined)?.focus({ preventScroll: true });
 }
 
 /**
@@ -787,6 +811,9 @@ function setZoomImage(image: HTMLImageElement): void {
   copy.removeAttribute('style');
   // The overlay pans on drag instead.
   copy.classList.remove('seqnotes-zoomable');
+  for (const attr of ['tabindex', 'role', 'aria-label']) {
+    copy.removeAttribute(attr);
+  }
   copy.draggable = false;
   const measure = () => {
     if (!zoom) {
@@ -808,6 +835,12 @@ function setZoomImage(image: HTMLImageElement): void {
         if (zoom.fitted) {
           fitZoom();
         }
+      }
+    });
+    // Failed after it was opened: there is nothing to show.
+    copy.addEventListener('error', () => {
+      if (zoom && zoomStage.contains(copy)) {
+        closeZoom();
       }
     });
   }

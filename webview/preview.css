@@ -223,6 +223,7 @@ body:is(.vscode-light, .vscode-high-contrast-light) {
 
 /* Images open in the zoom overlay on click. */
 .seqnotes-zoomable { cursor: zoom-in; }
+.seqnotes-zoomable:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
 
 .seqnotes-zoom {
   position: fixed;

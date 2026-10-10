@@ -369,6 +369,7 @@ export class Preview {
     const tocTitle = escapeHtml(vscode.l10n.t('Contents'));
     const zoomTitles = [
       ['zoom-title', vscode.l10n.t('Zoom diagram')],
+      ['zoom-image-title', vscode.l10n.t('Zoom image')],
       ['zoom-in-title', vscode.l10n.t('Zoom in')],
       ['zoom-out-title', vscode.l10n.t('Zoom out')],
       ['zoom-fit-title', vscode.l10n.t('Fit to window')],

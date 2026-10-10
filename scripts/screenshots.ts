@@ -61,6 +61,7 @@ const TITLES: Record<string, string> = {
   'hide-warnings-title': 'Hide warnings',
   'toc-title': 'Contents',
   'zoom-title': 'Zoom diagram',
+  'zoom-image-title': 'Zoom image',
   'zoom-in-title': 'Zoom in',
   'zoom-out-title': 'Zoom out',
   'zoom-fit-title': 'Fit to window',
