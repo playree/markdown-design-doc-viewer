@@ -179,7 +179,11 @@ async function sectionClip(page: Page, title: string): Promise<Clip> {
   }, title);
 }
 
-function findChrome(): string {
+/**
+ * $CHROME_PATH, else a Chromium (or its headless shell) of the Playwright cache.
+ * undefined lets Playwright launch its default browser, which reports how to install it when it is missing too.
+ */
+function findChrome(): string | undefined {
   if (process.env.CHROME_PATH) {
     return process.env.CHROME_PATH;
   }
@@ -191,14 +195,10 @@ function findChrome(): string {
   }
   // Other revisions in the Playwright cache, newest first (Linux only).
   const cache = process.env.PLAYWRIGHT_BROWSERS_PATH ?? join(homedir(), '.cache/ms-playwright');
-  const revision = (p: string): number => Number(/chromium-(\d+)/.exec(p)?.[1] ?? 0);
-  const cached = globSync('chromium-*/chrome-linux*/chrome', { cwd: cache }).sort((a, b) => revision(b) - revision(a));
-  candidates.push(...cached.map((p) => join(cache, p)));
-  const found = candidates.find((p) => existsSync(p));
-  if (!found) {
-    throw new Error('Chrome was not found. Set CHROME_PATH, or run `pnpm exec playwright-core install chromium`.');
-  }
-  return found;
+  const revision = (p: string): number => Number(/^chromium(?:_headless_shell)?-(\d+)/.exec(p)?.[1] ?? 0);
+  const cached = globSync(['chromium-*/chrome-linux*/chrome', 'chromium_headless_shell-*/chrome-headless-shell-linux*/chrome-headless-shell'], { cwd: cache });
+  candidates.push(...cached.sort((a, b) => revision(b) - revision(a)).map((p) => join(cache, p)));
+  return candidates.find((p) => existsSync(p));
 }
 
 function shell(update: ToWebview): string {

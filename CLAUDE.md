@@ -30,7 +30,7 @@ pnpm screenshots  # README の画像（images/screenshot*.png）を examples/scr
 
 CI（[.github/workflows/ci.yml](.github/workflows/ci.yml)）は main への push と PR で `typecheck`・`test`・`package` を実行し、.vsix を成果物としてアップロードする。
 
-動作確認は VS Code の F5（`.vscode/launch.json` の "Run Extension"）。ビルド後に `examples/` フォルダを開いた拡張開発ホストが起動するので、[examples/login.md](examples/login.md)（基本の紐付け）、[examples/password-reset.md](examples/password-reset.md)（autonumber・アラート・タスクリストなど）、[examples/link-checks.md](examples/link-checks.md)（紐付け漏れの表示と警告）、[examples/flowchart.md](examples/flowchart.md)（フローチャート、横向きの縦並び）をプレビューする。README のスクリーンショットは [examples/screenshot.md](examples/screenshot.md)（機能ごとの節に分けた撮影用サンプル）から `pnpm screenshots`（[scripts/screenshots.ts](scripts/screenshots.ts)）で撮る。webview を VS Code のライトテーマ・英語の文言を再現したページに載せ、headless Chrome（`playwright-core`）で撮影する。Chrome は `CHROME_PATH`、なければ Playwright のキャッシュから探す（`pnpm exec playwright-core install chromium` で入る）。撮る範囲・ハイライトする項目は `SCENES` で定義する。プレビューの見た目を変えたら撮り直す。
+動作確認は VS Code の F5（`.vscode/launch.json` の "Run Extension"）。ビルド後に `examples/` フォルダを開いた拡張開発ホストが起動するので、[examples/login.md](examples/login.md)（基本の紐付け）、[examples/password-reset.md](examples/password-reset.md)（autonumber・アラート・タスクリストなど）、[examples/link-checks.md](examples/link-checks.md)（紐付け漏れの表示と警告）、[examples/flowchart.md](examples/flowchart.md)（フローチャート、横向きの縦並び）をプレビューする。README のスクリーンショットは [examples/screenshot.md](examples/screenshot.md)（機能ごとの節に分けた撮影用サンプル）から `pnpm screenshots`（[scripts/screenshots.ts](scripts/screenshots.ts)）で撮る。webview を VS Code のライトテーマ・英語の文言を再現したページに載せ、headless Chrome（`playwright-core`）で撮影する。Chrome は `CHROME_PATH`、なければ Playwright のキャッシュ（Chromium または headless shell）から探す（`pnpm exec playwright-core install chromium` で入る）。撮る範囲・ハイライトする項目は `SCENES` で定義する。プレビューの見た目を変えたら撮り直す。
 
 ## アーキテクチャ
 
