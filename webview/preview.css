@@ -56,8 +56,8 @@ blockquote {
 table { border-collapse: collapse; margin-bottom: 1em; }
 th, td { border: 1px solid var(--seqnotes-border); padding: 4px 10px; }
 th { background: var(--seqnotes-th-bg); }
-/* The header row stays at the top while scrolling through a long table. */
-thead th {
+/* With mdDesignDoc.stickyTableHeader, the header row stays at the top while scrolling through a long table. */
+body.seqnotes-sticky-table-header thead th {
   position: sticky;
   top: 0;
   z-index: 1;

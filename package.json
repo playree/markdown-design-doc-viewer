@@ -143,6 +143,11 @@
           "default": true,
           "description": "%mdDesignDoc.limitContentWidth.description%"
         },
+        "mdDesignDoc.stickyTableHeader": {
+          "type": "boolean",
+          "default": true,
+          "description": "%mdDesignDoc.stickyTableHeader.description%"
+        },
         "mdDesignDoc.syncEditor": {
           "type": "boolean",
           "default": true,

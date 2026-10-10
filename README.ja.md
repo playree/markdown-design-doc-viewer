@@ -148,6 +148,7 @@ AI アシスタント（Claude Code、GitHub Copilot、Cursor など）にこの
 |---|---|---|
 | `mdDesignDoc.splitMinWidth` | `1000` | 横並び表示にする最小のプレビュー幅 (px) |
 | `mdDesignDoc.limitContentWidth` | `true` | プレビューの幅が広いとき、本文を最大 1280px の中央のカラムに収める（横並びの図は全幅のまま）。プレビューのタイトルバーのボタンでも切り替えられ、HTML エクスポートにも適用される |
+| `mdDesignDoc.stickyTableHeader` | `true` | 長い表をスクロールしても、ヘッダ行を上端に固定して表示する（プレビューと HTML エクスポート） |
 | `mdDesignDoc.syncEditor` | `true` | エディタとの同期、ダブルクリックでのジャンプを有効にする |
 | `mdDesignDoc.toc` | `true` | プレビュー右端に目次を表示する |
 | `mdDesignDoc.headingNumbers` | `true` | `autonumber` を使ったとき、紐付いた見出しの先頭に矢印の番号を表示する（プレビューと HTML エクスポート） |
