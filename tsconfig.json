@@ -12,5 +12,5 @@
     "verbatimModuleSyntax": false,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src", "webview", "test"]
+  "include": ["src", "webview", "test", "scripts"]
 }
