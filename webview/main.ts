@@ -1098,6 +1098,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       tocEnabled = message.toc;
       diagramLook = message.diagramLook;
       document.body.classList.toggle('seqnotes-limit-width', message.limitContentWidth);
+      document.body.classList.toggle('seqnotes-sticky-table-header', message.stickyTableHeader);
       vscode.setState({ ...vscode.getState(), uri: message.uri });
       applyLayout();
       void update(message.html);

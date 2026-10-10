@@ -150,6 +150,7 @@ The guide also tells the assistant to read the diagnostics of the file. Agents t
 |---|---|---|
 | `mdDesignDoc.splitMinWidth` | `1000` | Minimum preview width (px) for the side-by-side layout. |
 | `mdDesignDoc.limitContentWidth` | `true` | In a wide preview, keep the text in a centered column up to 1280px wide (diagrams beside their steps still use the whole width). Also switched with the button in the preview's title bar, and applied to exported HTML. |
+| `mdDesignDoc.stickyTableHeader` | `true` | Keep the header row of a long table at the top while scrolling through it (preview and exported HTML). |
 | `mdDesignDoc.syncEditor` | `true` | Sync the preview with the editor and enable double-click to jump to the source. |
 | `mdDesignDoc.toc` | `true` | Show the table of contents at the right edge of the preview. |
 | `mdDesignDoc.headingNumbers` | `true` | With `autonumber`, show the arrow's number at the start of its linked heading (preview and exported HTML). |

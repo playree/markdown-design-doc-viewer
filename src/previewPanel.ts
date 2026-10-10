@@ -21,6 +21,7 @@ export interface Settings {
   frontMatter: boolean;
   diagramLook: DiagramLook;
   limitContentWidth: boolean;
+  stickyTableHeader: boolean;
 }
 
 export function readSettings(): Settings {
@@ -33,6 +34,7 @@ export function readSettings(): Settings {
     frontMatter: c.get<boolean>('frontMatter', true),
     diagramLook: c.get<string>('diagramLook') === 'classic' ? 'classic' : 'neo',
     limitContentWidth: c.get<boolean>('limitContentWidth', true),
+    stickyTableHeader: c.get<boolean>('stickyTableHeader', true),
   };
 }
 
