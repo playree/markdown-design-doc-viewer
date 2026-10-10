@@ -133,20 +133,20 @@ Returns the order ID and the expected delivery date.
 
 | Code | Retry | Wait |
 |---|---|---|
+| `ORD-001` – `ORD-007` | No | — |
+| `ORD-008` | Once, after refreshing the token | — |
+| `ORD-009` – `ORD-020` | No | — |
+| `ORD-021` | Once | — |
+| `ORD-022` | No | — |
+| `ORD-023` | No | — |
+| `ORD-024` | No | — |
 | `ORD-025` | Yes | `Retry-After` |
 | `ORD-026` | Yes | 1 s, 2 s, 4 s |
 | `ORD-027` | Yes | 1 s, 2 s, 4 s |
 | `ORD-028` | Yes | 5 s, 10 s, 20 s |
 | `ORD-029` | No | — |
-| `ORD-030` | No | — |
-| `ORD-001` – `ORD-024` | No | — |
+| `ORD-030` | Once, after checking the order list | — |
 | Network error | Yes | 1 s, 2 s, 4 s |
 | Unknown | No | — |
-| `ORD-014` | No | — |
-| `ORD-017` | No | — |
-| `ORD-019` | No | — |
-| `ORD-021` | Once | — |
-| `ORD-022` | No | — |
-| `ORD-023` | No | — |
 
 </details>
