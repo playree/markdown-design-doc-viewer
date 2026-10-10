@@ -49,5 +49,10 @@
   "Show this flowchart with the step headings after it and link its nodes to them (side by side, or below a horizontal flowchart).": "このフローチャートを、後ろにある処理概要の見出しと並べて表示し、ノードと紐付けます（横並び。横向きの図では処理概要を下に表示します）。",
   "Link the node defined on the next line to a heading.": "直後の行で定義したノードを見出しに紐付けます。",
   "\"%% @seq-notes\" is no longer supported. Write \"%% @link-headings\" instead.": "\"%% @seq-notes\" は使えなくなりました。代わりに \"%% @link-headings\" を書いてください。",
-  "\"<!-- seq-notes:end -->\" is no longer supported. Write \"<!-- link-headings:end -->\" instead.": "\"<!-- seq-notes:end -->\" は使えなくなりました。代わりに \"<!-- link-headings:end -->\" を書いてください。"
+  "\"<!-- seq-notes:end -->\" is no longer supported. Write \"<!-- link-headings:end -->\" instead.": "\"<!-- seq-notes:end -->\" は使えなくなりました。代わりに \"<!-- link-headings:end -->\" を書いてください。",
+  "Version": "版数",
+  "Product": "プロダクト",
+  "Status": "ステータス",
+  "Updated": "更新日",
+  "Other metadata ({0})": "その他のメタ情報（{0}）"
 }

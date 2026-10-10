@@ -7,6 +7,17 @@ Follow these rules when you write a design document in Markdown. The document is
 ## Template
 
 ````markdown
+---
+type: design_doc
+title: Login Feature Design
+version: 1.0
+product: <product name>
+status: draft
+updated: 2026-10-10
+---
+
+# Login Feature Design
+
 ## Sequence
 
 ```mermaid
@@ -77,9 +88,14 @@ A flowchart (`flowchart TD` / `graph TD`) can be linked instead of a sequence di
 - Headings inside lists or blockquotes are not steps.
 - After the last step, write `<!-- link-headings:end -->` on a line of its own at the top level. Without it, the description column extends to the next diagram with `%% @link-headings` or to the end of the document.
 
+## Front matter
+
+- Start the design document with YAML front matter that contains `type: design_doc`. The first line of the document is `---`, the metadata follows as `key: value` lines, and a `---` line closes it (the line right after the opening `---` must be a `key: value` line, or the block is not treated as front matter).
+- `title`, `version`, `product`, `status` and `updated` are shown in a row as the document's header. Other keys are shown in a table folded below the header (closed by default).
+- Also write a `#` heading with the same text as `title` at the start of the body.
+
 ## Other Markdown
 
-- YAML front matter at the top is allowed and hidden in the preview. Its first line must be a `key: value` line.
 - Tables, code blocks with a language (` ```json `, ` ```sql `), GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`) and task lists (`- [ ]`, `- [x]`) are rendered.
 
 ## Check

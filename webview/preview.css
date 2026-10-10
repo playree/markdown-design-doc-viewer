@@ -58,6 +58,7 @@ th { background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1)
 
 /* YAML front matter, shown as the document's metadata */
 .seqnotes-front-matter { font-size: 0.9em; }
+.seqnotes-front-matter th, .seqnotes-front-matter td { padding: 2px 8px; }
 .seqnotes-front-matter th {
   text-align: left;
   font-weight: normal;
@@ -65,6 +66,40 @@ th { background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1)
   background: none;
 }
 .seqnotes-front-matter td { white-space: pre-wrap; }
+
+/* Front matter with `type: design_doc`: the title and main entries in a row, then a table of the others */
+.seqnotes-doc-header {
+  font-size: 0.9em;
+  margin-bottom: 1.5em;
+  padding-bottom: 0.8em;
+  border-bottom: 1px solid var(--seqnotes-border);
+}
+.seqnotes-doc-headline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3em 1.5em; }
+.seqnotes-doc-title { font-weight: 600; white-space: pre-wrap; }
+/* The entries flow in the row with the title */
+.seqnotes-doc-meta { display: contents; }
+.seqnotes-doc-meta > div { display: flex; align-items: baseline; gap: 0.5em; }
+.seqnotes-doc-meta dt { color: var(--seqnotes-muted); }
+.seqnotes-doc-meta dd { margin: 0; white-space: pre-wrap; }
+.seqnotes-doc-status dd {
+  padding: 0 0.6em;
+  border: 1px solid var(--seqnotes-border);
+  border-radius: 1em;
+}
+.seqnotes-doc-header .seqnotes-front-matter { margin: 0.4em 0 0; font-size: 1em; }
+/* The other entries, folded: lighter than the box of other <details> */
+.seqnotes-doc-header details.seqnotes-doc-more { margin: 0; padding: 0; border: none; border-radius: 0; }
+.seqnotes-doc-headline + details.seqnotes-doc-more { margin-top: 0.6em; }
+.seqnotes-doc-header .seqnotes-doc-more > summary {
+  display: inline-flex;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  font-weight: normal;
+  color: var(--seqnotes-muted);
+}
+.seqnotes-doc-header .seqnotes-doc-more > summary:hover { color: var(--vscode-foreground, inherit); }
 
 img { max-width: 100%; }
 hr { border: 0; border-top: 1px solid var(--seqnotes-border); }

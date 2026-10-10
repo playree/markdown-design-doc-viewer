@@ -7,6 +7,17 @@
 ## テンプレート
 
 ````markdown
+---
+type: design_doc
+title: ログイン機能 設計書
+version: 1.0
+product: <プロダクト名>
+status: draft
+updated: 2026-10-10
+---
+
+# ログイン機能 設計書
+
 ## シーケンス
 
 ```mermaid
@@ -77,9 +88,14 @@ sequenceDiagram
 - リストや引用の中の見出しは処理として扱われない。
 - 最後の処理の後ろに、`<!-- link-headings:end -->` をトップレベルの独立した行で書く。これがないと、次の `%% @link-headings` 付きの図か文書の末尾までが処理概要になる。
 
+## メタ情報（front matter）
+
+- 設計書の先頭には YAML front matter を書き、`type: design_doc` を入れる。文書の 1 行目を `---` にし、次の行から `key: value` の形でメタ情報を書き、`---` の行で閉じる（`---` の直後の行が `key: value` の形でないと front matter として扱われない）。
+- `title`・`version`・`product`・`status`・`updated` は文書のヘッダとして横並びで表示される。それ以外のキーは、ヘッダの下の折りたたみ（既定で閉じた状態）に表で表示される。
+- 本文の先頭には、`title` と同じ文言の `#` 見出しも書く。
+
 ## その他の Markdown
 
-- 先頭に YAML front matter を書いてよい（プレビューには表示されない）。1 行目は `key: value` の形にする。
 - 表、言語を指定したコードブロック（` ```json `、` ```sql `）、GitHub のアラート（`> [!NOTE]`、`> [!TIP]`、`> [!IMPORTANT]`、`> [!WARNING]`、`> [!CAUTION]`）、タスクリスト（`- [ ]`、`- [x]`）が表示される。
 
 ## 確認

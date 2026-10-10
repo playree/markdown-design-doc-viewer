@@ -18,7 +18,7 @@ Each arrow (or flowchart node) in the diagram is linked to a heading in the desc
 - **Arrow / node ⇔ heading links** — hover or click an arrow (or a flowchart node) to highlight its description, or click a heading to find it in the diagram.
 - **Editor sync** — the preview follows the editor's scroll position and cursor (an arrow or node is highlighted when the cursor is on its line). Double-click in the preview to jump to the source line.
 - **Plain Markdown** — the link syntax is made of mermaid comments and HTML comments, so the same file still renders correctly on GitHub and in the built-in Markdown preview.
-- **Design document friendly** — YAML front matter is shown as a table of the document's metadata (title, version, status...), code blocks are syntax highlighted, and GitHub alerts (`> [!NOTE]`) and task lists (`- [ ]`) are rendered.
+- **Design document friendly** — YAML front matter is shown as a table of the document's metadata (title, version, status...), or as a header with `type: design_doc` (see below), code blocks are syntax highlighted, and GitHub alerts (`> [!NOTE]`) and task lists (`- [ ]`) are rendered.
 - **Resizable** — drag the boundary between the columns to resize them; double-click it to reset. In a wide preview, the text is kept in a centered column up to 1280px wide; the button in the preview's title bar switches it to the full width and back.
 - **Table of contents** — hover the short lines at the right edge of the preview to open a table of contents (h1–h3) and jump to a heading. The highlighted line shows where you are.
 - **Diagram and image zoom** — hover a mermaid diagram and click the button at its top right to show it full screen. Scroll the wheel to zoom, drag to pan, double-click to fit it again and press Esc to close. Clicking a linked arrow closes it and shows the step. Images open the same way when clicked (except images in a link, which open the link).
@@ -117,6 +117,27 @@ flowchart TD
 - Nodes without a linked heading are shown faded, and step headings without a node get a "no node" mark.
 - Flowcharts have no `autonumber`, so no numbers are shown on the headings.
 
+## Design document header
+
+Writing `type: design_doc` in the YAML front matter of design documents is recommended. The main metadata is then shown as the document's header instead of a table:
+
+```markdown
+---
+type: design_doc
+title: Login Feature Design
+version: 1.2
+product: Shop
+status: In review
+updated: 2026-10-01
+owner: auth-team
+---
+
+# Login Feature Design
+```
+
+- `title` is shown in bold, followed by `version`, `product`, `status` and `updated` in a row (in this order, leaving out those not written).
+- The other entries (`owner` here) are shown in a table folded below the header (closed by default). `type` itself is not shown.
+
 ## Writing with AI
 
 To have an AI assistant (Claude Code, GitHub Copilot, Cursor and so on) write documents in this format, give it the [authoring guide for AI](docs/ai-authoring-guide.md) ([日本語](docs/ai-authoring-guide.ja.md)). Copy it into your project's instructions file (`CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md` and so on), or tell the assistant to read it.
@@ -133,5 +154,5 @@ The guide also tells the assistant to read the diagnostics of the file. Agents t
 | `mdDesignDoc.toc` | `true` | Show the table of contents at the right edge of the preview. |
 | `mdDesignDoc.headingNumbers` | `true` | With `autonumber`, show the arrow's number at the start of its linked heading (preview and exported HTML). |
 | `mdDesignDoc.diagramLook` | `neo` | Look of the mermaid diagrams: `neo` (mermaid's default, with shadows on flowchart nodes) or `classic` (flat, without shadows). A diagram with `config: look:` in its front matter keeps its own. |
-| `mdDesignDoc.frontMatter` | `true` | Show the YAML front matter at the top as a table of metadata. When off, it is hidden. |
+| `mdDesignDoc.frontMatter` | `true` | Show the YAML front matter at the top as a table of metadata, or as a header with `type: design_doc`. When off, it is hidden. |
 | `mdDesignDoc.diagnostics` | `true` | Report link warnings and missing links of open Markdown files in the Problems panel. |

@@ -16,6 +16,6 @@
   "mdDesignDoc.diagramLook.description": "Look of the mermaid diagrams in the preview and in exported HTML. A diagram can still choose its own with `config: look:` in its front matter.",
   "mdDesignDoc.diagramLook.neo": "mermaid's default look: rounder shapes, with shadows on flowchart nodes.",
   "mdDesignDoc.diagramLook.classic": "The flat look of earlier mermaid versions, without shadows.",
-  "mdDesignDoc.frontMatter.description": "Show the YAML front matter at the top of the document as a table of its metadata (title, version, status...). When off, it is hidden.",
+  "mdDesignDoc.frontMatter.description": "Show the YAML front matter at the top of the document as a table of its metadata (title, version, status...), or as a header with `type: design_doc`. When off, it is hidden.",
   "mdDesignDoc.diagnostics.description": "Report link warnings and arrows or headings without a link in the Problems panel for open Markdown files, even when no preview is open."
 }
