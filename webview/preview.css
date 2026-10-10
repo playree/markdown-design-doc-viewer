@@ -183,7 +183,7 @@ body:is(.vscode-light, .vscode-high-contrast-light) {
 .seqnotes-diagram { position: relative; }
 .seqnotes-diagram svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
 
-/* ---------------------------------------------------------------- Diagram zoom */
+/* ---------------------------------------------------------------- Diagram / image zoom */
 
 .seqnotes-zoom-button,
 .seqnotes-zoom-toolbar button {
@@ -221,6 +221,10 @@ body:is(.vscode-light, .vscode-high-contrast-light) {
 .seqnotes-diagram:hover > .seqnotes-zoom-button,
 .seqnotes-zoom-button:focus-visible { opacity: 1; }
 
+/* Images open in the zoom overlay on click. */
+.seqnotes-zoomable { cursor: zoom-in; }
+.seqnotes-zoomable:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
+
 .seqnotes-zoom {
   position: fixed;
   inset: 0;
@@ -241,6 +245,7 @@ body:is(.vscode-light, .vscode-high-contrast-light) {
   transform-origin: 0 0;
 }
 .seqnotes-zoom-stage svg { display: block; }
+.seqnotes-zoom-stage img { display: block; max-width: none; }
 .seqnotes-zoom.seqnotes-zoom-dragging { cursor: grabbing; }
 
 .seqnotes-zoom-toolbar {

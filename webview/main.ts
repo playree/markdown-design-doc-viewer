@@ -370,8 +370,9 @@ async function update(html: string): Promise<void> {
   });
   setUpWarnings();
   addZoomButtons();
+  markZoomableImages();
   if (zoom) {
-    setZoomSvg();
+    setZoomContent();
   }
 
   window.scrollTo(0, scrollY);
@@ -561,9 +562,19 @@ root.addEventListener('click', (e) => {
     openLink(link.getAttribute('href')!);
     return;
   }
+  if (openImageZoom(target)) {
+    return;
+  }
   const active = activeFor(target);
   if (active) {
     activate(active);
+  }
+});
+
+// Images are focusable (`markZoomableImages`): open them with the keys of a button too.
+root.addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && openImageZoom(e.target as Element)) {
+    e.preventDefault();
   }
 });
 
@@ -610,7 +621,7 @@ async function exportBody(id: number, html: string): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
-// Diagram zoom
+// Diagram / image zoom
 
 const ZOOM_STEP = 1.25;
 const MIN_SCALE = 0.05;
@@ -625,13 +636,16 @@ const ZOOM_ICON =
 const FIT_ICON =
   '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
 
+type ZoomKind = 'diagram' | 'image';
+
 interface Zoom {
-  /** Index of the diagram among the `.seqnotes-diagram`s of the document. */
+  kind: ZoomKind;
+  /** Index of the diagram or image among those of the document (`zoomTargets`). */
   index: number;
-  /** Its mermaid source and the number of diagrams, to find it again after an update. */
+  /** Its `zoomSource` and the number of diagrams or images, to find it again after an update. */
   source: string | undefined;
   count: number;
-  /** true while the whole diagram is shown, so that it is fitted again when the window is resized. */
+  /** true while the whole diagram or image is shown, so that it is fitted again when the window is resized. */
   fitted: boolean;
   scale: number;
   x: number;
@@ -675,12 +689,20 @@ zoomOverlay.append(zoomStage, zoomToolbar);
 // Outside the root, so the arrow / heading handlers on it do not see the events.
 document.body.append(zoomOverlay);
 
-const diagramHolders = (): Element[] => Array.from(root.querySelectorAll('.seqnotes-diagram'));
+/** The diagram holders or the images that open in the zoom overlay, in document order. */
+function zoomTargets(kind: ZoomKind): Element[] {
+  return Array.from(root.querySelectorAll(kind === 'diagram' ? '.seqnotes-diagram' : 'img.seqnotes-zoomable'));
+}
+
+/** What tells a diagram or image apart from the others across updates. */
+function zoomSource(kind: ZoomKind, el: Element | undefined): string | undefined {
+  return kind === 'diagram' ? el && diagramSources.get(el) : (el as HTMLImageElement | undefined)?.src;
+}
 
 /** Adds a button that opens the diagram in the zoom overlay, shown when hovering it. */
 function addZoomButtons(): void {
-  diagramHolders().forEach((holder, index) => {
-    const button = zoomButton(ZOOM_ICON, titles.seqnotesZoomTitle, () => openZoom(index));
+  zoomTargets('diagram').forEach((holder, index) => {
+    const button = zoomButton(ZOOM_ICON, titles.seqnotesZoomTitle, () => openZoom('diagram', index));
     button.className = 'seqnotes-zoom-button';
     // Not a jump to the source line.
     button.addEventListener('dblclick', (e) => e.stopPropagation());
@@ -688,36 +710,78 @@ function addZoomButtons(): void {
   });
 }
 
-function openZoom(index: number): void {
-  const holders = diagramHolders();
-  zoom = { index, source: diagramSources.get(holders[index]), count: holders.length, fitted: true, scale: 1, x: 0, y: 0, width: 0, height: 0 };
+/**
+ * Marks the images that open in the zoom overlay on click, and makes them buttons for the keyboard.
+ * Not those in a link, which opens the link, in a heading, which is pinned instead (e.g. an icon), nor in a diagram.
+ */
+function markZoomableImages(): void {
+  for (const image of Array.from(root.querySelectorAll('img'))) {
+    if (!image.closest('a[href], h1, h2, h3, h4, h5, h6, .seqnotes-diagram')) {
+      image.classList.add('seqnotes-zoomable');
+      image.tabIndex = 0;
+      image.setAttribute('role', 'button');
+      // As a button, the alt text is no longer read: keep it in the name.
+      const title = titles.seqnotesZoomImageTitle ?? '';
+      image.setAttribute('aria-label', image.alt ? `${title}: ${image.alt}` : title);
+    }
+  }
+}
+
+/** Opens the zoomable image `target` in the overlay. false when it is not one. */
+function openImageZoom(target: Element): boolean {
+  const image = target.closest<HTMLImageElement>('img.seqnotes-zoomable');
+  // Not one that failed to load: there is nothing to show.
+  if (!image || (image.complete && image.naturalWidth === 0)) {
+    return false;
+  }
+  openZoom('image', zoomTargets('image').indexOf(image));
+  return true;
+}
+
+function openZoom(kind: ZoomKind, index: number): void {
+  const targets = zoomTargets(kind);
+  zoom = { kind, index, source: zoomSource(kind, targets[index]), count: targets.length, fitted: true, scale: 1, x: 0, y: 0, width: 0, height: 0 };
   zoomOverlay.hidden = false;
-  if (setZoomSvg()) {
+  if (setZoomContent()) {
     fitZoom();
     zoomOverlay.focus();
   }
 }
 
 function closeZoom(): void {
+  // Back to what opened it, so that the keyboard goes on from there.
+  const target = zoom && zoomOverlay.contains(document.activeElement) ? zoomTargets(zoom.kind)[zoom.index] : undefined;
+  const opener = target?.matches('img') ? target : target?.querySelector(':scope > .seqnotes-zoom-button');
   zoom = undefined;
   zoomOverlay.hidden = true;
   zoomStage.replaceChildren();
+  (opener as HTMLElement | null | undefined)?.focus({ preventScroll: true });
 }
 
-/** Puts a copy of the diagram into the overlay, keeping the scale and position. Closes it when the diagram is gone. */
-function setZoomSvg(): boolean {
-  const holders = diagramHolders();
-  if (zoom) {
-    // The same diagram: still at its place (which tells apart diagrams with the same source), or moved.
-    // When it was edited, the one at the same place if no diagram was added or removed.
-    const unmoved = diagramSources.get(holders[zoom.index]) === zoom.source;
-    const index = unmoved ? zoom.index : holders.findIndex((holder) => diagramSources.get(holder) === zoom!.source);
-    zoom.index = index >= 0 ? index : holders.length === zoom.count ? zoom.index : -1;
-    zoom.source = diagramSources.get(holders[zoom.index]);
-    zoom.count = holders.length;
+/**
+ * Puts a copy of the diagram or image into the overlay, keeping the scale and position.
+ * Closes it when the diagram or image is gone.
+ */
+function setZoomContent(): boolean {
+  if (!zoom) {
+    return false;
   }
-  const svg = zoom && holders[zoom.index]?.querySelector<SVGSVGElement>(':scope > svg');
-  if (!zoom || !svg) {
+  const { kind } = zoom;
+  const targets = zoomTargets(kind);
+  // The same one: still at its place (which tells apart those with the same source), or moved.
+  // When it was edited, the one at the same place if none was added or removed.
+  const unmoved = zoomSource(kind, targets[zoom.index]) === zoom.source;
+  const index = unmoved ? zoom.index : targets.findIndex((target) => zoomSource(kind, target) === zoom!.source);
+  zoom.index = index >= 0 ? index : targets.length === zoom.count ? zoom.index : -1;
+  zoom.source = zoomSource(kind, targets[zoom.index]);
+  zoom.count = targets.length;
+  const target = targets[zoom.index];
+  if (target instanceof HTMLImageElement) {
+    setZoomImage(target);
+    return true;
+  }
+  const svg = target?.querySelector<SVGSVGElement>(':scope > svg');
+  if (!svg) {
     closeZoom();
     return false;
   }
@@ -735,20 +799,71 @@ function setZoomSvg(): boolean {
   return true;
 }
 
+function setZoomImage(image: HTMLImageElement): void {
+  // Kept on updates, so that the image is not loaded again while typing.
+  const shown = zoomStage.firstElementChild;
+  if (shown instanceof HTMLImageElement && shown.src === image.src) {
+    return;
+  }
+  const copy = image.cloneNode(false) as HTMLImageElement;
+  copy.removeAttribute('width');
+  copy.removeAttribute('height');
+  copy.removeAttribute('style');
+  // The overlay pans on drag instead.
+  copy.classList.remove('seqnotes-zoomable');
+  for (const attr of ['tabindex', 'role', 'aria-label']) {
+    copy.removeAttribute(attr);
+  }
+  copy.draggable = false;
+  const measure = () => {
+    if (!zoom) {
+      return;
+    }
+    // An SVG image without a size of its own has no natural size: take the one it is shown with.
+    const rect = image.getBoundingClientRect();
+    zoom.width = copy.naturalWidth || image.naturalWidth || rect.width || zoom.width;
+    zoom.height = copy.naturalHeight || image.naturalHeight || rect.height || zoom.height;
+    copy.style.width = `${zoom.width}px`;
+    copy.style.height = `${zoom.height}px`;
+  };
+  measure();
+  if (!copy.complete) {
+    // Still loading: fit it once its size is known.
+    copy.addEventListener('load', () => {
+      if (zoom && zoomStage.contains(copy)) {
+        measure();
+        if (zoom.fitted) {
+          fitZoom();
+        }
+      }
+    });
+    // Failed after it was opened: there is nothing to show.
+    copy.addEventListener('error', () => {
+      if (zoom && zoomStage.contains(copy)) {
+        closeZoom();
+      }
+    });
+  }
+  zoomStage.replaceChildren(copy);
+  applyZoom();
+}
+
 function applyZoom(): void {
   if (zoom) {
     zoomStage.style.transform = `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.scale})`;
   }
 }
 
-/** Shows the whole diagram in the middle of the overlay. */
+/** Shows the whole diagram or image in the middle of the overlay. */
 function fitZoom(): void {
   if (!zoom || zoom.width === 0 || zoom.height === 0) {
     return;
   }
   const width = zoomOverlay.clientWidth;
   const height = zoomOverlay.clientHeight;
-  zoom.scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, Math.min((width - 2 * ZOOM_MARGIN) / zoom.width, (height - 2 * ZOOM_MARGIN) / zoom.height)));
+  // An image is not enlarged beyond its own size, which would only blur it.
+  const maxScale = zoom.kind === 'image' ? 1 : MAX_SCALE;
+  zoom.scale = Math.min(maxScale, Math.max(MIN_SCALE, Math.min((width - 2 * ZOOM_MARGIN) / zoom.width, (height - 2 * ZOOM_MARGIN) / zoom.height)));
   zoom.x = (width - zoom.width * zoom.scale) / 2;
   zoom.y = (height - zoom.height * zoom.scale) / 2;
   zoom.fitted = true;
@@ -849,7 +964,7 @@ zoomOverlay.addEventListener('dblclick', (e) => {
 // A linked arrow in the overlay: close it and show the step, like a click on the arrow in the preview.
 zoomStage.addEventListener('click', (e) => {
   const message = (e.target as Element).closest('[data-seqnotes-target]');
-  const pair = zoom && diagramHolders()[zoom.index]?.closest('.seqnotes-pair');
+  const pair = zoom?.kind === 'diagram' && zoomTargets('diagram')[zoom.index]?.closest('.seqnotes-pair');
   if (zoomDragged || !message || !pair) {
     return;
   }
