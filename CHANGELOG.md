@@ -5,6 +5,7 @@
 - The arrow numbers shown at the start of linked headings with `autonumber` can be hidden with `mdDesignDoc.headingNumbers`.
 - GitHub alerts show the icon of their kind before the title, as on GitHub.
 - Images open full screen when clicked, to zoom and pan them like diagrams. Images in a link still open the link.
+- In a wide preview, the text is kept in a centered column up to 1280px wide. Diagrams shown beside their steps still use the whole width.
 
 ## 0.3.0
 

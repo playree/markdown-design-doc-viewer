@@ -295,6 +295,15 @@ body:is(.vscode-light, .vscode-high-contrast-light) {
 .seqnotes-warnings-close:hover { background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2)); }
 .seqnotes-warnings-close:focus-visible { outline: 1px solid var(--vscode-focusBorder); }
 
+/* ---------------------------------------------------------------- Content width */
+
+/*
+ * Text reads better in a limited width: everything but the side-by-side diagrams is kept in a centered column.
+ * Margins rather than max-width + auto margins, so that narrower blocks such as tables stay at the left of the column.
+ */
+#seqnotes-root > * { margin-inline: max(0px, (100% - 1280px) / 2); }
+body.seqnotes-wide #seqnotes-root > .seqnotes-pair:not(.seqnotes-pair-stacked) { margin-inline: 0; }
+
 /* ---------------------------------------------------------------- Side-by-side layout */
 
 body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) {
