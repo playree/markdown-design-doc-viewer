@@ -20,6 +20,7 @@ export interface Settings {
   headingNumbers: boolean;
   frontMatter: boolean;
   diagramLook: DiagramLook;
+  limitContentWidth: boolean;
 }
 
 export function readSettings(): Settings {
@@ -31,6 +32,7 @@ export function readSettings(): Settings {
     headingNumbers: c.get<boolean>('headingNumbers', true),
     frontMatter: c.get<boolean>('frontMatter', true),
     diagramLook: c.get<string>('diagramLook') === 'classic' ? 'classic' : 'neo',
+    limitContentWidth: c.get<boolean>('limitContentWidth', true),
   };
 }
 

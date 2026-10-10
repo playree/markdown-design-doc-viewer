@@ -42,7 +42,17 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       return exportHtml(manager, context.extensionUri, uri);
     }),
+    vscode.commands.registerCommand('mdDesignDoc.useFullContentWidth', () => setLimitContentWidth(false)),
+    vscode.commands.registerCommand('mdDesignDoc.limitContentWidth', () => setLimitContentWidth(true)),
   );
+}
+
+/** Saves the choice of the preview's title bar button to the setting, which updates the open previews. */
+function setLimitContentWidth(value: boolean): Thenable<void> {
+  const config = vscode.workspace.getConfiguration('mdDesignDoc');
+  // A workspace value would hide a change of the user setting.
+  const target = config.inspect<boolean>('limitContentWidth')?.workspaceValue !== undefined ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
+  return config.update('limitContentWidth', value, target);
 }
 
 export function deactivate(): void {}
