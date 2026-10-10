@@ -86,8 +86,20 @@ th { background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1)
   border: 1px solid var(--seqnotes-border);
   border-radius: 1em;
 }
-.seqnotes-doc-header .seqnotes-front-matter { margin: 0; font-size: 1em; }
-.seqnotes-doc-headline + .seqnotes-front-matter { margin-top: 1em; }
+.seqnotes-doc-header .seqnotes-front-matter { margin: 0.4em 0 0; font-size: 1em; }
+/* The other entries, folded: lighter than the box of other <details> */
+.seqnotes-doc-header details.seqnotes-doc-more { margin: 0; padding: 0; border: none; border-radius: 0; }
+.seqnotes-doc-headline + details.seqnotes-doc-more { margin-top: 0.6em; }
+.seqnotes-doc-header .seqnotes-doc-more > summary {
+  display: inline-flex;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  font-weight: normal;
+  color: var(--seqnotes-muted);
+}
+.seqnotes-doc-header .seqnotes-doc-more > summary:hover { color: var(--vscode-foreground, inherit); }
 
 img { max-width: 100%; }
 hr { border: 0; border-top: 1px solid var(--seqnotes-border); }

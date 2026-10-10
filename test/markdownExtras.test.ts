@@ -74,7 +74,9 @@ describe('design document header', () => {
         item('updated', 'Updated', '2026-10-01') +
         '</dl>\n' +
         '</div>\n' +
+        '<details class="seqnotes-doc-more">\n<summary>Other metadata (1)</summary>\n' +
         '<table class="seqnotes-front-matter">\n<tbody>\n<tr><th>owner</th><td>auth-team</td></tr>\n</tbody>\n</table>\n' +
+        '</details>\n' +
         '</div>\n' +
         '<h1 id="sn-概要" data-line="9">概要</h1>\n',
     );
@@ -90,7 +92,8 @@ describe('design document header', () => {
       '<div data-line="0" class="seqnotes-doc-header">\n<div class="seqnotes-doc-headline">\n<div class="seqnotes-doc-title">設計書</div>\n</div>\n</div>\n',
     );
     expect(renderDocument(md, doc('---', 'type: design_doc', 'a: 1', '---'))).toBe(
-      '<div data-line="0" class="seqnotes-doc-header">\n<table class="seqnotes-front-matter">\n<tbody>\n<tr><th>a</th><td>1</td></tr>\n</tbody>\n</table>\n</div>\n',
+      '<div data-line="0" class="seqnotes-doc-header">\n<details class="seqnotes-doc-more">\n<summary>Other metadata (1)</summary>\n' +
+        '<table class="seqnotes-front-matter">\n<tbody>\n<tr><th>a</th><td>1</td></tr>\n</tbody>\n</table>\n</details>\n</div>\n',
     );
     expect(renderDocument(md, doc('---', 'type: design_doc', '---'))).toBe('');
   });
@@ -110,11 +113,13 @@ describe('design document header', () => {
   });
 
   it('translates the labels and escapes the values', () => {
-    const html = renderDocument(md, doc('---', 'type: "design_doc"', 'title: <b>', 'status: a & b', '---'), {
-      t: (message) => (message === 'Status' ? 'ステータス' : message),
+    const ja: Record<string, string> = { Status: 'ステータス', 'Other metadata ({0})': 'その他のメタ情報（{0}）' };
+    const html = renderDocument(md, doc('---', 'type: "design_doc"', 'title: <b>', 'status: a & b', 'owner: x', 'note: y', '---'), {
+      t: (message, ...args) => (ja[message] ?? message).replace('{0}', String(args[0])),
     });
     expect(html).toContain('<div class="seqnotes-doc-title">&lt;b&gt;</div>');
     expect(html).toContain(item('status', 'ステータス', 'a &amp; b'));
+    expect(html).toContain('<summary>その他のメタ情報（2）</summary>');
   });
 
   it('has no source line in an exported file', () => {

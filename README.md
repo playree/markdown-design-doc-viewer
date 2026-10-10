@@ -136,7 +136,7 @@ owner: auth-team
 ```
 
 - `title` is shown in bold, followed by `version`, `product`, `status` and `updated` in a row (in this order, leaving out those not written).
-- The other entries (`owner` here) are shown in a table below the header. `type` itself is not shown.
+- The other entries (`owner` here) are shown in a table folded below the header (closed by default). `type` itself is not shown.
 
 ## Writing with AI
 

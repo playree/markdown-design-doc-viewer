@@ -360,8 +360,14 @@ async function update(html: string): Promise<void> {
   const scrollY = window.scrollY;
   const colScroll = Array.from(root.querySelectorAll('.seqnotes-seq-col'), (col) => col.scrollTop);
   const pinnedState = pinned && { diagram: pinned.pair.getAttribute('data-diagram'), target: pinned.target };
+  // The folded metadata of the header stays open while the document is edited.
+  const metadataOpen = root.querySelector<HTMLDetailsElement>('.seqnotes-doc-more')?.open === true;
 
   root.replaceChildren(...Array.from(next.childNodes));
+  const metadata = root.querySelector<HTMLDetailsElement>('.seqnotes-doc-more');
+  if (metadata) {
+    metadata.open = metadataOpen;
+  }
   root.querySelectorAll('.seqnotes-pair').forEach((pair) => {
     wrapSections(pair);
     if (!pair.classList.contains('seqnotes-pair-stacked')) {

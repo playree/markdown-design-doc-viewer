@@ -152,7 +152,12 @@ function frontMatter(md: MarkdownIt): void {
       return '';
     }
     token.attrJoin('class', 'seqnotes-doc-header');
-    return `<div${self.renderAttrs(token)}>\n${headline}${rest.length === 0 ? '' : table(rest)}</div>\n`;
+    // The other entries are folded, so that the header stays short.
+    const more =
+      rest.length === 0
+        ? ''
+        : `<details class="seqnotes-doc-more">\n<summary>${escape(t('Other metadata ({0})', rest.length))}</summary>\n${table(rest)}</details>\n`;
+    return `<div${self.renderAttrs(token)}>\n${headline}${more}</div>\n`;
   };
 }
 

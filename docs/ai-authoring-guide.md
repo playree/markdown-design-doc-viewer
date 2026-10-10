@@ -91,7 +91,7 @@ A flowchart (`flowchart TD` / `graph TD`) can be linked instead of a sequence di
 ## Front matter
 
 - Start the design document with YAML front matter that contains `type: design_doc`. Its first line must be a `key: value` line.
-- `title`, `version`, `product`, `status` and `updated` are shown in a row as the document's header. Other keys are shown in a table below the header.
+- `title`, `version`, `product`, `status` and `updated` are shown in a row as the document's header. Other keys are shown in a table folded below the header (closed by default).
 - Also write a `#` heading with the same text as `title` at the start of the body.
 
 ## Other Markdown

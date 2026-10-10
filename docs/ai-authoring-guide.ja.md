@@ -91,7 +91,7 @@ sequenceDiagram
 ## メタ情報（front matter）
 
 - 設計書の先頭には YAML front matter を書き、`type: design_doc` を入れる。1 行目は `key: value` の形にする。
-- `title`・`version`・`product`・`status`・`updated` は文書のヘッダとして横並びで表示される。それ以外のキーはヘッダの下に表で表示される。
+- `title`・`version`・`product`・`status`・`updated` は文書のヘッダとして横並びで表示される。それ以外のキーは、ヘッダの下の折りたたみ（既定で閉じた状態）に表で表示される。
 - 本文の先頭には、`title` と同じ文言の `#` 見出しも書く。
 
 ## その他の Markdown

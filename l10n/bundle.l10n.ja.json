@@ -53,5 +53,6 @@
   "Version": "版数",
   "Product": "プロダクト",
   "Status": "ステータス",
-  "Updated": "更新日"
+  "Updated": "更新日",
+  "Other metadata ({0})": "その他のメタ情報（{0}）"
 }
