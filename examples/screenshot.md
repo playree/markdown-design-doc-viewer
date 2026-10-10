@@ -1,6 +1,8 @@
 ---
+type: design_doc
 title: Checkout Design
 version: 2.1
+product: Shop
 status: In review
 owner: commerce-team
 reviewers:

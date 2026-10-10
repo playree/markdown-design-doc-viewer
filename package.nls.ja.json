@@ -16,6 +16,6 @@
   "mdDesignDoc.diagramLook.description": "プレビューと HTML エクスポートでの mermaid の図の見た目。図の front matter に `config: look:` を書いた図はその指定に従います。",
   "mdDesignDoc.diagramLook.neo": "mermaid の標準の見た目。角が丸く、フローチャートのノードに影が付きます。",
   "mdDesignDoc.diagramLook.classic": "以前の mermaid の平坦な見た目。影は付きません。",
-  "mdDesignDoc.frontMatter.description": "文書の先頭にある YAML front matter を、メタ情報（タイトル・版数・ステータスなど）の表として表示します。オフにすると表示しません。",
+  "mdDesignDoc.frontMatter.description": "文書の先頭にある YAML front matter を、メタ情報（タイトル・版数・ステータスなど）の表として表示します（`type: design_doc` ではヘッダとして表示）。オフにすると表示しません。",
   "mdDesignDoc.diagnostics.description": "開いている Markdown ファイルについて、紐付けの警告と、紐付いていない矢印・見出しを、プレビューを開いていなくても「問題」パネルに表示します。"
 }

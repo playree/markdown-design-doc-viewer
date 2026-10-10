@@ -3,7 +3,9 @@
  * by itself: YAML front matter, GitHub alerts and task lists, plus code highlighting.
  */
 import hljs from 'highlight.js/lib/common';
-import type { Env, MarkdownIt, StateBlock, StateCore, Token } from 'markdown-it';
+import type { MarkdownIt, StateBlock, StateCore, Token } from 'markdown-it';
+import { formatMessage } from './l10n';
+import type { RenderEnv } from './render';
 
 /** `highlight` option of markdown-it. An empty string makes markdown-it escape the code itself. */
 export function highlight(code: string, lang: string): string {
@@ -79,9 +81,21 @@ export function parseFrontMatter(yaml: string): FrontMatterEntry[] {
   });
 }
 
+/** `type` of a front matter shown as the header of a design document instead of a table. */
+const DESIGN_DOC_TYPE = 'design_doc';
+
+/** Entries shown in a row under the title of a design document's header, in this order. */
+const DESIGN_DOC_META = [
+  { key: 'version', label: 'Version' },
+  { key: 'product', label: 'Product' },
+  { key: 'status', label: 'Status' },
+  { key: 'updated', label: 'Updated' },
+];
+
 /**
  * Turns a YAML front matter block at the top of the document into a `front_matter` token, shown as a table
  * of its entries, or hidden like the built-in preview does when `env.frontMatter` is false.
+ * With `type: design_doc`, the title and main entries are shown as a header, followed by a table of the others.
  */
 function frontMatter(md: MarkdownIt): void {
   md.block.ruler.before('table', 'seqnotes_front_matter', (state: StateBlock, startLine: number, endLine: number, silent: boolean) => {
@@ -104,16 +118,41 @@ function frontMatter(md: MarkdownIt): void {
     return false;
   });
 
-  md.renderer.rules.front_matter = (tokens, idx, _options, env: Env | undefined, self) => {
+  md.renderer.rules.front_matter = (tokens, idx, _options, env: RenderEnv | undefined, self) => {
     const entries = env?.frontMatter === false ? [] : parseFrontMatter(tokens[idx].content);
-    if (entries.length === 0) {
-      return '';
-    }
     const escape = md.utils.escapeHtml;
     const token = tokens[idx];
-    token.attrJoin('class', 'seqnotes-front-matter');
-    const rows = entries.map(({ key, value }) => `<tr><th>${escape(key)}</th><td>${escape(value)}</td></tr>\n`).join('');
-    return `<table${self.renderAttrs(token)}>\n<tbody>\n${rows}</tbody>\n</table>\n`;
+    const table = (rows: FrontMatterEntry[], attrs = ''): string =>
+      `<table${attrs} class="seqnotes-front-matter">\n<tbody>\n` +
+      rows.map(({ key, value }) => `<tr><th>${escape(key)}</th><td>${escape(value)}</td></tr>\n`).join('') +
+      '</tbody>\n</table>\n';
+    if (entries.find((entry) => entry.key === 'type')?.value.trim() !== DESIGN_DOC_TYPE) {
+      return entries.length === 0 ? '' : table(entries, self.renderAttrs(token));
+    }
+    const t = env?.t ?? formatMessage;
+    // An empty value (a template not filled in yet) is left out like a missing key.
+    const value = (key: string): string | undefined => {
+      const v = entries.find((entry) => entry.key === key)?.value;
+      return v?.trim() ? v : undefined;
+    };
+    const title = value('title');
+    const meta = DESIGN_DOC_META.flatMap(({ key, label }) => {
+      const v = value(key);
+      return v === undefined ? [] : [`<div class="seqnotes-doc-${key}"><dt>${escape(t(label))}</dt><dd>${escape(v)}</dd></div>\n`];
+    });
+    const rest = entries.filter(({ key }) => key !== 'type' && key !== 'title' && !DESIGN_DOC_META.some((m) => m.key === key));
+    const headline =
+      title === undefined && meta.length === 0
+        ? ''
+        : '<div class="seqnotes-doc-headline">\n' +
+          (title === undefined ? '' : `<div class="seqnotes-doc-title">${escape(title)}</div>\n`) +
+          (meta.length === 0 ? '' : `<dl class="seqnotes-doc-meta">\n${meta.join('')}</dl>\n`) +
+          '</div>\n';
+    if (headline === '' && rest.length === 0) {
+      return '';
+    }
+    token.attrJoin('class', 'seqnotes-doc-header');
+    return `<div${self.renderAttrs(token)}>\n${headline}${rest.length === 0 ? '' : table(rest)}</div>\n`;
   };
 }
 

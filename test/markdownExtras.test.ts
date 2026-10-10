@@ -55,6 +55,73 @@ describe('front matter', () => {
   });
 });
 
+describe('design document header', () => {
+  const item = (key: string, label: string, value: string): string => `<div class="seqnotes-doc-${key}"><dt>${label}</dt><dd>${value}</dd></div>\n`;
+
+  it('shows the title and main entries in a header, then the other entries in a table', () => {
+    const html = renderDocument(
+      md,
+      doc('---', 'updated: 2026-10-01', 'owner: auth-team', 'type: design_doc', 'status: draft', 'product: Shop', 'version: 1.2', 'title: ログイン', '---', '# 概要'),
+    );
+    expect(html).toBe(
+      '<div data-line="0" class="seqnotes-doc-header">\n' +
+        '<div class="seqnotes-doc-headline">\n' +
+        '<div class="seqnotes-doc-title">ログイン</div>\n' +
+        '<dl class="seqnotes-doc-meta">\n' +
+        item('version', 'Version', '1.2') +
+        item('product', 'Product', 'Shop') +
+        item('status', 'Status', 'draft') +
+        item('updated', 'Updated', '2026-10-01') +
+        '</dl>\n' +
+        '</div>\n' +
+        '<table class="seqnotes-front-matter">\n<tbody>\n<tr><th>owner</th><td>auth-team</td></tr>\n</tbody>\n</table>\n' +
+        '</div>\n' +
+        '<h1 id="sn-概要" data-line="9">概要</h1>\n',
+    );
+  });
+
+  it('leaves out what is missing', () => {
+    expect(renderDocument(md, doc('---', 'type: design_doc', 'version: 1', '---'))).toBe(
+      '<div data-line="0" class="seqnotes-doc-header">\n<div class="seqnotes-doc-headline">\n<dl class="seqnotes-doc-meta">\n' +
+        item('version', 'Version', '1') +
+        '</dl>\n</div>\n</div>\n',
+    );
+    expect(renderDocument(md, doc('---', 'type: design_doc', 'title: 設計書', '---'))).toBe(
+      '<div data-line="0" class="seqnotes-doc-header">\n<div class="seqnotes-doc-headline">\n<div class="seqnotes-doc-title">設計書</div>\n</div>\n</div>\n',
+    );
+    expect(renderDocument(md, doc('---', 'type: design_doc', 'a: 1', '---'))).toBe(
+      '<div data-line="0" class="seqnotes-doc-header">\n<table class="seqnotes-front-matter">\n<tbody>\n<tr><th>a</th><td>1</td></tr>\n</tbody>\n</table>\n</div>\n',
+    );
+    expect(renderDocument(md, doc('---', 'type: design_doc', '---'))).toBe('');
+  });
+
+  it('leaves out empty values', () => {
+    expect(renderDocument(md, doc('---', 'type: design_doc', 'title:', 'status: ""', 'version: 1', '---'))).toBe(
+      '<div data-line="0" class="seqnotes-doc-header">\n<div class="seqnotes-doc-headline">\n<dl class="seqnotes-doc-meta">\n' +
+        item('version', 'Version', '1') +
+        '</dl>\n</div>\n</div>\n',
+    );
+    expect(renderDocument(md, doc('---', 'type: design_doc', 'title: ', 'status:', '---'))).toBe('');
+  });
+
+  it('keeps the table for another type and hides the header when frontMatter is false', () => {
+    expect(renderDocument(md, doc('---', 'type: memo', 'title: 設計書', '---'))).toContain('<table data-line="0" class="seqnotes-front-matter">');
+    expect(renderDocument(md, doc('---', 'type: design_doc', 'title: 設計書', '---'), { frontMatter: false })).toBe('');
+  });
+
+  it('translates the labels and escapes the values', () => {
+    const html = renderDocument(md, doc('---', 'type: "design_doc"', 'title: <b>', 'status: a & b', '---'), {
+      t: (message) => (message === 'Status' ? 'ステータス' : message),
+    });
+    expect(html).toContain('<div class="seqnotes-doc-title">&lt;b&gt;</div>');
+    expect(html).toContain(item('status', 'ステータス', 'a &amp; b'));
+  });
+
+  it('has no source line in an exported file', () => {
+    expect(renderDocument(md, doc('---', 'type: design_doc', 'title: 設計書', '---'), { forExport: true })).toContain('<div class="seqnotes-doc-header">');
+  });
+});
+
 describe('parseFrontMatter', () => {
   it('reads plain and quoted values', () => {
     expect(parseFrontMatter(doc('title: "設計書: ログイン"', "status: 'draft'", 'time: 10:30'))).toEqual([
