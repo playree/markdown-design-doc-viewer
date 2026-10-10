@@ -25,6 +25,8 @@ Each arrow (or flowchart node) in the diagram is linked to a heading in the desc
 - **Find** — press `Ctrl+F` (`Cmd+F` on macOS) in the preview to search it.
 - **HTML export** — `Markdown Design Doc Viewer: Export Design Doc as HTML` (also in the preview's context menu) writes the document to a single HTML file, with the diagrams rendered in the light theme and local images embedded (like the preview, only images in the document's folder and the workspace; others stay links). The side-by-side layout and the arrow ⇔ heading highlighting work in the browser too, and printing lays it out vertically, so you can print it to PDF from the browser. Warnings and missing-link marks are left out.
 
+![Task lists, GitHub alerts and a collapsible section in the preview](images/screenshot-markdown.png)
+
 ## Usage
 
 Open a Markdown file and click the preview icon in the editor title bar, or run one of these commands from the Command Palette:
@@ -85,6 +87,8 @@ Rules:
 - In the editor, the headings of the overview are completed after `%% @ref ` (those without an arrow first). The missing-link diagnostics come with quick fixes (light bulb, `Ctrl+.`): link the arrow to a heading without an arrow by writing a `@ref`, add a heading with the arrow's text to the overview, or point a broken `@ref` to an existing heading.
 - Warnings, marks and tooltips are shown in English or Japanese, following the VS Code display language.
 
+![The arrow "Refund ID" without a heading is faded, and the heading "Restock items" without an arrow gets a "no arrow" mark](images/screenshot-link-checks.png)
+
 ### Flowcharts
 
 Flowcharts (`graph` / `flowchart`) are linked the same way, with their **nodes** in place of arrows:
@@ -104,6 +108,8 @@ flowchart TD
 
 ## Reserve stock
 ````
+
+![Flowchart on the left, linked step descriptions on the right](images/screenshot-flowchart.png)
 
 - A node is linked to the heading with the text of its label (`A[Validate order]` → `Validate order`). A node without a label (`A`) uses its id and is not reported as missing a heading. Edge labels are not linked.
 - `%% @ref <heading>` links the node defined on the next line: the first node labeled on it, else the first node appearing there for the first time, else its first node.
