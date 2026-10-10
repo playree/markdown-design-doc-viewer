@@ -58,6 +58,7 @@ th { background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1)
 
 /* YAML front matter, shown as the document's metadata */
 .seqnotes-front-matter { font-size: 0.9em; }
+.seqnotes-front-matter th, .seqnotes-front-matter td { padding: 2px 8px; }
 .seqnotes-front-matter th {
   text-align: left;
   font-weight: normal;
@@ -86,7 +87,7 @@ th { background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1)
   border-radius: 1em;
 }
 .seqnotes-doc-header .seqnotes-front-matter { margin: 0; font-size: 1em; }
-.seqnotes-doc-headline + .seqnotes-front-matter { margin-top: 0.4em; }
+.seqnotes-doc-headline + .seqnotes-front-matter { margin-top: 1em; }
 
 img { max-width: 100%; }
 hr { border: 0; border-top: 1px solid var(--seqnotes-border); }
