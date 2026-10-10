@@ -19,7 +19,7 @@ Each arrow (or flowchart node) in the diagram is linked to a heading in the desc
 - **Editor sync** — the preview follows the editor's scroll position and cursor (an arrow or node is highlighted when the cursor is on its line). Double-click in the preview to jump to the source line.
 - **Plain Markdown** — the link syntax is made of mermaid comments and HTML comments, so the same file still renders correctly on GitHub and in the built-in Markdown preview.
 - **Design document friendly** — YAML front matter is shown as a table of the document's metadata (title, version, status...), code blocks are syntax highlighted, and GitHub alerts (`> [!NOTE]`) and task lists (`- [ ]`) are rendered.
-- **Resizable** — drag the boundary between the columns to resize them; double-click it to reset.
+- **Resizable** — drag the boundary between the columns to resize them; double-click it to reset. In a wide preview, the text is kept in a centered column up to 1280px wide; the button in the preview's title bar switches it to the full width and back.
 - **Table of contents** — hover the short lines at the right edge of the preview to open a table of contents (h1–h3) and jump to a heading. The highlighted line shows where you are.
 - **Diagram and image zoom** — hover a mermaid diagram and click the button at its top right to show it full screen. Scroll the wheel to zoom, drag to pan, double-click to fit it again and press Esc to close. Clicking a linked arrow closes it and shows the step. Images open the same way when clicked (except images in a link, which open the link).
 - **Find** — press `Ctrl+F` (`Cmd+F` on macOS) in the preview to search it.
@@ -128,6 +128,7 @@ The guide also tells the assistant to read the diagnostics of the file. Agents t
 | Setting | Default | Description |
 |---|---|---|
 | `mdDesignDoc.splitMinWidth` | `1000` | Minimum preview width (px) for the side-by-side layout. |
+| `mdDesignDoc.limitContentWidth` | `true` | In a wide preview, keep the text in a centered column up to 1280px wide (diagrams beside their steps still use the whole width). Also switched with the button in the preview's title bar, and applied to exported HTML. |
 | `mdDesignDoc.syncEditor` | `true` | Sync the preview with the editor and enable double-click to jump to the source. |
 | `mdDesignDoc.toc` | `true` | Show the table of contents at the right edge of the preview. |
 | `mdDesignDoc.headingNumbers` | `true` | With `autonumber`, show the arrow's number at the start of its linked heading (preview and exported HTML). |

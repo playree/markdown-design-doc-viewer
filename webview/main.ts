@@ -1091,6 +1091,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       syncEditor = message.syncEditor;
       tocEnabled = message.toc;
       diagramLook = message.diagramLook;
+      document.body.classList.toggle('seqnotes-limit-width', message.limitContentWidth);
       vscode.setState({ ...vscode.getState(), uri: message.uri });
       applyLayout();
       void update(message.html);

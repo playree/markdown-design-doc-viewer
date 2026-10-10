@@ -243,7 +243,7 @@ async function main(): Promise<void> {
   const scenes = only.length > 0 ? SCENES.filter((s) => only.includes(s.name)) : SCENES;
 
   const html = renderDocument(createMarkdown(), readFileSync(SOURCE, 'utf8'));
-  const update: ToWebview = { type: 'update', uri: pathToFileURL(SOURCE).href, html, splitMinWidth: 1000, syncEditor: false, toc: true, diagramLook: 'neo' };
+  const update: ToWebview = { type: 'update', uri: pathToFileURL(SOURCE).href, html, splitMinWidth: 1000, syncEditor: false, toc: true, diagramLook: 'neo', limitContentWidth: true };
   const dir = mkdtempSync(join(tmpdir(), 'mdai-screenshots-'));
   const page = join(dir, 'index.html');
   writeFileSync(page, shell(update));

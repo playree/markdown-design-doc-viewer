@@ -4,7 +4,7 @@
 export type DiagramLook = 'neo' | 'classic';
 
 export type ToWebview =
-  | { type: 'update'; uri: string; html: string; splitMinWidth: number; syncEditor: boolean; toc: boolean; diagramLook: DiagramLook }
+  | { type: 'update'; uri: string; html: string; splitMinWidth: number; syncEditor: boolean; toc: boolean; diagramLook: DiagramLook; limitContentWidth: boolean }
   /** Editor scrolled: align the preview so that this line is at the top. */
   | { type: 'scrollToLine'; line: number }
   /** Editor cursor moved: mark the element for this line. */

@@ -53,6 +53,18 @@
         "command": "mdDesignDoc.exportHtml",
         "title": "%mdDesignDoc.exportHtml.title%",
         "category": "%category%"
+      },
+      {
+        "command": "mdDesignDoc.useFullContentWidth",
+        "title": "%mdDesignDoc.useFullContentWidth.title%",
+        "category": "%category%",
+        "icon": "$(screen-full)"
+      },
+      {
+        "command": "mdDesignDoc.limitContentWidth",
+        "title": "%mdDesignDoc.limitContentWidth.title%",
+        "category": "%category%",
+        "icon": "$(screen-normal)"
       }
     ],
     "customEditors": [
@@ -76,6 +88,16 @@
           "command": "mdDesignDoc.openPreviewToSide",
           "when": "editorLangId == markdown",
           "group": "navigation"
+        },
+        {
+          "command": "mdDesignDoc.useFullContentWidth",
+          "when": "(activeWebviewPanelId == 'mdDesignDoc.preview' || activeCustomEditorId == 'mdDesignDoc.editor') && config.mdDesignDoc.limitContentWidth",
+          "group": "navigation"
+        },
+        {
+          "command": "mdDesignDoc.limitContentWidth",
+          "when": "(activeWebviewPanelId == 'mdDesignDoc.preview' || activeCustomEditorId == 'mdDesignDoc.editor') && !config.mdDesignDoc.limitContentWidth",
+          "group": "navigation"
         }
       ],
       "commandPalette": [
@@ -90,6 +112,14 @@
         {
           "command": "mdDesignDoc.exportHtml",
           "when": "editorLangId == markdown || activeWebviewPanelId == 'mdDesignDoc.preview' || activeCustomEditorId == 'mdDesignDoc.editor'"
+        },
+        {
+          "command": "mdDesignDoc.useFullContentWidth",
+          "when": "(activeWebviewPanelId == 'mdDesignDoc.preview' || activeCustomEditorId == 'mdDesignDoc.editor') && config.mdDesignDoc.limitContentWidth"
+        },
+        {
+          "command": "mdDesignDoc.limitContentWidth",
+          "when": "(activeWebviewPanelId == 'mdDesignDoc.preview' || activeCustomEditorId == 'mdDesignDoc.editor') && !config.mdDesignDoc.limitContentWidth"
         }
       ],
       "webview/context": [
@@ -107,6 +137,11 @@
           "default": 1000,
           "minimum": 0,
           "description": "%mdDesignDoc.splitMinWidth.description%"
+        },
+        "mdDesignDoc.limitContentWidth": {
+          "type": "boolean",
+          "default": true,
+          "description": "%mdDesignDoc.limitContentWidth.description%"
         },
         "mdDesignDoc.syncEditor": {
           "type": "boolean",
