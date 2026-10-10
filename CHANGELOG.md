@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The header row of a long table stays at the top of the preview while scrolling through the table (also in exported HTML).
 - With `type: design_doc` in the YAML front matter, the document's `title`, `version`, `product`, `status` and `updated` are shown as a header at the top of the preview, with the other entries in a table folded below it (closed by default).
 - The arrow numbers shown at the start of linked headings with `autonumber` can be hidden with `mdDesignDoc.headingNumbers`.
 - GitHub alerts show the icon of their kind before the title, as on GitHub.

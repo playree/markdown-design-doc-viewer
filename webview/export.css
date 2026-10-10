@@ -57,6 +57,7 @@ body.seqnotes-export.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) {
   body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) { display: block; }
   body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-seq-col { position: static; max-height: none; overflow: visible; }
   .seqnotes-splitter { display: none !important; }
+  thead th { position: static; }
 
   .seqnotes-section.seqnotes-active { background: none; border-left-color: transparent; }
   .seqnotes-diagram, pre, table, .markdown-alert, details { break-inside: avoid; }

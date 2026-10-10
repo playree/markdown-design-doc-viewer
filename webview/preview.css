@@ -4,6 +4,7 @@
   --seqnotes-current: var(--vscode-editorLineNumber-activeForeground, #c6c6c6);
   --seqnotes-border: var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
   --seqnotes-muted: var(--vscode-descriptionForeground, rgba(128, 128, 128, 0.9));
+  --seqnotes-th-bg: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1));
 }
 
 body {
@@ -54,7 +55,15 @@ blockquote {
 
 table { border-collapse: collapse; margin-bottom: 1em; }
 th, td { border: 1px solid var(--seqnotes-border); padding: 4px 10px; }
-th { background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1)); }
+th { background: var(--seqnotes-th-bg); }
+/* The header row stays at the top while scrolling through a long table. */
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  /* Opaque: the header background may be translucent, and the rows scroll under it. */
+  background: linear-gradient(var(--seqnotes-th-bg), var(--seqnotes-th-bg)), var(--vscode-editor-background);
+}
 
 /* YAML front matter, shown as the document's metadata */
 .seqnotes-front-matter { font-size: 0.9em; }
