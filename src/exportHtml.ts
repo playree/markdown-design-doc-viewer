@@ -148,7 +148,7 @@ export async function exportHtml(manager: PreviewManager, extensionUri: vscode.U
 ${(style + '\n' + exportStyle).replace(/<\/style/gi, '<\\/style')}
 </style>
 </head>
-<body class="vscode-light seqnotes-theme-light seqnotes-export${settings.limitContentWidth ? ' seqnotes-limit-width' : ''}${settings.stickyTableHeader ? ' seqnotes-sticky-table-header' : ''}" data-seqnotes-split-min-width="${Number.isFinite(Number(settings.splitMinWidth)) ? Number(settings.splitMinWidth) : 1000}">
+<body data-seqnotes-theme="light" class="seqnotes-export${settings.limitContentWidth ? ' seqnotes-limit-width' : ''}${settings.stickyTableHeader ? ' seqnotes-sticky-table-header' : ''}" data-seqnotes-split-min-width="${Number.isFinite(Number(settings.splitMinWidth)) ? Number(settings.splitMinWidth) : 1000}">
 <div id="seqnotes-root">${body}</div>
 <script>
 ${script.replace(/<\/script/gi, '<\\/script')}

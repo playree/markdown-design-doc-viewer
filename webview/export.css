@@ -1,6 +1,6 @@
 /*
  * Styles added to webview.css in an exported HTML file: the fonts VS Code gives the preview
- * (the colors are those of `seqnotes-theme-light` in preview.css), and the layout for printing.
+ * (the colors are those of `data-seqnotes-theme="light"` in preview.css), and the layout for printing.
  */
 
 :root {

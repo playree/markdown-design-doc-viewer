@@ -88,7 +88,7 @@ function addSplitter(pair: Element): void {
 // ---------------------------------------------------------------------------
 // Rendering
 
-/** `mdDesignDoc.theme`: VS Code's theme, or always light / dark. Given in the page too, so that it is not first shown in VS Code's. */
+/** `mdDesignDoc.theme`: VS Code's theme, or always light / dark. preview.css applies its colors from data-seqnotes-theme. */
 let previewTheme: PreviewTheme = document.body.dataset.seqnotesTheme === 'light' || document.body.dataset.seqnotesTheme === 'dark' ? document.body.dataset.seqnotesTheme : 'auto';
 
 function isVscodeDark(): boolean {
@@ -98,16 +98,6 @@ function isVscodeDark(): boolean {
 function isDarkTheme(): boolean {
   return previewTheme === 'auto' ? isVscodeDark() : previewTheme === 'dark';
 }
-
-/** When the preview's theme is not VS Code's, the body class replaces VS Code's colors with those of the theme (preview.css). */
-function applyTheme(): void {
-  const dark = isDarkTheme();
-  const override = dark !== isVscodeDark();
-  document.body.classList.toggle('seqnotes-theme-dark', override && dark);
-  document.body.classList.toggle('seqnotes-theme-light', override && !dark);
-}
-
-applyTheme();
 
 let renderedDark = isDarkTheme();
 
@@ -1115,7 +1105,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       tocEnabled = message.toc;
       diagramLook = message.diagramLook;
       previewTheme = message.theme;
-      applyTheme();
+      document.body.dataset.seqnotesTheme = message.theme;
       document.body.classList.toggle('seqnotes-limit-width', message.limitContentWidth);
       document.body.classList.toggle('seqnotes-sticky-table-header', message.stickyTableHeader);
       vscode.setState({ ...vscode.getState(), uri: message.uri });
@@ -1139,7 +1129,6 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 
 // VS Code switches the body class when the color theme changes.
 new MutationObserver(() => {
-  applyTheme();
   if (lastHtml !== undefined && isDarkTheme() !== renderedDark) {
     void update(lastHtml);
   }

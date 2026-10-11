@@ -1,4 +1,4 @@
-/* On the body, so that they follow the colors of seqnotes-theme-light / -dark below. */
+/* On the body, so that they follow the colors of the theme chosen with data-seqnotes-theme below. */
 body {
   --seqnotes-accent: var(--vscode-textLink-activeForeground, #3794ff);
   --seqnotes-accent-bg: color-mix(in srgb, var(--seqnotes-accent) 12%, transparent);
@@ -9,10 +9,11 @@ body {
 }
 
 /*
- * When mdDesignDoc.theme is not the side of VS Code's theme, the colors VS Code gives are replaced
- * with those of Light Modern / Dark Modern. Exported HTML uses the light ones.
+ * When mdDesignDoc.theme (data-seqnotes-theme) is not the side of VS Code's theme (its body class),
+ * the colors VS Code gives are replaced with those of Light Modern / Dark Modern. In CSS, so that
+ * they apply from the first paint. Exported HTML, without VS Code's class, uses the light ones.
  */
-body.seqnotes-theme-light {
+body[data-seqnotes-theme="light"]:not(.vscode-light, .vscode-high-contrast-light) {
   color-scheme: light;
   --vscode-editor-background: #ffffff;
   --vscode-editor-foreground: #3b3b3b;
@@ -52,7 +53,7 @@ body.seqnotes-theme-light {
   --vscode-scrollbarSlider-hoverBackground: rgba(100, 100, 100, 0.7);
   --vscode-scrollbarSlider-activeBackground: rgba(0, 0, 0, 0.6);
 }
-body.seqnotes-theme-dark {
+body[data-seqnotes-theme="dark"]:is(.vscode-light, .vscode-high-contrast-light) {
   color-scheme: dark;
   --vscode-editor-background: #1f1f1f;
   --vscode-editor-foreground: #cccccc;
@@ -93,12 +94,12 @@ body.seqnotes-theme-dark {
   --vscode-scrollbarSlider-activeBackground: rgba(191, 191, 191, 0.4);
 }
 /* VS Code sets the scrollbar colors on the html element, from which the scrollbars inside the body inherit them. */
-html:has(> body.seqnotes-theme-light) {
+html:has(> body[data-seqnotes-theme="light"]:not(.vscode-light, .vscode-high-contrast-light)) {
   color-scheme: light;
   background: #ffffff;
   scrollbar-color: rgba(100, 100, 100, 0.4) #ffffff;
 }
-html:has(> body.seqnotes-theme-dark) {
+html:has(> body[data-seqnotes-theme="dark"]:is(.vscode-light, .vscode-high-contrast-light)) {
   color-scheme: dark;
   background: #1f1f1f;
   scrollbar-color: rgba(121, 121, 121, 0.4) #1f1f1f;
@@ -295,7 +296,7 @@ body {
   --seqnotes-hl-variable: #9cdcfe;
   --seqnotes-hl-selector: #d7ba7d;
 }
-body:is(.vscode-light, .vscode-high-contrast-light):not(.seqnotes-theme-dark), body.seqnotes-theme-light {
+body:is(.vscode-light, .vscode-high-contrast-light):not([data-seqnotes-theme="dark"]), body[data-seqnotes-theme="light"] {
   --seqnotes-hl-keyword: #0000ff;
   --seqnotes-hl-type: #267f99;
   --seqnotes-hl-number: #098658;
