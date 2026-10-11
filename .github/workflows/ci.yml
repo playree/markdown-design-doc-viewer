@@ -41,3 +41,13 @@ jobs:
           name: vsix
           path: '*.vsix'
           if-no-files-found: error
+
+      # CLI の HTML エクスポートの結合テスト（図はランナーにインストール済みの Google Chrome で描く）。
+      # link-checks.md はわざと警告を出す例で、PR に注釈が付いてしまうので除く
+      - run: node dist/cli.js export $(ls examples/*.md | grep -v link-checks) -o .work/export
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: html-export
+          path: .work/export
+          if-no-files-found: error

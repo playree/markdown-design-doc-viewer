@@ -20,6 +20,17 @@ const contexts = await Promise.all([
     target: 'node20',
     external: ['vscode'],
   }),
+  // The command line (`md-design-doc export`). Without `vscode`, so that it fails to build if it gets imported.
+  esbuild.context({
+    ...common,
+    entryPoints: ['src/cli.ts'],
+    outfile: 'dist/cli.js',
+    platform: 'node',
+    format: 'cjs',
+    target: 'node22',
+    external: ['playwright-core'],
+    banner: { js: '#!/usr/bin/env node' },
+  }),
   esbuild.context({
     ...common,
     entryPoints: { webview: 'webview/main.ts', export: 'webview/export.ts' },

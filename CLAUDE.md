@@ -19,25 +19,31 @@ VS Code 拡張「Markdown Design Doc Viewer」（日本語表記: Markdown 設�
 パッケージマネージャは pnpm。lint / formatter の設定はない。
 
 ```sh
-pnpm build        # esbuild で dist/ に extension.js, webview.js, webview.css を出力
+pnpm build        # esbuild で dist/ に extension.js, cli.js, webview.js, webview.css, export.js, export.css を出力
 pnpm watch        # 監視ビルド
 pnpm typecheck    # tsc --noEmit（src, webview, test, scripts すべて）
 pnpm test         # vitest run
 pnpm exec vitest run test/render.test.ts -t 'テスト名の一部'   # 単一テスト
 pnpm package      # vsce で .vsix を作成
+node dist/cli.js export examples -o .work/export   # CLI の HTML エクスポート（ビルド後。npm パッケージの bin `md-design-doc`）
 pnpm screenshots  # README の画像（images/screenshot*.png、日本語版は *.ja.png）を examples/screenshot.md / screenshot.ja.md から再生成。シーン名・言語（en / ja）を付けるとそれだけ撮る
 ```
 
-CI（[.github/workflows/ci.yml](.github/workflows/ci.yml)）は main への push と PR で `typecheck`・`test`・`package` を実行し、.vsix を成果物としてアップロードする。
+CI（[.github/workflows/ci.yml](.github/workflows/ci.yml)）は main への push と PR で `typecheck`・`test`・`package` を実行し、.vsix を成果物としてアップロードする。続けて CLI で examples を HTML にエクスポートし（ランナーの Google Chrome を使う）、その HTML もアップロードする。
+
+同じ package.json が npm パッケージ（CLI 用）も兼ねる。npm に入るのは `.npmignore` の、vsix に入るのは `.vscodeignore` のホワイトリストのファイルだけ（vsce は package.json の `files` と `.vscodeignore` を併用できない）。実行時に必要なファイルを増やしたら該当する方に追記する。mermaid などは esbuild でバンドルするので `devDependencies` に置き、CLI が実行時に要る `playwright-core` だけを `dependencies` に置く。
 
 動作確認は VS Code の F5（`.vscode/launch.json` の "Run Extension"）。ビルド後に `examples/` フォルダを開いた拡張開発ホストが起動するので、[examples/login.md](examples/login.md)（基本の紐付け）、[examples/password-reset.md](examples/password-reset.md)（autonumber・アラート・タスクリストなど）、[examples/link-checks.md](examples/link-checks.md)（紐付け漏れの表示と警告）、[examples/flowchart.md](examples/flowchart.md)（フローチャート、横向きの縦並び）、[examples/tables.md](examples/tables.md)（長い表のヘッダ行の固定）、[examples/front-matter.md](examples/front-matter.md)（`type: design_doc` のない front matter の表）をプレビューする。examples は設計書のサンプルなので、先頭の front matter に `type: design_doc` と `product: Example` を書き、`title`（本文の `#` 見出しと同じ文言）・`version`・`status`・`updated` も設定する（front-matter.md だけは表の表示を確かめるため `type` を書かない）。README のスクリーンショットは [examples/screenshot.md](examples/screenshot.md)（機能ごとの節に分けた撮影用サンプル）から `pnpm screenshots`（[scripts/screenshots.ts](scripts/screenshots.ts)）で撮る。README.ja.md 用の日本語版は、同じ構成で訳した [examples/screenshot.ja.md](examples/screenshot.ja.md) から `*.ja.png` に撮る（片方を変えたらもう片方も同じように変える）。webview を VS Code のライトテーマと各言語の文言（日本語は `l10n/bundle.l10n.ja.json`）を再現したページに載せ、headless Chrome（`playwright-core`）で撮影する。Chrome は `CHROME_PATH`、なければ Playwright のキャッシュ（Chromium または headless shell）から探す（`pnpm exec playwright-core install chromium` で入る）。日本語版には日本語フォント（Noto Sans CJK JP）が要る。撮る範囲・ハイライトする項目は `SCENES`（シーケンス図・フローチャート・紐付け漏れ・設計書の記法・設計書のヘッダ）、言語ごとの撮影元と探す見出しは `LOCALES` で定義する。mermaid のノードのラベルは幅 120px で折り返すので、日本語のラベルは 7 文字程度までにする。プレビューの見た目を変えたら撮り直す。
 
 ## アーキテクチャ
 
-2 つのバンドルに分かれ、[esbuild.mjs](esbuild.mjs) でそれぞれビルドされる。
+3 つのバンドルに分かれ、[esbuild.mjs](esbuild.mjs) でそれぞれビルドされる。
 
 - **拡張ホスト**（`src/extension.ts` → `dist/extension.js`, Node/CJS）: Markdown を HTML に変換して webview に送る。
-- **webview**（`webview/main.ts` → `dist/webview.js`, ブラウザ/IIFE）: HTML のサニタイズ、mermaid 描画、ハイライト・スクロール同期などの UI。
+- **webview**（`webview/main.ts` → `dist/webview.js`, ブラウザ/IIFE）: HTML のサニタイズ、mermaid 描画、ハイライト・スクロール同期などの UI。エクスポートした HTML に埋め込むスクリプトは `webview/export.ts` → `dist/export.js`。
+- **CLI**（`src/cli.ts` → `dist/cli.js`, Node/CJS）: HTML エクスポートのコマンドライン版。`vscode` を external にしていないので、vscode に依存するモジュールを import するとビルドが失敗する。
+
+HTML エクスポートは、vscode 非依存の共通部分（画像の解決、タイトル、ページの組み立て）が [src/exportPage.ts](src/exportPage.ts) にあり、VS Code のコマンド（[src/exportHtml.ts](src/exportHtml.ts)）と CLI が使う。図の描画はどちらも webview の `exportBody`（`export` メッセージ）で、VS Code ではプレビューの webview、CLI では [src/headless.ts](src/headless.ts) がヘッドレス Chrome に `dist/webview.js` を載せて行う（`pnpm screenshots` も同じ Chrome の探し方を使う）。
 
 webview は `src/protocol.ts`（メッセージ型）、`src/render.ts`（`DiagramMeta` 型）、`src/sequence.ts`（`normalizeLabel`）、`src/slug.ts` を import する。これらに `vscode` や Node 依存を持ち込まないこと。
 

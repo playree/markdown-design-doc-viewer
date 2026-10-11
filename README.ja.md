@@ -24,7 +24,7 @@
 - **目次**: プレビュー右端の短い線にマウスを乗せると目次（h1〜h3）が開き、クリックでその見出しへ移動します。現在位置の線は強調表示されます。
 - **図・画像の拡大**: mermaid の図にマウスを乗せると右上に出るボタンで、図を全画面で表示します。ホイールで拡大縮小、ドラッグで移動、ダブルクリックで全体表示に戻り、Esc で閉じます。紐付いた矢印をクリックすると、図を閉じて処理概要へ移動します。画像もクリックすると同じように全画面で表示します（リンクの中の画像はクリックでリンクを開きます）。
 - **検索**: プレビューにフォーカスがあるときに `Ctrl+F`（macOS では `Cmd+F`）でプレビュー内を検索できます。
-- **HTML エクスポート**: コマンド `Markdown 設計書ビューア: 設計書を HTML にエクスポート`（プレビューの右クリックメニューにもあります）で、設計書を 1 つの HTML ファイルに書き出します。図はライトテーマで描画済みの状態で、ローカルの画像は埋め込まれます（プレビューと同じく、文書のフォルダとワークスペース内の画像だけを埋め込み、それ以外はリンクのままにします）。ブラウザでも横並び表示と矢印・見出しのハイライトが動き、印刷すると縦並びになるので、ブラウザの印刷から PDF にできます。警告と紐付け漏れの印は書き出しません。
+- **HTML エクスポート**: コマンド `Markdown 設計書ビューア: 設計書を HTML にエクスポート`（プレビューの右クリックメニューにもあります）で、設計書を 1 つの HTML ファイルに書き出します。図はライトテーマで描画済みの状態で、ローカルの画像は埋め込まれます（プレビューと同じく、文書のフォルダとワークスペース内の画像だけを埋め込み、それ以外はリンクのままにします）。ブラウザでも横並び表示と矢印・見出しのハイライトが動き、印刷すると縦並びになるので、ブラウザの印刷から PDF にできます。警告と紐付け漏れの印は書き出しません。CI やバッチ処理向けにコマンドラインからも実行できます（[コマンドライン（CI）](#コマンドラインci) を参照）。
 
 ![プレビューに表示したタスクリスト、GitHub のアラート、折りたたみ](images/screenshot-markdown.ja.png)
 
@@ -159,6 +159,44 @@ reviewers:
 AI アシスタント（Claude Code、GitHub Copilot、Cursor など）にこの形式で設計書を書かせるには、[AI 向けの記法ガイド](docs/ai-authoring-guide.ja.md)（[English](docs/ai-authoring-guide.md)）を渡してください。プロジェクトの指示ファイル（`CLAUDE.md`、`AGENTS.md`、`.github/copilot-instructions.md` など）にコピーするか、AI に読ませます。
 
 ガイドでは、ファイルの診断を確認するよう AI に指示しています。VS Code の診断を読めるエージェント（Copilot のエージェントモードや、VS Code に接続した Claude Code など）は、紐付いていない矢印や見出しを自分で見つけて直せます。
+
+## コマンドライン（CI）
+
+HTML エクスポートはコマンドラインからも実行でき、CI やバッチ処理で VS Code なしに設計書を変換できます。`Export Design Doc as HTML` コマンドと同じ HTML ファイルを書き出します（図はプレビューをヘッドレス Chrome で動かして描画します）。
+
+```sh
+npx markdown-design-doc-viewer export docs -o site     # docs/ 以下の Markdown をすべて site/docs/*.html に
+npx markdown-design-doc-viewer export README.md        # 隣に README.html を
+```
+
+Node.js 22 以降と、Chrome か Chromium が必要です。`--chrome <パス>` か `$CHROME_PATH`、なければ `npx playwright-core install chromium` で入れた Chromium、それもなければシステムにインストールされた Google Chrome（GitHub Actions の Ubuntu ランナーには入っています）を使います。日本語などの CJK の文書には、そのフォント（Debian / Ubuntu では `fonts-noto-cjk`）が必要です。ないと図の文字が四角で描かれます。
+
+| オプション | 説明 |
+|---|---|
+| `-o`, `--out-dir <dir>` | HTML をこのフォルダに、`--root` 以下での文書と同じサブフォルダ構成で書き出す。省略時は各文書の隣に書き出す |
+| `--root <dir>` | `/` で始まる画像パスの基準のフォルダ（VS Code のワークスペースに相当）。この中と文書のフォルダの画像は埋め込み、それ以外はリンクのまま。既定はカレントフォルダ |
+| `--lang <lang>` | 文書に加える文言と紐付けの警告の言語。`en`（既定）か `ja` |
+| `--diagram-look <look>` | `neo`（既定）か `classic`。`mdDesignDoc.diagramLook` と同じ |
+| `--split-min-width <px>` | `mdDesignDoc.splitMinWidth` と同じ。既定は `1000` |
+| `--full-width` | 本文を中央の列に収めない（`mdDesignDoc.limitContentWidth` をオフ） |
+| `--no-heading-numbers`、`--no-front-matter`、`--no-sticky-table-header` | 同じ名前の設定をオフにする |
+| `--chrome <path>` | 図の描画に使う Chrome か Chromium |
+| `--strict` | 紐付けの警告（壊れた `@ref` や置き場所の誤ったマーカーなど、プレビュー上部に出るもの）があれば失敗にする。紐付いていないだけの矢印・見出しでは失敗しない |
+
+フォルダは `*.md` と `*.markdown` を探します（`node_modules` とドットで始まるフォルダは除く）。紐付けの警告は標準エラーに出します（GitHub Actions では注釈になります）。文書を書き出せなかったとき、mermaid が描画できない図があったとき（HTML は書き出します）、`--strict` で紐付けの警告があったときは終了コード 1、コマンドラインの誤りは 2 で終わります。
+
+たとえば、リポジトリの設計書をビルドごとに成果物として公開するには:
+
+```yaml
+- uses: actions/setup-node@v4
+  with:
+    node-version: 22
+- run: npx markdown-design-doc-viewer export docs -o site
+- uses: actions/upload-artifact@v4
+  with:
+    name: design-docs
+    path: site
+```
 
 ## 設定
 
