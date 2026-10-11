@@ -3,8 +3,11 @@
 /** Look of the mermaid diagrams: mermaid's default (`neo`, with shadows), or the flat `classic` one. */
 export type DiagramLook = 'neo' | 'classic';
 
+/** Color theme of the preview: VS Code's (`auto`), or always light / dark. */
+export type PreviewTheme = 'auto' | 'light' | 'dark';
+
 export type ToWebview =
-  | { type: 'update'; uri: string; html: string; splitMinWidth: number; syncEditor: boolean; toc: boolean; diagramLook: DiagramLook; limitContentWidth: boolean; stickyTableHeader: boolean }
+  | { type: 'update'; uri: string; html: string; splitMinWidth: number; syncEditor: boolean; toc: boolean; diagramLook: DiagramLook; theme: PreviewTheme; limitContentWidth: boolean; stickyTableHeader: boolean }
   /** Editor scrolled: align the preview so that this line is at the top. */
   | { type: 'scrollToLine'; line: number }
   /** Editor cursor moved: mark the element for this line. */

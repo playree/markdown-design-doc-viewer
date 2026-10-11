@@ -347,7 +347,7 @@ async function main(): Promise<void> {
     for (const locale of locales) {
       const source = join(ROOT, locale.source);
       const html = renderDocument(createMarkdown(), readFileSync(source, 'utf8'), { t: locale.t });
-      const update: ToWebview = { type: 'update', uri: pathToFileURL(source).href, html, splitMinWidth: 1000, syncEditor: false, toc: true, diagramLook: 'neo', limitContentWidth: true, stickyTableHeader: true };
+      const update: ToWebview = { type: 'update', uri: pathToFileURL(source).href, html, splitMinWidth: 1000, syncEditor: false, toc: true, diagramLook: 'neo', theme: 'auto', limitContentWidth: true, stickyTableHeader: true };
       const page = join(dir, `${locale.name}.html`);
       writeFileSync(page, shell(update, locale));
 

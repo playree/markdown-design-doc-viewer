@@ -65,6 +65,12 @@
         "title": "%mdDesignDoc.limitContentWidth.title%",
         "category": "%category%",
         "icon": "$(screen-normal)"
+      },
+      {
+        "command": "mdDesignDoc.toggleTheme",
+        "title": "%mdDesignDoc.toggleTheme.title%",
+        "category": "%category%",
+        "icon": "$(color-mode)"
       }
     ],
     "customEditors": [
@@ -98,6 +104,11 @@
           "command": "mdDesignDoc.limitContentWidth",
           "when": "(activeWebviewPanelId == 'mdDesignDoc.preview' || activeCustomEditorId == 'mdDesignDoc.editor') && !config.mdDesignDoc.limitContentWidth",
           "group": "navigation"
+        },
+        {
+          "command": "mdDesignDoc.toggleTheme",
+          "when": "activeWebviewPanelId == 'mdDesignDoc.preview' || activeCustomEditorId == 'mdDesignDoc.editor'",
+          "group": "navigation"
         }
       ],
       "commandPalette": [
@@ -120,6 +131,10 @@
         {
           "command": "mdDesignDoc.limitContentWidth",
           "when": "(activeWebviewPanelId == 'mdDesignDoc.preview' || activeCustomEditorId == 'mdDesignDoc.editor') && !config.mdDesignDoc.limitContentWidth"
+        },
+        {
+          "command": "mdDesignDoc.toggleTheme",
+          "when": "activeWebviewPanelId == 'mdDesignDoc.preview' || activeCustomEditorId == 'mdDesignDoc.editor'"
         }
       ],
       "webview/context": [
@@ -180,6 +195,21 @@
           ],
           "default": "neo",
           "description": "%mdDesignDoc.diagramLook.description%"
+        },
+        "mdDesignDoc.theme": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "light",
+            "dark"
+          ],
+          "enumDescriptions": [
+            "%mdDesignDoc.theme.auto%",
+            "%mdDesignDoc.theme.light%",
+            "%mdDesignDoc.theme.dark%"
+          ],
+          "default": "auto",
+          "description": "%mdDesignDoc.theme.description%"
         },
         "mdDesignDoc.diagnostics": {
           "type": "boolean",

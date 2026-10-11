@@ -1,6 +1,6 @@
 import DOMPurify from 'dompurify';
 import mermaid, { type MermaidConfig } from 'mermaid';
-import type { DiagramLook, FromWebview, ToWebview, WebviewState } from '../src/protocol';
+import type { DiagramLook, FromWebview, PreviewTheme, ToWebview, WebviewState } from '../src/protocol';
 import type { DiagramMeta } from '../src/render';
 import { normalizeLabel } from '../src/sequence';
 import { activeFor, isSideBySide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, type Active } from './linking';
@@ -88,8 +88,15 @@ function addSplitter(pair: Element): void {
 // ---------------------------------------------------------------------------
 // Rendering
 
-function isDarkTheme(): boolean {
+/** `mdDesignDoc.theme`: VS Code's theme, or always light / dark. preview.css applies its colors from data-seqnotes-theme. */
+let previewTheme: PreviewTheme = document.body.dataset.seqnotesTheme === 'light' || document.body.dataset.seqnotesTheme === 'dark' ? document.body.dataset.seqnotesTheme : 'auto';
+
+function isVscodeDark(): boolean {
   return !document.body.classList.contains('vscode-light') && !document.body.classList.contains('vscode-high-contrast-light');
+}
+
+function isDarkTheme(): boolean {
+  return previewTheme === 'auto' ? isVscodeDark() : previewTheme === 'dark';
 }
 
 let renderedDark = isDarkTheme();
@@ -1097,6 +1104,8 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       syncEditor = message.syncEditor;
       tocEnabled = message.toc;
       diagramLook = message.diagramLook;
+      previewTheme = message.theme;
+      document.body.dataset.seqnotesTheme = message.theme;
       document.body.classList.toggle('seqnotes-limit-width', message.limitContentWidth);
       document.body.classList.toggle('seqnotes-sticky-table-header', message.stickyTableHeader);
       vscode.setState({ ...vscode.getState(), uri: message.uri });

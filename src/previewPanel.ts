@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { DiagramLook, FromWebview, ToWebview, WebviewState } from './protocol';
+import type { DiagramLook, FromWebview, PreviewTheme, ToWebview, WebviewState } from './protocol';
 import { createMarkdown, escapeHtml, renderDocument } from './render';
 
 const VIEW_TYPE = 'mdDesignDoc.preview';
@@ -20,6 +20,7 @@ export interface Settings {
   headingNumbers: boolean;
   frontMatter: boolean;
   diagramLook: DiagramLook;
+  theme: PreviewTheme;
   limitContentWidth: boolean;
   stickyTableHeader: boolean;
 }
@@ -33,9 +34,14 @@ export function readSettings(): Settings {
     headingNumbers: c.get<boolean>('headingNumbers', true),
     frontMatter: c.get<boolean>('frontMatter', true),
     diagramLook: c.get<string>('diagramLook') === 'classic' ? 'classic' : 'neo',
+    theme: readTheme(c.get<string>('theme')),
     limitContentWidth: c.get<boolean>('limitContentWidth', true),
     stickyTableHeader: c.get<boolean>('stickyTableHeader', true),
   };
+}
+
+function readTheme(value: string | undefined): PreviewTheme {
+  return value === 'light' || value === 'dark' ? value : 'auto';
 }
 
 /** decodeURIComponent that leaves malformed escapes (e.g. `100%.md`) as they are. */
@@ -389,7 +395,7 @@ export class Preview {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="${style}">
 </head>
-<body data-seqnotes-splitter-title="${splitterTitle}" data-seqnotes-hide-warnings-title="${hideWarningsTitle}" data-seqnotes-toc-title="${tocTitle}"${zoomTitles}>
+<body data-seqnotes-theme="${this.host.settings().theme}" data-seqnotes-splitter-title="${splitterTitle}" data-seqnotes-hide-warnings-title="${hideWarningsTitle}" data-seqnotes-toc-title="${tocTitle}"${zoomTitles}>
 <div id="seqnotes-root"></div>
 <script nonce="${n}" src="${script}"></script>
 </body>

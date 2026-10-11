@@ -7,6 +7,7 @@
   "mdDesignDoc.exportHtml.title": "設計書を HTML にエクスポート",
   "mdDesignDoc.useFullContentWidth.title": "本文を全幅で表示",
   "mdDesignDoc.limitContentWidth.title": "本文の幅を制限",
+  "mdDesignDoc.toggleTheme.title": "プレビューのライト/ダークを切り替え",
   "mdDesignDoc.editor.displayName": "設計書プレビュー",
   "mdDesignDoc.splitMinWidth.description": "シーケンス図・フローチャートと処理概要を横並びで表示する最小のプレビュー幅 (px)。横向き（LR / RL）のフローチャートは常に処理概要を下に表示します。",
   "mdDesignDoc.limitContentWidth.description": "プレビューの幅が広いとき、本文を最大 1280px の中央のカラムに収めます。処理概要と横並びにした図は全幅で表示します。HTML エクスポートにも適用されます。プレビューのタイトルバーのボタンでも切り替えられます。",
@@ -17,6 +18,10 @@
   "mdDesignDoc.diagramLook.description": "プレビューと HTML エクスポートでの mermaid の図の見た目。図の front matter に `config: look:` を書いた図はその指定に従います。",
   "mdDesignDoc.diagramLook.neo": "mermaid の標準の見た目。角が丸く、フローチャートのノードに影が付きます。",
   "mdDesignDoc.diagramLook.classic": "以前の mermaid の平坦な見た目。影は付きません。",
+  "mdDesignDoc.theme.description": "プレビューの配色。プレビューのタイトルバーのボタンでライトとダークを切り替えられます。HTML エクスポートは常にライトです。",
+  "mdDesignDoc.theme.auto": "VS Code の配色テーマに従います。",
+  "mdDesignDoc.theme.light": "常にライトの配色で表示します。",
+  "mdDesignDoc.theme.dark": "常にダークの配色で表示します。",
   "mdDesignDoc.frontMatter.description": "文書の先頭にある YAML front matter を、メタ情報（タイトル・版数・ステータスなど）の表として表示します（`type: design_doc` ではヘッダとして表示）。オフにすると表示しません。",
   "mdDesignDoc.diagnostics.description": "開いている Markdown ファイルについて、紐付けの警告と、紐付いていない矢印・見出しを、プレビューを開いていなくても「問題」パネルに表示します。"
 }

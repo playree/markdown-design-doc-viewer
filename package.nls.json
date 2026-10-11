@@ -7,6 +7,7 @@
   "mdDesignDoc.exportHtml.title": "Export Design Doc as HTML",
   "mdDesignDoc.useFullContentWidth.title": "Show Text in Full Width",
   "mdDesignDoc.limitContentWidth.title": "Limit Text Width",
+  "mdDesignDoc.toggleTheme.title": "Toggle Light/Dark Theme of Preview",
   "mdDesignDoc.editor.displayName": "Design Doc Preview",
   "mdDesignDoc.splitMinWidth.description": "Minimum preview width (px) at which a sequence diagram or flowchart and its step descriptions are shown side by side. Horizontal flowcharts (LR / RL) are always shown above their step descriptions.",
   "mdDesignDoc.limitContentWidth.description": "In a wide preview, keep the text in a centered column up to 1280px wide. Diagrams shown beside their step descriptions still use the whole width. Also applies to exported HTML. Can be switched with the button in the preview's title bar.",
@@ -17,6 +18,10 @@
   "mdDesignDoc.diagramLook.description": "Look of the mermaid diagrams in the preview and in exported HTML. A diagram can still choose its own with `config: look:` in its front matter.",
   "mdDesignDoc.diagramLook.neo": "mermaid's default look: rounder shapes, with shadows on flowchart nodes.",
   "mdDesignDoc.diagramLook.classic": "The flat look of earlier mermaid versions, without shadows.",
+  "mdDesignDoc.theme.description": "Color theme of the preview. Can be switched between light and dark with the button in the preview's title bar. Exported HTML is always light.",
+  "mdDesignDoc.theme.auto": "Follow the color theme of VS Code.",
+  "mdDesignDoc.theme.light": "Always show the preview in a light theme.",
+  "mdDesignDoc.theme.dark": "Always show the preview in a dark theme.",
   "mdDesignDoc.frontMatter.description": "Show the YAML front matter at the top of the document as a table of its metadata (title, version, status...), or as a header with `type: design_doc`. When off, it is hidden.",
   "mdDesignDoc.diagnostics.description": "Report link warnings and arrows or headings without a link in the Problems panel for open Markdown files, even when no preview is open."
 }
