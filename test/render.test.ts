@@ -297,10 +297,11 @@ describe('renderDocument', () => {
   });
 
   it('leaves the footnote references out of the heading ids', () => {
-    const html = renderDocument(md, doc('## Update password[^race]', '', '[^race]: 注釈', '', '## A [^x]'));
+    const html = renderDocument(md, doc('## Update password[^race]', '', '[^race]: 注釈', '', '## A [^x]', '', '## Inline^[注釈]'));
     expect(html).toContain('<h2 id="sn-update-password" data-line="0">');
     // Not a footnote without its definition.
     expect(html).toContain('<h2 id="sn-a-x" data-line="4">');
+    expect(html).toContain('<h2 id="sn-inline" data-line="6">');
   });
 
   it('makes heading ids unique, including against literal suffixed headings', () => {

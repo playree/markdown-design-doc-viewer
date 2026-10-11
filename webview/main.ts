@@ -3,6 +3,7 @@ import mermaid, { type MermaidConfig } from 'mermaid';
 import type { DiagramLook, FromWebview, PreviewTheme, ToWebview, WebviewState } from '../src/protocol';
 import type { DiagramMeta } from '../src/render';
 import { normalizeLabel } from '../src/sequence';
+import { setupFootnotePopup } from './footnotePopup';
 import { activeFor, isSideBySide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, type Active } from './linking';
 
 interface VsCodeApi {
@@ -370,6 +371,8 @@ async function update(html: string): Promise<void> {
   // The folded metadata of the header stays open while the document is edited.
   const metadataOpen = root.querySelector<HTMLDetailsElement>('.seqnotes-doc-more')?.open === true;
 
+  // Its reference is replaced.
+  footnotePopup.hide();
   root.replaceChildren(...Array.from(next.childNodes));
   const metadata = root.querySelector<HTMLDetailsElement>('.seqnotes-doc-more');
   if (metadata) {
@@ -607,6 +610,11 @@ document.addEventListener('keydown', (e) => {
     pinned = undefined;
     showActive(undefined);
   }
+});
+
+const footnotePopup = setupFootnotePopup(root, (href) => {
+  openLink(href);
+  return true;
 });
 
 function openLink(href: string): void {

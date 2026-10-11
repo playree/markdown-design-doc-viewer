@@ -263,6 +263,27 @@ hr { border: 0; border-top: 1px solid var(--seqnotes-border); }
 .footnotes-list { padding-left: 2em; }
 .footnote-item p { margin: 0.3em 0; }
 .footnote-backref { text-decoration: none; }
+/* The note of a footnote reference under the pointer (`footnotePopup.ts`): below the zoom overlay, above the rest */
+.seqnotes-footnote-popup {
+  position: fixed;
+  z-index: 15;
+  box-sizing: border-box;
+  max-width: min(480px, calc(100vw - 16px));
+  max-height: 50vh;
+  overflow: auto;
+  padding: 8px 12px;
+  font-size: 0.9em;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  border: 1px solid var(--vscode-editorWidget-border, var(--seqnotes-border));
+  border-radius: 4px;
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.16));
+}
+.seqnotes-footnote-popup[hidden] { display: none; }
+.seqnotes-footnote-popup > :first-child { margin-top: 0; }
+.seqnotes-footnote-popup > :last-child { margin-bottom: 0; }
+@media print {
+  .seqnotes-footnote-popup { display: none; }
+}
 /* Not right at the top edge when jumped to */
 .footnote-ref a, .footnote-item { scroll-margin-top: 1em; }
 

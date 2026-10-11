@@ -91,10 +91,6 @@ function linkFix(lines: string[], message: LinkedMessage, heading: string, title
 }
 
 /**
- * Adds a step heading for `message` to the overview: after the steps of the earlier arrows, before the next
- * step or the heading above the steps that follows them, or at the end of the overview.
- */
-/**
  * When the overview runs to the footnotes gathered at the end of the document, which have no line:
  * the line after the last block of the overview, so that the heading goes above the footnote definitions after it.
  */
@@ -116,6 +112,10 @@ function beforeFootnotes(lines: string[], tokens: ReturnType<MarkdownIt['parse']
   return line !== undefined && line < lines.length ? line : undefined;
 }
 
+/**
+ * Adds a step heading for `message` to the overview: after the steps of the earlier arrows, before the next
+ * step or the heading above the steps that follows them, or at the end of the overview.
+ */
 function addHeadingFix(lines: string[], tokens: ReturnType<MarkdownIt['parse']>, diagram: DiagramInfo, message: LinkedMessage, t: Translate): QuickFix | undefined {
   const level = diagram.stepLevel;
   const text = normalizeLabel(message.ref ?? message.text);

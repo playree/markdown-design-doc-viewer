@@ -35,13 +35,21 @@ export interface DiagramMeta {
 export const escapeHtml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-/** The source text of a heading without its footnote references (`[^1]`), which are not part of its text. */
-function withoutFootnoteRefs(inline: Token | undefined): string {
+/** Footnotes collected by markdown-it-footnote: an inline one (`^[note]`) has its text, a reference (`[^1]`) its label. */
+type FootnoteEnv = { footnotes?: { list?: { label?: string; content?: string }[] } };
+
+/** The source text of a heading without its footnotes (`[^1]`, `^[note]`), which are not part of its text. */
+function withoutFootnoteRefs(inline: Token | undefined, env: FootnoteEnv): string {
   let text = inline?.content ?? '';
   for (const child of inline?.children ?? []) {
-    // Inline footnotes (`^[note]`) have no label.
-    if (child.type === 'footnote_ref' && child.meta?.label !== undefined) {
-      text = text.split(`[^${child.meta.label}]`).join('');
+    if (child.type !== 'footnote_ref') {
+      continue;
+    }
+    const id = (child.meta as { id?: number } | null)?.id;
+    const footnote = id === undefined ? undefined : env.footnotes?.list?.[id];
+    const source = footnote?.label !== undefined ? `[^${footnote.label}]` : footnote?.content !== undefined ? `^[${footnote.content}]` : undefined;
+    if (source) {
+      text = text.split(source).join('');
     }
   }
   return text;
@@ -55,7 +63,7 @@ function headingIds(md: MarkdownIt): void {
       if (tokens[i].type !== 'heading_open') {
         continue;
       }
-      const base = HEADING_ID_PREFIX + slugify(withoutFootnoteRefs(tokens[i + 1]));
+      const base = HEADING_ID_PREFIX + slugify(withoutFootnoteRefs(tokens[i + 1], state.env as FootnoteEnv));
       let id = base;
       for (let n = 1; used.has(id); n++) {
         id = `${base}-${n}`;

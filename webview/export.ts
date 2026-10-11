@@ -2,6 +2,7 @@
  * Script of an exported HTML file: the side-by-side layout and the arrow ⇔ step highlighting of the preview,
  * without the parts that talk to VS Code.
  */
+import { setupFootnotePopup } from './footnotePopup';
 import { activeFor, revealCounterpart, scrollToFragment, showActive, type Active } from './linking';
 
 const root = document.getElementById('seqnotes-root')!;
@@ -25,6 +26,15 @@ window.addEventListener('beforeprint', () => {
 window.addEventListener('afterprint', () => {
   printing = false;
   applyLayout();
+});
+
+// Other links are left to the browser, as in the document.
+setupFootnotePopup(root, (href) => {
+  if (!href.startsWith('#')) {
+    return false;
+  }
+  scrollToFragment(href);
+  return true;
 });
 
 root.addEventListener('mouseover', (e) => showActive(root, activeFor(e.target as Element) ?? pinned));
