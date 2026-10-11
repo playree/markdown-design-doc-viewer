@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import type { DiagramLook, FromWebview, PreviewTheme, ToWebview, WebviewState } from './protocol';
+import { isExternalUrl, safeDecode, SCHEME_RE } from './exportPage';
 import { createMarkdown, escapeHtml, renderDocument } from './render';
 
 const VIEW_TYPE = 'mdDesignDoc.preview';
@@ -9,7 +10,6 @@ const UPDATE_DELAY_MS = 300;
 /** Editor scroll events caused by our own reveal are ignored for this long. */
 const SCROLL_SUPPRESS_MS = 500;
 
-const SCHEME_RE = /^[a-z][a-z0-9+.-]*:/i;
 /** An exported document is rendered by the preview; it gives up after this long. */
 const EXPORT_TIMEOUT_MS = 60_000;
 
@@ -43,18 +43,6 @@ export function readSettings(): Settings {
 function readTheme(value: string | undefined): PreviewTheme {
   return value === 'light' || value === 'dark' ? value : 'auto';
 }
-
-/** decodeURIComponent that leaves malformed escapes (e.g. `100%.md`) as they are. */
-export function safeDecode(path: string): string {
-  try {
-    return decodeURIComponent(path);
-  } catch {
-    return path;
-  }
-}
-
-/** true for a URL that is not a path relative to the document (`https:`, `data:`, `//host`, `#id`). */
-export const isExternalUrl = (src: string): boolean => SCHEME_RE.test(src) || src.startsWith('//') || src.startsWith('#');
 
 /** Resolves a link or image path of a Markdown document: relative to it, or to its workspace folder with a leading `/`. */
 export function resolveDocumentPath(document: vscode.Uri, path: string): vscode.Uri {
@@ -268,7 +256,7 @@ export class Preview {
   }
 
   /** Has the webview render `html` (from `renderDocument`) for an exported file, and returns the rendered body. */
-  renderForExport(html: string): Promise<string> {
+  renderForExport(html: string, diagramLook: DiagramLook): Promise<string> {
     if (this.disposed) {
       return Promise.reject(new Error(vscode.l10n.t('The preview was closed.')));
     }
@@ -284,7 +272,7 @@ export class Preview {
         fn();
       };
       this.exports.set(id, { resolve: (body) => done(() => resolve(body)), reject: (error) => done(() => reject(error)) });
-      this.post({ type: 'export', id, html });
+      this.post({ type: 'export', id, html, diagramLook });
     });
   }
 

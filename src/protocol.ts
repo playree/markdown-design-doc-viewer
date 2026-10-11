@@ -13,15 +13,18 @@ export type ToWebview =
   /** Editor cursor moved: mark the element for this line. */
   | { type: 'markLine'; line: number }
   /** Render this HTML for an exported file and send it back with `exported`. */
-  | { type: 'export'; id: number; html: string };
+  | { type: 'export'; id: number; html: string; diagramLook: DiagramLook };
 
 export type FromWebview =
   | { type: 'ready' }
   /** Double-click in the preview: reveal this line in the editor. */
   | { type: 'revealLine'; line: number }
   | { type: 'openLink'; href: string }
-  /** The rendered body of an `export` request, or why it failed. */
-  | { type: 'exported'; id: number; body?: string; error?: string };
+  /**
+   * The rendered body of an `export` request, or why it failed. `diagramErrors` are the messages of the diagrams
+   * mermaid could not render (shown in the body in their place).
+   */
+  | { type: 'exported'; id: number; body?: string; diagramErrors?: string[]; error?: string };
 
 export interface WebviewState {
   uri: string;
