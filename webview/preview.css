@@ -174,20 +174,37 @@ body.seqnotes-sticky-table-header thead th {
 }
 .seqnotes-front-matter td { white-space: pre-wrap; }
 
-/* Front matter with `type: design_doc`: the title and main entries in a row, then a table of the others */
-.seqnotes-doc-header {
-  font-size: 0.9em;
-  margin-bottom: 1.5em;
-  padding-bottom: 0.8em;
-  border-bottom: 1px solid var(--seqnotes-border);
+/* Front matter with `type: design_doc`: a box with the title and main entries in a row, then a table of the others */
+.seqnotes-doc-header { font-size: 0.9em; margin-bottom: 1.5em; }
+.seqnotes-doc-headline {
+  display: flex;
+  flex-wrap: wrap;
+  overflow: hidden;
+  border: 1px solid var(--seqnotes-border);
+  border-radius: 4px;
 }
-.seqnotes-doc-headline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3em 1.5em; }
-.seqnotes-doc-title { font-weight: 600; white-space: pre-wrap; }
-/* The entries flow in the row with the title */
-.seqnotes-doc-meta { display: contents; }
-.seqnotes-doc-meta > div { display: flex; align-items: baseline; gap: 0.5em; }
-.seqnotes-doc-meta dt { color: var(--seqnotes-muted); }
-.seqnotes-doc-meta dd { margin: 0; white-space: pre-wrap; }
+/*
+ * Each item is a cell of the box, with lines between them. The lines are hidden under the border of the box
+ * at its edges, and the line under the items separates the rows when they wrap.
+ */
+.seqnotes-doc-title, .seqnotes-doc-meta > div {
+  min-width: 0;
+  margin: 0 0 -1px -1px;
+  padding: 0.5em 8px;
+  border-left: 1px solid var(--seqnotes-border);
+  border-bottom: 1px solid var(--seqnotes-border);
+  overflow-wrap: anywhere;
+}
+/* The title takes the free space, so that the entries are at the right */
+.seqnotes-doc-title { flex: 1 1 auto; display: flex; align-items: center; font-weight: 600; white-space: pre-wrap; }
+/* Also at the right when they wrap onto a row of their own */
+.seqnotes-doc-meta { display: flex; flex-wrap: wrap; justify-content: flex-end; margin: 0 0 0 auto; }
+/* Without a title, from the left */
+.seqnotes-doc-meta:first-child { margin-left: 0; justify-content: flex-start; }
+/* Filling the rows when the entries wrap among themselves */
+.seqnotes-doc-meta > div { flex: 1 1 auto; display: flex; align-items: center; gap: 0.5em; }
+.seqnotes-doc-meta dt { color: var(--seqnotes-muted); white-space: nowrap; }
+.seqnotes-doc-meta dd { min-width: 0; margin: 0; white-space: pre-wrap; }
 .seqnotes-doc-status dd {
   padding: 0 0.6em;
   border: 1px solid var(--seqnotes-border);

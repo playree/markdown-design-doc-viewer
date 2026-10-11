@@ -153,7 +153,7 @@ reviewers:
 
 ![The title, version, product, status and updated date in the header, and the other metadata in a table opened below it](images/screenshot-header.png)
 
-- `title` is shown in bold, followed by `version`, `product`, `status` and `updated` in a row (in this order, leaving out those not written).
+- The header is a box with `title` in bold on the left, and `version`, `product`, `status` and `updated` on the right (in this order, leaving out those not written), separated by lines.
 - The other entries (`owner` and `reviewers` here) are shown in a table folded below the header (closed by default). `type` itself is not shown.
 
 ## Writing with AI
