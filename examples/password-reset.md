@@ -1,6 +1,10 @@
 ---
+type: design_doc
 title: Password Reset Design
-status: draft
+version: 0.3
+product: Example
+status: Draft
+updated: 2026-10-11
 owner: auth-team
 ---
 
@@ -137,8 +141,10 @@ This does not remove the token from logs of the first request, so:
 - The load balancer and reverse proxies must not log the query string of `/reset`.
 - The page is served with `Referrer-Policy: no-referrer`, so the token is not sent to other sites in the `Referer` header.
 
-- The new password must be 8–128 characters and must not be the same as the current one.
+The page then checks the link and the new password:
+
 - If the token is expired or already used, the page shows "This link has expired." and a link to request a new one.
+- The new password must be 8–128 characters and must not be the same as the current one.
 
 ### 8. POST /password-reset/confirm
 
