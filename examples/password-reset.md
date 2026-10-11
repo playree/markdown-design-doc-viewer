@@ -138,7 +138,7 @@ The frontend reads the token from the URL and removes it from the address bar wi
 
 This does not remove the token from logs of the first request, so:
 
-- The load balancer and reverse proxies must not log the query string of `/reset`.
+- The load balancer and reverse proxies must not log the query string of `/reset`.[^logs]
 - The page is served with `Referrer-Policy: no-referrer`, so the token is not sent to other sites in the `Referer` header.
 
 The page then checks the link and the new password:
@@ -164,7 +164,7 @@ The page then checks the link and the new password:
 ### 9. Update password
 
 Updates `password_hash` and marks the token as used in one transaction.
-The token is consumed with a conditional update, so that two concurrent requests with the same token cannot both succeed:
+The token is consumed with a conditional update, so that two concurrent requests with the same token cannot both succeed[^race]:
 
 ```sql
 UPDATE password_reset_tokens
@@ -204,3 +204,6 @@ Shows "Your password has been reset." and a button to the login page. The user i
   - [x] Ask the product team
   - [ ] Estimate the SMS cost
 - [ ] Add the reset link to the mobile app
+
+[^logs]: The access logs of the CDN are already configured this way. The load balancer is changed in the same release.
+[^race]: Checking `used_at` with a `SELECT` first and updating it afterwards leaves a window between the two statements.

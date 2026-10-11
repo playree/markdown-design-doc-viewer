@@ -1,4 +1,5 @@
 import markdownit, { type Env, type MarkdownIt, type Token } from 'markdown-it';
+import footnote from 'markdown-it-footnote';
 import { formatMessage, type Translate } from './l10n';
 import { isMermaidFence, linkDiagrams, type DiagramInfo, type DiagramKind } from './linker';
 import { markdownExtras } from './markdownExtras';
@@ -34,6 +35,18 @@ export interface DiagramMeta {
 export const escapeHtml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+/** The source text of a heading without its footnote references (`[^1]`), which are not part of its text. */
+function withoutFootnoteRefs(inline: Token | undefined): string {
+  let text = inline?.content ?? '';
+  for (const child of inline?.children ?? []) {
+    // Inline footnotes (`^[note]`) have no label.
+    if (child.type === 'footnote_ref' && child.meta?.label !== undefined) {
+      text = text.split(`[^${child.meta.label}]`).join('');
+    }
+  }
+  return text;
+}
+
 function headingIds(md: MarkdownIt): void {
   md.core.ruler.push('seqnotes_heading_ids', (state) => {
     const used = new Set<string>();
@@ -42,7 +55,7 @@ function headingIds(md: MarkdownIt): void {
       if (tokens[i].type !== 'heading_open') {
         continue;
       }
-      const base = HEADING_ID_PREFIX + slugify(tokens[i + 1]?.content ?? '');
+      const base = HEADING_ID_PREFIX + slugify(withoutFootnoteRefs(tokens[i + 1]));
       let id = base;
       for (let n = 1; used.has(id); n++) {
         id = `${base}-${n}`;
@@ -58,8 +71,13 @@ function sourceLines(md: MarkdownIt): void {
     if ((state.env as RenderEnv | undefined)?.forExport) {
       return;
     }
+    let inFootnotes = false;
     for (const token of state.tokens) {
-      if (token.map && token.nesting !== -1) {
+      // The footnotes are gathered at the end, but keep the lines of their definitions,
+      // which would break the document order of data-line that the scroll sync expects.
+      if (token.type === 'footnote_block_open' || token.type === 'footnote_block_close') {
+        inFootnotes = token.nesting === 1;
+      } else if (token.map && token.nesting !== -1 && !inFootnotes) {
         token.attrSet('data-line', String(token.map[0]));
       }
     }
@@ -76,7 +94,9 @@ function mermaidFence(md: MarkdownIt): void {
     const diagram = token.meta?.seqNotes as DiagramInfo | undefined;
     const forExport = env?.forExport === true;
     const headingNumbers = env?.headingNumbers !== false;
-    let attrs = forExport ? '' : ` data-line="${token.map?.[0] ?? 0}"`;
+    // Set by `sourceLines`, which leaves it out where the document order would break.
+    const line = token.attrGet('data-line');
+    let attrs = line === null ? '' : ` data-line="${line}"`;
     if (diagram) {
       const meta: DiagramMeta = {
         id: diagram.id,
@@ -113,7 +133,7 @@ function resourceLinks(md: MarkdownIt): void {
 
 export function createMarkdown(): MarkdownIt {
   const md = markdownit({ html: true, linkify: true });
-  md.use(markdownExtras).use(headingIds).use(sourceLines).use(mermaidFence).use(resourceLinks);
+  md.use(footnote).use(markdownExtras).use(headingIds).use(sourceLines).use(mermaidFence).use(resourceLinks);
   return md;
 }
 

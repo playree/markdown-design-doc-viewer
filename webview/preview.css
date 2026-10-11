@@ -255,6 +255,17 @@ hr { border: 0; border-top: 1px solid var(--seqnotes-border); }
 .task-list-item { list-style-type: none; }
 .task-list-item-checkbox { margin: 0 0.3em 0.2em -1.4em; vertical-align: middle; }
 
+/* Footnotes (`[^1]`): the references, and the notes gathered at the end */
+.footnote-ref { font-size: 0.75em; line-height: 0; }
+.footnote-ref a { margin: 0 0.1em; }
+.footnotes-sep { margin-top: 2em; }
+.footnotes { font-size: 0.9em; color: var(--seqnotes-muted); }
+.footnotes-list { padding-left: 2em; }
+.footnote-item p { margin: 0.3em 0; }
+.footnote-backref { text-decoration: none; }
+/* Not right at the top edge when jumped to */
+.footnote-ref a, .footnote-item { scroll-margin-top: 1em; }
+
 /* Collapsible sections (`<details>`): a box whose summary shows a chevron and reacts to the mouse. */
 details {
   margin: 0 0 1em;

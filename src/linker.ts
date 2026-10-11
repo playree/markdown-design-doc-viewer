@@ -193,7 +193,12 @@ export function linkDiagrams(tokens: Token[], translate: Translate = formatMessa
     let end = index + 1;
     while (end < tokens.length) {
       const t = tokens[end];
-      if (pairedFences.has(end) || (t.level === 0 && t.type === 'html_block' && END_MARKER_RE.test(t.content))) {
+      if (
+        pairedFences.has(end) ||
+        (t.level === 0 && t.type === 'html_block' && END_MARKER_RE.test(t.content)) ||
+        // The footnotes gathered at the end of the document are not part of the steps.
+        t.type === 'footnote_block_open'
+      ) {
         break;
       }
       end++;

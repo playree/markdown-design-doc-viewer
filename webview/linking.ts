@@ -83,7 +83,12 @@ export function scrollToFragment(href: string): void {
   } catch {
     // keep the raw fragment
   }
+  // A footnote first: its id (`fn1`) may also be the slug of a heading.
+  const raw = document.getElementById(name);
   const target =
-    document.getElementById(HEADING_ID_PREFIX + name) ?? document.getElementById(HEADING_ID_PREFIX + slugify(name)) ?? document.getElementById(name);
+    (raw?.closest('.footnote-item, .footnote-ref') ? raw : null) ??
+    document.getElementById(HEADING_ID_PREFIX + name) ??
+    document.getElementById(HEADING_ID_PREFIX + slugify(name)) ??
+    raw;
   target?.scrollIntoView({ block: 'start' });
 }

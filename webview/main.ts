@@ -424,10 +424,10 @@ let tocHeadings: Element[] = [];
 /** Index of the current item in `tocHeadings`, -1 for none. */
 let tocCurrent = -1;
 
-/** The heading text without the `autonumber` badge added by `addStepBadge`. */
+/** The heading text without the `autonumber` badge added by `addStepBadge`, nor the footnote references. */
 function headingText(heading: Element): string {
   const clone = heading.cloneNode(true) as Element;
-  clone.querySelectorAll('.seqnotes-step').forEach((badge) => badge.remove());
+  clone.querySelectorAll('.seqnotes-step, .footnote-ref').forEach((badge) => badge.remove());
   return (clone.textContent ?? '').trim();
 }
 
