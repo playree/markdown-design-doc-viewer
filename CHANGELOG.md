@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The preview can be shown in light or dark regardless of VS Code's color theme. The button in the preview's title bar switches it to the other of light and dark, and pressing it again makes it follow VS Code again. The choice is saved in `mdDesignDoc.theme` (`auto` / `light` / `dark`).
+
 ## 0.4.0
 
 - With `type: design_doc` in the YAML front matter, the document's `title`, `version`, `product`, `status` and `updated` are shown as a header at the top of the preview, with the other entries in a table folded below it (closed by default).

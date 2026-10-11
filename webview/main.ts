@@ -1,6 +1,6 @@
 import DOMPurify from 'dompurify';
 import mermaid, { type MermaidConfig } from 'mermaid';
-import type { DiagramLook, FromWebview, ToWebview, WebviewState } from '../src/protocol';
+import type { DiagramLook, FromWebview, PreviewTheme, ToWebview, WebviewState } from '../src/protocol';
 import type { DiagramMeta } from '../src/render';
 import { normalizeLabel } from '../src/sequence';
 import { activeFor, isSideBySide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, type Active } from './linking';
@@ -88,9 +88,26 @@ function addSplitter(pair: Element): void {
 // ---------------------------------------------------------------------------
 // Rendering
 
-function isDarkTheme(): boolean {
+/** `mdDesignDoc.theme`: VS Code's theme, or always light / dark. Given in the page too, so that it is not first shown in VS Code's. */
+let previewTheme: PreviewTheme = document.body.dataset.seqnotesTheme === 'light' || document.body.dataset.seqnotesTheme === 'dark' ? document.body.dataset.seqnotesTheme : 'auto';
+
+function isVscodeDark(): boolean {
   return !document.body.classList.contains('vscode-light') && !document.body.classList.contains('vscode-high-contrast-light');
 }
+
+function isDarkTheme(): boolean {
+  return previewTheme === 'auto' ? isVscodeDark() : previewTheme === 'dark';
+}
+
+/** When the preview's theme is not VS Code's, the body class replaces VS Code's colors with those of the theme (preview.css). */
+function applyTheme(): void {
+  const dark = isDarkTheme();
+  const override = dark !== isVscodeDark();
+  document.body.classList.toggle('seqnotes-theme-dark', override && dark);
+  document.body.classList.toggle('seqnotes-theme-light', override && !dark);
+}
+
+applyTheme();
 
 let renderedDark = isDarkTheme();
 
@@ -1097,6 +1114,8 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       syncEditor = message.syncEditor;
       tocEnabled = message.toc;
       diagramLook = message.diagramLook;
+      previewTheme = message.theme;
+      applyTheme();
       document.body.classList.toggle('seqnotes-limit-width', message.limitContentWidth);
       document.body.classList.toggle('seqnotes-sticky-table-header', message.stickyTableHeader);
       vscode.setState({ ...vscode.getState(), uri: message.uri });
@@ -1120,6 +1139,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 
 // VS Code switches the body class when the color theme changes.
 new MutationObserver(() => {
+  applyTheme();
   if (lastHtml !== undefined && isDarkTheme() !== renderedDark) {
     void update(lastHtml);
   }

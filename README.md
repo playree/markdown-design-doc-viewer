@@ -20,6 +20,7 @@ Each arrow (or flowchart node) in the diagram is linked to a heading in the desc
 - **Plain Markdown** — the link syntax is made of mermaid comments and HTML comments, so the same file still renders correctly on GitHub and in the built-in Markdown preview.
 - **Design document friendly** — YAML front matter is shown as a table of the document's metadata (title, version, status...), or as a header with `type: design_doc` (see below), code blocks are syntax highlighted, the header row of a long table stays at the top while scrolling, and GitHub alerts (`> [!NOTE]`) and task lists (`- [ ]`) are rendered.
 - **Resizable** — drag the boundary between the columns to resize them; double-click it to reset. In a wide preview, the text is kept in a centered column up to 1280px wide; the button in the preview's title bar switches it to the full width and back.
+- **Light / dark theme** — the preview follows VS Code's color theme by default. The button in the preview's title bar switches it to the other of light and dark (for example, to read a document in light while the editor stays dark), and pressing it again makes it follow VS Code again. The choice is saved in `mdDesignDoc.theme`.
 - **Table of contents** — hover the short lines at the right edge of the preview to open a table of contents (h1–h3) and jump to a heading. The highlighted line shows where you are.
 - **Diagram and image zoom** — hover a mermaid diagram and click the button at its top right to show it full screen. Scroll the wheel to zoom, drag to pan, double-click to fit it again and press Esc to close. Clicking a linked arrow closes it and shows the step. Images open the same way when clicked (except images in a link, which open the link).
 - **Find** — press `Ctrl+F` (`Cmd+F` on macOS) in the preview to search it.
@@ -172,5 +173,6 @@ The guide also tells the assistant to read the diagnostics of the file. Agents t
 | `mdDesignDoc.toc` | `true` | Show the table of contents at the right edge of the preview. |
 | `mdDesignDoc.headingNumbers` | `true` | With `autonumber`, show the arrow's number at the start of its linked heading (preview and exported HTML). |
 | `mdDesignDoc.diagramLook` | `neo` | Look of the mermaid diagrams: `neo` (mermaid's default, with shadows on flowchart nodes) or `classic` (flat, without shadows). A diagram with `config: look:` in its front matter keeps its own. |
+| `mdDesignDoc.theme` | `auto` | Color theme of the preview: `auto` (VS Code's), `light` or `dark`. Also switched with the button in the preview's title bar. Exported HTML is always light. |
 | `mdDesignDoc.frontMatter` | `true` | Show the YAML front matter at the top as a table of metadata, or as a header with `type: design_doc`. When off, it is hidden. |
 | `mdDesignDoc.diagnostics` | `true` | Report link warnings and missing links of open Markdown files in the Problems panel. |
