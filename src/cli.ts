@@ -4,7 +4,7 @@
  *
  * Built to dist/cli.js, next to the webview files it loads (webview.js, webview.css, export.js, export.css).
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { collectDocuments, isInFolder, outputPath, parseCommandLine, UsageError, USAGE, type ExportOptions } from './cliOptions';
@@ -71,13 +71,15 @@ function resolveImage(src: string, document: string, target: string, root: strin
   const path = imagePath(src);
   // As in the preview, a leading `/` is the root of the workspace.
   const image = path.startsWith('/') ? join(root, path) : resolve(dirname(document), path);
-  const type = imageType(image);
-  if (type && [dirname(document), root].some((folder) => isInFolder(image, folder))) {
-    try {
-      return `data:${type};base64,${readFileSync(image).toString('base64')}`;
-    } catch {
-      // Linked instead.
+  try {
+    // Compared by their real paths, so that a symbolic link in the folders does not embed a file outside them.
+    const real = realpathSync(image);
+    const type = imageType(real);
+    if (type && [dirname(document), root].some((folder) => isInFolder(real, realpathSync(folder)))) {
+      return `data:${type};base64,${readFileSync(real).toString('base64')}`;
     }
+  } catch {
+    // Linked instead.
   }
   return linkFrom(target, image);
 }
