@@ -43,7 +43,18 @@ It can also be opened in place of the text editor: choose **Design Doc Preview**
 ## Writing linked documents
 
 ````markdown
-# Sequence
+---
+type: design_doc
+title: Login Feature Design
+version: 1.0
+product: Example
+status: Draft
+updated: 2026-10-11
+---
+
+# Login Feature Design
+
+## Sequence
 
 ```mermaid
 %% @link-headings
@@ -53,13 +64,13 @@ sequenceDiagram
     Auth-->>API: Return access token
 ```
 
-# Steps
+## Steps
 
-## Fetch user
+### Fetch user
 
 Look up the user by id.
 
-## Issue token
+### Issue token
 
 Issue a JWT valid for one hour.
 
@@ -73,6 +84,7 @@ Issue a JWT valid for one hour.
 | Numbered heading | `## 3. Fetch user` also links to `Fetch user` (`3.`, `3)`, `(3)`, `③`, `1.2.3` and similar prefixes are ignored when no heading matches exactly). |
 | `%% @ref <heading>` | Links the **next** arrow to `<heading>` when its label differs from the heading. |
 | `<!-- link-headings:end -->` | Optional. Ends the description column. Without it, the column extends to the next diagram with `%% @link-headings` or the end of the document. |
+| Front matter | Optional. The metadata between the `---` lines is shown as the document's header (see [Design document header](#design-document-header)). |
 
 Rules:
 
@@ -124,19 +136,24 @@ Writing `type: design_doc` in the YAML front matter of design documents is recom
 ```markdown
 ---
 type: design_doc
-title: Login Feature Design
-version: 1.2
-product: Shop
+title: Checkout Design
+version: 2.1
+product: Example
 status: In review
 updated: 2026-10-01
-owner: auth-team
+owner: commerce-team
+reviewers:
+  - payments-team
+  - inventory-team
 ---
 
-# Login Feature Design
+# Checkout Design
 ```
 
+![The title, version, product, status and updated date in the header, and the other metadata in a table opened below it](images/screenshot-header.png)
+
 - `title` is shown in bold, followed by `version`, `product`, `status` and `updated` in a row (in this order, leaving out those not written).
-- The other entries (`owner` here) are shown in a table folded below the header (closed by default). `type` itself is not shown.
+- The other entries (`owner` and `reviewers` here) are shown in a table folded below the header (closed by default). `type` itself is not shown.
 
 ## Writing with AI
 

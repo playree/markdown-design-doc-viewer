@@ -118,6 +118,13 @@ const SCENES: Scene[] = [
     height: 790,
     prepare: (page) => sectionClip(page, 'Open items'),
   },
+  {
+    // The header of `type: design_doc`, with the other metadata opened.
+    name: 'header',
+    file: 'images/screenshot-header.png',
+    height: 790,
+    prepare: headerClip,
+  },
 ];
 
 /**
@@ -178,6 +185,30 @@ async function sectionClip(page: Page, title: string): Promise<Clip> {
     }
     return { x: 0, y: top, width: window.innerWidth, height: bottom - top };
   }, title);
+}
+
+/**
+ * Opens the other metadata of the design document's header and returns the area from the header to the first h2,
+ * without the table of contents at the right edge.
+ */
+async function headerClip(page: Page): Promise<Clip> {
+  await page.addStyleTag({ content: '.seqnotes-toc { display: none; }' });
+  return page.evaluate(() => {
+    const header = document.querySelector('.seqnotes-doc-header');
+    const more = header?.querySelector('details');
+    const h2 = document.querySelector('h2');
+    if (!header || !more || !h2) {
+      throw new Error('No design document header with other metadata, or no h2 after it');
+    }
+    more.open = true;
+    window.scrollTo(0, 0);
+    const top = Math.max(0, header.getBoundingClientRect().top - 24);
+    const bottom = h2.getBoundingClientRect().top;
+    if (bottom > window.innerHeight) {
+      throw new Error(`The header is taller than the window. Increase the height of the scene to ${Math.ceil(bottom - top)} or more.`);
+    }
+    return { x: 0, y: top, width: window.innerWidth, height: bottom - top };
+  });
 }
 
 /**
