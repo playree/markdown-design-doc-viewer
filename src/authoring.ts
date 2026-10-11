@@ -91,6 +91,28 @@ function linkFix(lines: string[], message: LinkedMessage, heading: string, title
 }
 
 /**
+ * When the overview runs to the footnotes gathered at the end of the document, which have no line:
+ * the line after the last block of the overview, so that the heading goes above the footnote definitions after it.
+ */
+function beforeFootnotes(lines: string[], tokens: ReturnType<MarkdownIt['parse']>, diagram: DiagramInfo): number | undefined {
+  if (tokens[diagram.rangeEnd]?.type !== 'footnote_block_open') {
+    return undefined;
+  }
+  let line: number | undefined;
+  for (let i = diagram.fenceIndex; i < diagram.rangeEnd; i++) {
+    const map = tokens[i].map;
+    if (tokens[i].level === 0 && map) {
+      line = map[1];
+    }
+  }
+  while (line !== undefined && line < lines.length && lines[line].trim() === '') {
+    line++;
+  }
+  // Nothing but blank lines after it: at the end of the document.
+  return line !== undefined && line < lines.length ? line : undefined;
+}
+
+/**
  * Adds a step heading for `message` to the overview: after the steps of the earlier arrows, before the next
  * step or the heading above the steps that follows them, or at the end of the overview.
  */
@@ -109,7 +131,7 @@ function addHeadingFix(lines: string[], tokens: ReturnType<MarkdownIt['parse']>,
   const heading = `${'#'.repeat(level)} ${text}`;
   const title = t('Add heading "{0}" to the overview', text);
 
-  const line = next?.line ?? tokens[diagram.rangeEnd]?.map?.[0];
+  const line = next?.line ?? tokens[diagram.rangeEnd]?.map?.[0] ?? beforeFootnotes(lines, tokens, diagram);
   if (line !== undefined) {
     const blankBefore = line === 0 || lines[line - 1].trim() === '';
     const position = { line, character: 0 };

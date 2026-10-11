@@ -279,6 +279,31 @@ describe('renderDocument', () => {
     expect(html).toContain('src="res:img/a.png"');
   });
 
+  it('renders footnotes at the end, outside the pairs and without data-line', () => {
+    const html = renderDocument(md, doc('```mermaid', '%% @link-headings', 'sequenceDiagram', 'A->>B: 一', '```', '## 一', '', '本文[^1]', '', '[^1]: 注釈', '', 'その後'));
+    expect(html).toContain('<sup class="footnote-ref"><a href="#fn1" id="fnref1">[1]</a></sup>');
+    const footnotes = html.indexOf('<section class="footnotes">');
+    expect(footnotes).toBeGreaterThan(html.lastIndexOf('</div>'));
+    expect(html.slice(footnotes)).toContain('<li id="fn1" class="footnote-item"><p>注釈 <a href="#fnref1" class="footnote-backref">');
+    expect(html.slice(footnotes)).not.toContain('data-line');
+    // The text after the definition is still in the overview.
+    expect(html.indexOf('<p data-line="11">その後</p>')).toBeLessThan(html.lastIndexOf('</div>'));
+  });
+
+  it('keeps the data-line of a mermaid diagram in a footnote out of the document order', () => {
+    const html = renderDocument(md, doc('本文[^1]', '', '[^1]: 注釈', '', '    ```mermaid', '    sequenceDiagram', '    A->>B: x', '    ```', '', '後'));
+    expect(html).toContain('<div class="seqnotes-mermaid" data-seqnotes-meta=');
+    expect(html).not.toMatch(/seqnotes-mermaid" data-line/);
+  });
+
+  it('leaves the footnote references out of the heading ids', () => {
+    const html = renderDocument(md, doc('## Update password[^race]', '', '[^race]: 注釈', '', '## A [^x]', '', '## Inline^[注釈]'));
+    expect(html).toContain('<h2 id="sn-update-password" data-line="0">');
+    // Not a footnote without its definition.
+    expect(html).toContain('<h2 id="sn-a-x" data-line="4">');
+    expect(html).toContain('<h2 id="sn-inline" data-line="6">');
+  });
+
   it('makes heading ids unique, including against literal suffixed headings', () => {
     const html = renderDocument(md, doc('## A', '## A', '## A-1', '## Title'));
     const ids = [...html.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]);

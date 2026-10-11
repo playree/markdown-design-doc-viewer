@@ -82,6 +82,10 @@ describe('quickFixes', () => {
     const marker = doc(src, '<!-- link-headings:end -->', '', '## 次');
     expect(apply(marker, quickFixes(md, marker, 4)[0].edit)).toBe(doc(src, '', '### 二', '', '<!-- link-headings:end -->', '', '## 次'));
 
+    // Above the footnote definitions at the end, which are gathered at the end of the preview.
+    const footnotes = doc(src + '[^1]', '', '[^1]: 注釈');
+    expect(apply(footnotes, quickFixes(md, footnotes, 4)[0].edit)).toBe(doc(src + '[^1]', '', '### 二', '', '[^1]: 注釈'));
+
     const parent = doc(src, '', '## 次の章');
     expect(apply(parent, quickFixes(md, parent, 4)[0].edit)).toBe(doc(src, '', '### 二', '', '## 次の章'));
   });
