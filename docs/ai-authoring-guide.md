@@ -12,7 +12,7 @@ type: design_doc
 title: Login Feature Design
 version: 1.0
 product: <product name>
-status: draft
+status: Draft
 updated: 2026-10-10
 ---
 
