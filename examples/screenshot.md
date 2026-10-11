@@ -2,7 +2,7 @@
 type: design_doc
 title: Checkout Design
 version: 2.1
-product: Shop
+product: Example
 status: In review
 owner: commerce-team
 reviewers:

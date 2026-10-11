@@ -1,3 +1,12 @@
+---
+type: design_doc
+title: Link Checks
+version: 0.1
+product: Example
+status: Draft
+updated: 2026-10-11
+---
+
 # Link Checks
 
 This file has deliberate mistakes, to show how the preview reports arrows and headings that do not match. The same problems are listed in the Problems panel.

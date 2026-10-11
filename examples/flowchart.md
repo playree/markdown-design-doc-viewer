@@ -1,6 +1,11 @@
 ---
+type: design_doc
 title: Order Processing Design
 version: 1.0
+product: Example
+status: In review
+updated: 2026-10-11
+owner: order-team
 ---
 
 # Order Processing Design

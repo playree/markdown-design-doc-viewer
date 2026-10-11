@@ -12,7 +12,7 @@ type: design_doc
 title: ログイン機能 設計書
 version: 1.0
 product: <プロダクト名>
-status: draft
+status: 作成中
 updated: 2026-10-10
 ---
 

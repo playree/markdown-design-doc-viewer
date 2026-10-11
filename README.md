@@ -43,7 +43,18 @@ It can also be opened in place of the text editor: choose **Design Doc Preview**
 ## Writing linked documents
 
 ````markdown
-# Sequence
+---
+type: design_doc
+title: Login Feature Design
+version: 1.0
+product: Example
+status: Draft
+updated: 2026-10-11
+---
+
+# Login Feature Design
+
+## Sequence
 
 ```mermaid
 %% @link-headings
@@ -53,13 +64,13 @@ sequenceDiagram
     Auth-->>API: Return access token
 ```
 
-# Steps
+## Steps
 
-## Fetch user
+### Fetch user
 
 Look up the user by id.
 
-## Issue token
+### Issue token
 
 Issue a JWT valid for one hour.
 
@@ -70,9 +81,10 @@ Issue a JWT valid for one hour.
 |---|---|
 | `%% @link-headings` | Required. Marks the diagram (a sequence diagram or a flowchart) to be linked to and shown side by side with its descriptions. Write it anywhere inside the mermaid block. |
 | Arrow label equals a heading | `Auth->>DB: Fetch user` links to the heading `Fetch user` automatically. |
-| Numbered heading | `## 3. Fetch user` also links to `Fetch user` (`3.`, `3)`, `(3)`, `③`, `1.2.3` and similar prefixes are ignored when no heading matches exactly). |
+| Numbered heading | `### 3. Fetch user` also links to `Fetch user` (`3.`, `3)`, `(3)`, `③`, `1.2.3` and similar prefixes are ignored when no heading matches exactly). |
 | `%% @ref <heading>` | Links the **next** arrow to `<heading>` when its label differs from the heading. |
 | `<!-- link-headings:end -->` | Optional. Ends the description column. Without it, the column extends to the next diagram with `%% @link-headings` or the end of the document. |
+| Front matter | Optional. The metadata between the `---` lines is shown at the top as a table, or as the document's header with `type: design_doc` (see [Design document header](#design-document-header)). |
 
 Rules:
 
@@ -81,7 +93,7 @@ Rules:
 - Only diagrams with `%% @link-headings` are shown side by side (even if no arrow is linked). Other diagrams are rendered normally, and an `@ref` in them is reported as a warning.
 - `%% @link-headings` has no effect on a diagram inside a list or blockquote; this is reported as a warning.
 - An `@ref` whose heading cannot be found is reported as a warning at the top of the preview. The × button hides the warnings temporarily; they are shown again when they change.
-- With `autonumber`, linked headings show the arrow's number, unless the heading already starts with it (`## 3. Fetch user`). Turn `mdDesignDoc.headingNumbers` off to hide them.
+- With `autonumber`, linked headings show the arrow's number, unless the heading already starts with it (`### 3. Fetch user`). Turn `mdDesignDoc.headingNumbers` off to hide them.
 - To help spot missing descriptions, arrows without a linked heading are shown faded, and headings at the same level as the linked ones but without an arrow get a "no arrow" mark. Diagrams with no links at all get no marks.
 - The same warnings and missing links are also reported in the Problems panel for open Markdown files, even when no preview is open. A diagram with `%% @link-headings` but no links at all is reported there too.
 - In the editor, the headings of the overview are completed after `%% @ref ` (those without an arrow first). The missing-link diagnostics come with quick fixes (light bulb, `Ctrl+.`): link the arrow to a heading without an arrow by writing a `@ref`, add a heading with the arrow's text to the overview, or point a broken `@ref` to an existing heading.
@@ -124,19 +136,24 @@ Writing `type: design_doc` in the YAML front matter of design documents is recom
 ```markdown
 ---
 type: design_doc
-title: Login Feature Design
-version: 1.2
-product: Shop
+title: Checkout Design
+version: 2.1
+product: Example
 status: In review
 updated: 2026-10-01
-owner: auth-team
+owner: commerce-team
+reviewers:
+  - payments-team
+  - inventory-team
 ---
 
-# Login Feature Design
+# Checkout Design
 ```
 
+![The title, version, product, status and updated date in the header, and the other metadata in a table opened below it](images/screenshot-header.png)
+
 - `title` is shown in bold, followed by `version`, `product`, `status` and `updated` in a row (in this order, leaving out those not written).
-- The other entries (`owner` here) are shown in a table folded below the header (closed by default). `type` itself is not shown.
+- The other entries (`owner` and `reviewers` here) are shown in a table folded below the header (closed by default). `type` itself is not shown.
 
 ## Writing with AI
 

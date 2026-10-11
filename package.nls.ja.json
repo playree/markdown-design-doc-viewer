@@ -1,6 +1,6 @@
 {
   "displayName": "Markdown 設計書ビューア",
-  "description": "設計書としてのMarkdownをプレビューします。mermaidのシーケンス図やフローチャートと処理概要を横並びにして矢印・ノードと見出しを紐付けるほか、目次、GitHubのアラート、タスクリストを表示します。",
+  "description": "設計書としてのMarkdownをプレビューします。mermaidのシーケンス図やフローチャートと処理概要を横並びにして矢印・ノードと見出しを紐付けるほか、front matter から作る設計書のヘッダ、目次、GitHubのアラート、タスクリストを表示します。",
   "category": "Markdown 設計書ビューア",
   "mdDesignDoc.openPreview.title": "設計書プレビューを開く",
   "mdDesignDoc.openPreviewToSide.title": "設計書プレビューを横に開く",
