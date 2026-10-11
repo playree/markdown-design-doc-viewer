@@ -188,22 +188,22 @@ async function sectionClip(page: Page, title: string): Promise<Clip> {
 }
 
 /**
- * Opens the other metadata of the design document's header and returns the area from the header to the first h2,
+ * Opens the other metadata of the design document's header and returns the area of the header,
  * without the table of contents at the right edge.
  */
 async function headerClip(page: Page): Promise<Clip> {
-  await page.addStyleTag({ content: '.seqnotes-toc { display: none; }' });
+  // The header is at the top of the document: room above it for the same margin as the other scenes.
+  await page.addStyleTag({ content: '.seqnotes-toc { display: none; } body { padding-top: 24px; }' });
   return page.evaluate(() => {
     const header = document.querySelector('.seqnotes-doc-header');
-    const more = header?.querySelector('details');
-    const h2 = document.querySelector('h2');
-    if (!header || !more || !h2) {
-      throw new Error('No design document header with other metadata, or no h2 after it');
+    const more = header?.querySelector<HTMLDetailsElement>('.seqnotes-doc-more');
+    if (!header || !more) {
+      throw new Error('No design document header with other metadata');
     }
     more.open = true;
     window.scrollTo(0, 0);
     const top = Math.max(0, header.getBoundingClientRect().top - 24);
-    const bottom = h2.getBoundingClientRect().top;
+    const bottom = header.getBoundingClientRect().bottom + 24;
     if (bottom > window.innerHeight) {
       throw new Error(`The header is taller than the window. Increase the height of the scene to ${Math.ceil(bottom - top)} or more.`);
     }

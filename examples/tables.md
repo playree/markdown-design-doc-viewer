@@ -11,7 +11,7 @@ owner: order-team
 # Order API Error Codes
 
 Long tables keep their header row at the top of the preview while scrolling through them.
-The table of other metadata folded under the header above has no header row, so nothing stays at the top for it.
+The table of other metadata folded under the header above has no header row, so nothing stays at the top for it when it is opened.
 
 ## Error codes
 
