@@ -1,11 +1,13 @@
 /**
- * Regenerates the README screenshots in images/ from examples/screenshot.md.
+ * Regenerates the README screenshots in images/: the English ones from examples/screenshot.md for README.md,
+ * and the Japanese ones (*.ja.png) from examples/screenshot.ja.md for README.ja.md.
  *
  * The preview webview (dist/webview.js, dist/webview.css) is loaded into a page that stands in for VS Code
- * (light theme colors, English texts, a stub of acquireVsCodeApi) and captured with headless Chrome.
+ * (light theme colors, the texts of the language, a stub of acquireVsCodeApi) and captured with headless Chrome.
  *
- *   pnpm screenshots            # all scenes
- *   pnpm screenshots flowchart  # only the scenes whose name is given
+ *   pnpm screenshots               # all scenes in all languages
+ *   pnpm screenshots flowchart     # only the scenes whose name is given
+ *   pnpm screenshots ja header     # only the languages (en, ja) whose name is given, can be combined with scenes
  *
  * Chrome is looked up in $CHROME_PATH, then in the Playwright browser cache (`pnpm exec playwright-core install chromium`).
  */
@@ -14,12 +16,12 @@ import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { chromium, type Page } from 'playwright-core';
+import { formatMessage, type Translate } from '../src/l10n';
 import type { ToWebview } from '../src/protocol';
 import { createMarkdown, escapeHtml, renderDocument } from '../src/render';
 
 /** The repository root: the script runs as dist/screenshots.cjs. */
 const ROOT = resolve(__dirname, '..');
-const SOURCE = join(ROOT, 'examples/screenshot.md');
 const WIDTH = 1570;
 
 /** Colors of VS Code's "Light Modern" theme for the variables preview.css uses. */
@@ -55,7 +57,7 @@ const THEME: Record<string, string> = {
   'charts-yellow': '#bf8803',
 };
 
-/** The same data attributes as `Preview.shell()` in src/previewPanel.ts, in English. */
+/** The same data attributes as `Preview.shell()` in src/previewPanel.ts, in English (translated with `Locale.t`). */
 const TITLES: Record<string, string> = {
   'splitter-title': 'Drag to resize, double-click to reset',
   'hide-warnings-title': 'Hide warnings',
@@ -68,6 +70,68 @@ const TITLES: Record<string, string> = {
   'zoom-close-title': 'Close',
 };
 
+/** The h2 sections and the steps in them that the scenes look for, in the language of the source. */
+interface Names {
+  sequence: string;
+  sequenceStep: string;
+  flowchart: string;
+  flowchartStep: string;
+  linkChecks: string;
+  markdown: string;
+}
+
+interface Locale {
+  name: string;
+  /** The source document, relative to the repository root. */
+  source: string;
+  /** Appended to the file name of each scene: images/screenshot.ja.png. */
+  suffix: string;
+  /** `lang` of the page, so that CJK text is drawn with the glyphs of the language. */
+  lang: string;
+  /** Replaces variables of THEME. */
+  theme: Record<string, string>;
+  /** Translates the texts of the preview, like `vscode.l10n.t` in this display language. */
+  t: Translate;
+  names: Names;
+}
+
+const jaBundle = JSON.parse(readFileSync(join(ROOT, 'l10n/bundle.l10n.ja.json'), 'utf8')) as Record<string, string>;
+
+const LOCALES: Locale[] = [
+  {
+    name: 'en',
+    source: 'examples/screenshot.md',
+    suffix: '',
+    lang: 'en',
+    theme: {},
+    t: formatMessage,
+    names: {
+      sequence: 'Checkout sequence',
+      sequenceStep: '3. Reserve stock',
+      flowchart: 'Payment retry flow',
+      flowchartStep: 'Retryable error?',
+      linkChecks: 'Refund (draft)',
+      markdown: 'Open items',
+    },
+  },
+  {
+    name: 'ja',
+    source: 'examples/screenshot.ja.md',
+    suffix: '.ja',
+    lang: 'ja',
+    theme: { 'font-family': "'Segoe UI', -apple-system, BlinkMacSystemFont, 'Liberation Sans', 'Noto Sans CJK JP', sans-serif" },
+    t: (message, ...args) => formatMessage(jaBundle[message] ?? message, ...args),
+    names: {
+      sequence: '注文確定のシーケンス',
+      sequenceStep: '3. 在庫を引き当て',
+      flowchart: '決済リトライのフロー',
+      flowchartStep: 'リトライ可能?',
+      linkChecks: '返金（草案）',
+      markdown: '未決事項',
+    },
+  },
+];
+
 interface Clip {
   x: number;
   y: number;
@@ -77,51 +141,51 @@ interface Clip {
 
 interface Scene {
   name: string;
-  /** Output path, relative to the repository root. */
+  /** Output path without the extension, relative to the repository root. `Locale.suffix` and `.png` are appended. */
   file: string;
   height: number;
   /** Scrolls and highlights in the page. Returns the area to capture, or nothing for the whole viewport. */
-  prepare(page: Page): Promise<Clip | undefined>;
+  prepare(page: Page, names: Names): Promise<Clip | undefined>;
 }
 
 const SCENES: Scene[] = [
   {
     // The diagram on the left, and a highlighted step in the middle of the steps on the right.
     name: 'sequence',
-    file: 'images/screenshot.png',
+    file: 'images/screenshot',
     height: 790,
-    prepare: async (page) => {
-      await highlight(page, 'Checkout sequence', '3. Reserve stock', 140);
+    prepare: async (page, names) => {
+      await highlight(page, names.sequence, names.sequenceStep, 140);
       return undefined;
     },
   },
   {
     // The whole flowchart, so it is taller than the others.
     name: 'flowchart',
-    file: 'images/screenshot-flowchart.png',
+    file: 'images/screenshot-flowchart',
     height: 1400,
-    prepare: async (page) => {
-      await highlight(page, 'Payment retry flow', 'Retryable error?');
-      return sectionClip(page, 'Payment retry flow');
+    prepare: async (page, names) => {
+      await highlight(page, names.flowchart, names.flowchartStep);
+      return sectionClip(page, names.flowchart);
     },
   },
   {
     // An arrow without a heading (faded) and a heading without an arrow (marked).
     name: 'link-checks',
-    file: 'images/screenshot-link-checks.png',
+    file: 'images/screenshot-link-checks',
     height: 790,
-    prepare: (page) => sectionClip(page, 'Refund (draft)'),
+    prepare: (page, names) => sectionClip(page, names.linkChecks),
   },
   {
     name: 'markdown',
-    file: 'images/screenshot-markdown.png',
+    file: 'images/screenshot-markdown',
     height: 790,
-    prepare: (page) => sectionClip(page, 'Open items'),
+    prepare: (page, names) => sectionClip(page, names.markdown),
   },
   {
     // The header of `type: design_doc`, with the other metadata opened.
     name: 'header',
-    file: 'images/screenshot-header.png',
+    file: 'images/screenshot-header',
     height: 790,
     prepare: headerClip,
   },
@@ -233,18 +297,18 @@ function findChrome(): string | undefined {
   return candidates.find((p) => existsSync(p));
 }
 
-function shell(update: ToWebview): string {
+function shell(update: ToWebview, locale: Locale): string {
   const dist = (name: string): string => pathToFileURL(join(ROOT, 'dist', name)).href;
-  const vars = Object.entries(THEME)
+  const vars = Object.entries({ ...THEME, ...locale.theme })
     .map(([name, value]) => `--vscode-${name}: ${value};`)
     .join('\n');
   const titles = Object.entries(TITLES)
-    .map(([name, title]) => ` data-seqnotes-${name}="${escapeHtml(title)}"`)
+    .map(([name, title]) => ` data-seqnotes-${name}="${escapeHtml(locale.t(title))}"`)
     .join('');
   // `<` is escaped so that the HTML in the message cannot close the script element.
   const message = JSON.stringify(update).replace(/</g, '\\u003c');
   return `<!DOCTYPE html>
-<html>
+<html lang="${locale.lang}">
 <head>
 <meta charset="UTF-8">
 <style>:root {\n${vars}\n}</style>
@@ -267,33 +331,43 @@ window.acquireVsCodeApi = () => ({
 
 async function main(): Promise<void> {
   const only = process.argv.slice(2);
-  const unknown = only.filter((name) => !SCENES.some((s) => s.name === name));
+  const unknown = only.filter((name) => !SCENES.some((s) => s.name === name) && !LOCALES.some((l) => l.name === name));
   if (unknown.length > 0) {
-    throw new Error(`Unknown scene: ${unknown.join(', ')}. Scenes: ${SCENES.map((s) => s.name).join(', ')}`);
+    throw new Error(`Unknown scene or language: ${unknown.join(', ')}. Scenes: ${SCENES.map((s) => s.name).join(', ')}. Languages: ${LOCALES.map((l) => l.name).join(', ')}`);
   }
-  const scenes = only.length > 0 ? SCENES.filter((s) => only.includes(s.name)) : SCENES;
+  // All of them when none is named.
+  const pick = <T extends { name: string }>(items: T[]): T[] => {
+    const named = items.filter((item) => only.includes(item.name));
+    return named.length > 0 ? named : items;
+  };
+  const scenes = pick(SCENES);
+  const locales = pick(LOCALES);
 
-  const html = renderDocument(createMarkdown(), readFileSync(SOURCE, 'utf8'));
-  const update: ToWebview = { type: 'update', uri: pathToFileURL(SOURCE).href, html, splitMinWidth: 1000, syncEditor: false, toc: true, diagramLook: 'neo', limitContentWidth: true, stickyTableHeader: true };
   const dir = mkdtempSync(join(tmpdir(), 'mdai-screenshots-'));
-  const page = join(dir, 'index.html');
-  writeFileSync(page, shell(update));
-
   const browser = await chromium.launch({ executablePath: findChrome() });
   try {
-    for (const scene of scenes) {
-      const tab = await browser.newPage({ viewport: { width: WIDTH, height: scene.height }, deviceScaleFactor: 1 });
-      await tab.goto(pathToFileURL(page).href);
-      await tab.waitForSelector('#seqnotes-root .seqnotes-diagram svg');
-      await tab.evaluate(() => document.fonts.ready);
-      const clip = await scene.prepare(tab).catch((error: unknown) => {
-        throw new Error(`Scene "${scene.name}": ${error instanceof Error ? error.message : String(error)}`, { cause: error });
-      });
-      // Let the sticky column and the highlight transitions settle.
-      await tab.waitForTimeout(500);
-      await tab.screenshot({ path: resolve(ROOT, scene.file), clip });
-      await tab.close();
-      console.log(`${scene.name}: ${scene.file}`);
+    for (const locale of locales) {
+      const source = join(ROOT, locale.source);
+      const html = renderDocument(createMarkdown(), readFileSync(source, 'utf8'), { t: locale.t });
+      const update: ToWebview = { type: 'update', uri: pathToFileURL(source).href, html, splitMinWidth: 1000, syncEditor: false, toc: true, diagramLook: 'neo', limitContentWidth: true, stickyTableHeader: true };
+      const page = join(dir, `${locale.name}.html`);
+      writeFileSync(page, shell(update, locale));
+
+      for (const scene of scenes) {
+        const file = `${scene.file}${locale.suffix}.png`;
+        const tab = await browser.newPage({ viewport: { width: WIDTH, height: scene.height }, deviceScaleFactor: 1 });
+        await tab.goto(pathToFileURL(page).href);
+        await tab.waitForSelector('#seqnotes-root .seqnotes-diagram svg');
+        await tab.evaluate(() => document.fonts.ready);
+        const clip = await scene.prepare(tab, locale.names).catch((error: unknown) => {
+          throw new Error(`Scene "${scene.name}" (${locale.name}): ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+        });
+        // Let the sticky column and the highlight transitions settle.
+        await tab.waitForTimeout(500);
+        await tab.screenshot({ path: resolve(ROOT, file), clip });
+        await tab.close();
+        console.log(`${scene.name} (${locale.name}): ${file}`);
+      }
     }
   } finally {
     await browser.close();
