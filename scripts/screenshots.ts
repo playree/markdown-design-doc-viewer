@@ -10,6 +10,7 @@
  *   pnpm screenshots ja header     # only the languages (en, ja) whose name is given, can be combined with scenes
  *
  * Chrome is looked up in $CHROME_PATH, then in the Playwright browser cache (`pnpm exec playwright-core install chromium`).
+ * The Japanese screenshots need a Japanese font (Noto Sans CJK JP, `fonts-noto-cjk` on Debian / Ubuntu); without one, their text is drawn as boxes.
  */
 import { existsSync, globSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
@@ -26,7 +27,8 @@ const WIDTH = 1570;
 
 /** Colors of VS Code's "Light Modern" theme for the variables preview.css uses. */
 const THEME: Record<string, string> = {
-  'font-family': "'Segoe UI', -apple-system, BlinkMacSystemFont, 'Liberation Sans', sans-serif",
+  // The Japanese font is used only for the characters the fonts before it do not have.
+  'font-family': "'Segoe UI', -apple-system, BlinkMacSystemFont, 'Liberation Sans', 'Noto Sans CJK JP', sans-serif",
   'editor-font-family': "Consolas, 'Courier New', 'DejaVu Sans Mono', monospace",
   'editor-background': '#ffffff',
   'editor-foreground': '#3b3b3b',
@@ -88,8 +90,6 @@ interface Locale {
   suffix: string;
   /** `lang` of the page, so that CJK text is drawn with the glyphs of the language. */
   lang: string;
-  /** Replaces variables of THEME. */
-  theme: Record<string, string>;
   /** Translates the texts of the preview, like `vscode.l10n.t` in this display language. */
   t: Translate;
   names: Names;
@@ -103,7 +103,6 @@ const LOCALES: Locale[] = [
     source: 'examples/screenshot.md',
     suffix: '',
     lang: 'en',
-    theme: {},
     t: formatMessage,
     names: {
       sequence: 'Checkout sequence',
@@ -119,7 +118,6 @@ const LOCALES: Locale[] = [
     source: 'examples/screenshot.ja.md',
     suffix: '.ja',
     lang: 'ja',
-    theme: { 'font-family': "'Segoe UI', -apple-system, BlinkMacSystemFont, 'Liberation Sans', 'Noto Sans CJK JP', sans-serif" },
     t: (message, ...args) => formatMessage(jaBundle[message] ?? message, ...args),
     names: {
       sequence: '注文確定のシーケンス',
@@ -299,7 +297,7 @@ function findChrome(): string | undefined {
 
 function shell(update: ToWebview, locale: Locale): string {
   const dist = (name: string): string => pathToFileURL(join(ROOT, 'dist', name)).href;
-  const vars = Object.entries({ ...THEME, ...locale.theme })
+  const vars = Object.entries(THEME)
     .map(([name, value]) => `--vscode-${name}: ${value};`)
     .join('\n');
   const titles = Object.entries(TITLES)

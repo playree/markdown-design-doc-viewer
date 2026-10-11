@@ -207,7 +207,7 @@ flowchart TD
 ```mermaid
 %% @link-headings
 graph LR
-    Created[作成済み] --> Paid[支払い済み] --> Shipped[出荷済み] --> Delivered[配達済み]
+    Created[作成済み] --> Paid[支払済み] --> Shipped[出荷済み] --> Delivered[配達済み]
     Created --> Cancelled[キャンセル済み]
 ```
 
@@ -215,7 +215,7 @@ graph LR
 
 注文を保存し、支払いを待っている。
 
-### 支払い済み
+### 支払済み
 
 オーソリが承認された。
 
