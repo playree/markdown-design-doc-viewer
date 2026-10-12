@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The command line can write a list of the exported documents with `--index`: `index.html` in the output folder, with a table for each folder of the documents' titles (linked), file names, and the `version`, `product`, `status` and `updated` of their front matter. Its title is set with `--index-title`.
 - A sample design document exported to HTML is published on GitHub Pages ([English](https://playree.github.io/markdown-design-doc-viewer/), [Japanese](https://playree.github.io/markdown-design-doc-viewer/ja/)), to try the arrow ⇔ heading highlighting, sticky table headers and footnote popups in a browser.
 
 ## 0.5.0

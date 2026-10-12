@@ -81,11 +81,17 @@ export function parseFrontMatter(yaml: string): FrontMatterEntry[] {
   });
 }
 
+/** The value of `key`, or undefined when it is missing or empty (a template not filled in yet). */
+export function frontMatterValue(entries: FrontMatterEntry[], key: string): string | undefined {
+  const value = entries.find((entry) => entry.key === key)?.value;
+  return value?.trim() ? value : undefined;
+}
+
 /** `type` of a front matter shown as the header of a design document instead of a table. */
 const DESIGN_DOC_TYPE = 'design_doc';
 
 /** Entries shown in a row under the title of a design document's header, in this order. */
-const DESIGN_DOC_META = [
+export const DESIGN_DOC_META = [
   { key: 'version', label: 'Version' },
   { key: 'product', label: 'Product' },
   { key: 'status', label: 'Status' },
@@ -130,11 +136,7 @@ function frontMatter(md: MarkdownIt): void {
       return entries.length === 0 ? '' : table(entries, self.renderAttrs(token));
     }
     const t = env?.t ?? formatMessage;
-    // An empty value (a template not filled in yet) is left out like a missing key.
-    const value = (key: string): string | undefined => {
-      const v = entries.find((entry) => entry.key === key)?.value;
-      return v?.trim() ? v : undefined;
-    };
+    const value = (key: string): string | undefined => frontMatterValue(entries, key);
     const title = value('title');
     const meta = DESIGN_DOC_META.flatMap(({ key, label }) => {
       const v = value(key);
