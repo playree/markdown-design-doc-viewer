@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { collectDocuments, isInFolder, outputPath, parseCommandLine, UsageError } from '../src/cliOptions';
+import { collectDocuments, indexPath, isInFolder, outputPath, parseCommandLine, UsageError } from '../src/cliOptions';
 
 const cwd = join(tmpdir(), 'work');
 
@@ -20,13 +20,15 @@ describe('parseCommandLine', () => {
       settings: { limitContentWidth: true, stickyTableHeader: true, splitMinWidth: 1000 },
       chrome: undefined,
       strict: false,
+      index: false,
+      indexTitle: undefined,
     });
   });
 
   it('reads the options', () => {
     expect(
       parseCommandLine(
-        ['export', 'a.md', '-o', 'out', '--root', 'docs', '--lang', 'ja', '--diagram-look', 'classic', '--split-min-width', '800', '--full-width', '--no-heading-numbers', '--no-front-matter', '--no-sticky-table-header', '--chrome', './chrome', '--strict'],
+        ['export', 'a.md', '-o', 'out', '--root', 'docs', '--lang', 'ja', '--diagram-look', 'classic', '--split-min-width', '800', '--full-width', '--no-heading-numbers', '--no-front-matter', '--no-sticky-table-header', '--chrome', './chrome', '--strict', '--index', '--index-title', 'Docs'],
         cwd,
       ),
     ).toEqual({
@@ -41,6 +43,8 @@ describe('parseCommandLine', () => {
       settings: { limitContentWidth: false, stickyTableHeader: false, splitMinWidth: 800 },
       chrome: join(cwd, 'chrome'),
       strict: true,
+      index: true,
+      indexTitle: 'Docs',
     });
   });
 
@@ -60,6 +64,8 @@ describe('parseCommandLine', () => {
     [['export', 'a.md', '--unknown']],
     [['export', 'a.md', '--diagram-look', 'flat']],
     [['export', 'a.md', '--split-min-width', 'wide']],
+    [['export', 'a.md', '--index']],
+    [['export', 'a.md', '-o', 'out', '--index-title', 'Docs']],
   ])('rejects %j', (args) => {
     expect(() => parseCommandLine(args, cwd)).toThrow(UsageError);
   });
@@ -111,6 +117,12 @@ describe('outputPath', () => {
   it('keeps the folders under the root in the output folder', () => {
     expect(outputPath(join(root, 'docs/api/login.md'), join(cwd, 'out'), root)).toBe(join(cwd, 'out/docs/api/login.html'));
     expect(outputPath(join(cwd, 'other/login.md'), join(cwd, 'out'), root)).toBe(join(cwd, 'out/login.html'));
+  });
+});
+
+describe('indexPath', () => {
+  it('writes index.html in the output folder', () => {
+    expect(indexPath(join(cwd, 'out'))).toBe(join(cwd, 'out/index.html'));
   });
 });
 

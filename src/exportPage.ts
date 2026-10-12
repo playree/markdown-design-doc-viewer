@@ -2,9 +2,9 @@
  * The parts of an HTML export that do not depend on VS Code, shared by the export command (exportHtml.ts)
  * and the command line (cli.ts).
  */
-import type { MarkdownIt } from 'markdown-it';
+import type { MarkdownIt, Token } from 'markdown-it';
 import { headingText } from './linker';
-import { parseFrontMatter } from './markdownExtras';
+import { frontMatterValue, parseFrontMatter, type FrontMatterEntry } from './markdownExtras';
 import { escapeHtml, renderDocument, type RenderEnv } from './render';
 
 export const IMAGE_TYPES: Record<string, string> = {
@@ -46,16 +46,24 @@ export function imagePath(src: string): string {
   return safeDecode(path);
 }
 
-/** Title of the exported page: the `title` of the front matter, the first h1, or `fallback` (the file name). */
-export function documentTitle(md: MarkdownIt, source: string, fallback: string): string {
-  const tokens = md.parse(source, {});
-  const frontMatter = tokens[0]?.type === 'front_matter' ? parseFrontMatter(tokens[0].content) : [];
-  const title = frontMatter.find((entry) => entry.key === 'title')?.value.trim();
+/** The entries of the YAML front matter at the top of the parsed document. */
+export function frontMatterEntries(tokens: Token[]): FrontMatterEntry[] {
+  return tokens[0]?.type === 'front_matter' ? parseFrontMatter(tokens[0].content) : [];
+}
+
+/** `documentTitle` of the parsed document. */
+export function titleOf(tokens: Token[], fallback: string): string {
+  const title = frontMatterValue(frontMatterEntries(tokens), 'title')?.trim();
   if (title) {
     return title;
   }
   const h1 = tokens.findIndex((t) => t.type === 'heading_open' && t.tag === 'h1');
   return (h1 >= 0 && headingText(tokens[h1 + 1]).trim()) || fallback;
+}
+
+/** Title of the exported page: the `title` of the front matter, the first h1, or `fallback` (the file name). */
+export function documentTitle(md: MarkdownIt, source: string, fallback: string): string {
+  return titleOf(md.parse(source, {}), fallback);
 }
 
 /** The file name of the exported file: `.html` instead of `.md`. */

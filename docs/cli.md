@@ -18,6 +18,7 @@ The HTML is the same as the VS Code extension's `Export Design Doc as HTML` comm
 
 ```sh
 npx markdown-design-doc-viewer export docs -o site     # all the Markdown files under docs/ to site/docs/*.html
+npx markdown-design-doc-viewer export docs -o site --index   # plus site/index.html, a list of the documents
 npx markdown-design-doc-viewer export README.md        # README.html next to it
 ```
 
@@ -48,10 +49,12 @@ md-design-doc export docs -o site
 | `--no-sticky-table-header` | Do not keep the header row of a long table at the top while scrolling. |
 | `--chrome <path>` | Chrome or Chromium to render the diagrams with. |
 | `--strict` | Fail when a document has a link warning (a broken `@ref` or a misplaced marker). Arrows and headings that are only not linked do not fail. |
+| `--index` | Also write `index.html` in `--out-dir` (required), a list of the exported documents: a table for each folder, with their title (linked), file name, and the `version`, `product`, `status` and `updated` of their front matter. |
+| `--index-title <title>` | Title of `index.html`. Default: `Design Docs` (`設計書一覧` with `--lang ja`). |
 | `-h`, `--help` | Show the help. |
 | `-v`, `--version` | Show the version. |
 
-Folders are searched for `*.md` and `*.markdown` files, except in `node_modules` and folders starting with a dot. Link warnings are written to the standard error (as annotations in GitHub Actions).
+Folders are searched for `*.md` and `*.markdown` files, including their subfolders, except `node_modules` and folders starting with a dot. Link warnings are written to the standard error (as annotations in GitHub Actions).
 
 The exit status is 1 when a document could not be exported or has a diagram mermaid cannot render (its HTML is written anyway), or with `--strict` a link warning, and 2 for a wrong command line.
 

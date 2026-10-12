@@ -44,8 +44,9 @@ jobs:
 
       # CLI の HTML エクスポートの結合テスト（図はランナーにインストール済みの Google Chrome で描く）。
       # link-checks.md はわざと警告を出す例で、PR に注釈が付いてしまうので除く。
-      # 残りは紐付けの警告を出さないこと（screenshot.md は Pages のサンプルとして --strict でエクスポートする）
-      - run: node dist/cli.js export $(ls examples/*.md | grep -v link-checks) -o .work/export --strict
+      # 残りは紐付けの警告を出さないこと（screenshot.md は Pages のサンプルとして --strict でエクスポートする）。
+      # --index で文書の一覧（.work/export/index.html）も作る
+      - run: node dist/cli.js export $(ls examples/*.md | grep -v link-checks) -o .work/export --strict --index
 
       # npm パッケージ（.work/npm）を作れること（ファイルの漏れや package.nls.json にない文言をここで見つける）
       - run: pnpm npm:package && npm pack ./.work/npm --dry-run

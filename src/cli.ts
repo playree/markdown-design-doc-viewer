@@ -5,10 +5,11 @@
  * Built to dist/cli.js, next to the webview files it loads (webview.js, webview.css, export.js, export.css).
  */
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { collectDocuments, isInFolder, outputPath, parseCommandLine, UsageError, USAGE, type ExportOptions } from './cliOptions';
-import { documentTitle, exportPage, imagePath, imageType, renderForExport, stripSourceMap } from './exportPage';
+import { collectDocuments, indexPath, isInFolder, outputPath, parseCommandLine, UsageError, USAGE, type ExportOptions } from './cliOptions';
+import { documentInfo, indexBody, type IndexEntry } from './exportIndex';
+import { exportPage, imagePath, imageType, renderForExport, stripSourceMap } from './exportPage';
 import { HeadlessRenderer } from './headless';
 import { collectIssues } from './issues';
 import { formatMessage, type Translate } from './l10n';
@@ -95,6 +96,11 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
   if (twice !== undefined) {
     throw new UsageError(`Two documents would be exported to the same file: ${display(twice)}`);
   }
+  const index = options.index && options.outDir !== undefined ? indexPath(options.outDir) : undefined;
+  // Compared without case, as a file system may not tell them apart.
+  if (index !== undefined && targets.some((target) => target.toLowerCase() === index.toLowerCase())) {
+    throw new UsageError(`A document would be exported to the file of --index: ${display(index)}`);
+  }
 
   const t = translator(options.lang);
   const md = createMarkdown();
@@ -103,6 +109,7 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
   const script = readDist('export.js');
 
   let ok = true;
+  const indexEntries: IndexEntry[] = [];
   const renderer = await HeadlessRenderer.open(DIST, { lang: options.lang, chrome: options.chrome });
   try {
     for (const [i, document] of documents.entries()) {
@@ -121,10 +128,16 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
           report('error', document, error);
           ok = false;
         }
-        const page = exportPage({ lang: options.lang, title: documentTitle(md, source, document.split(/[\\/]/).pop() ?? ''), body, styles, script, settings: options.settings });
+        const file = basename(document);
+        const info = documentInfo(md, source, file, options.frontMatter);
+        const page = exportPage({ lang: options.lang, title: info.title, body, styles, script, settings: options.settings });
         mkdirSync(dirname(target), { recursive: true });
         writeFileSync(target, page);
         console.log(`${display(document)} -> ${display(target)}`);
+        if (index !== undefined) {
+          const folder = relative(dirname(index), dirname(target)).split(sep).join('/');
+          indexEntries.push({ ...info, href: linkFrom(index, target), folder, file });
+        }
       } catch (error) {
         report('error', document, error instanceof Error ? error.message : String(error));
         ok = false;
@@ -132,6 +145,14 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
     }
   } finally {
     await renderer.close();
+  }
+
+  // The documents that could not be exported are left out, and the index too when none was.
+  if (index !== undefined && indexEntries.length > 0) {
+    const title = options.indexTitle || t('Design Docs');
+    mkdirSync(dirname(index), { recursive: true });
+    writeFileSync(index, exportPage({ lang: options.lang, title, body: indexBody(title, indexEntries, t), styles, script: '', settings: options.settings }));
+    console.log(`-> ${display(index)}`);
   }
   return ok;
 }

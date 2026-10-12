@@ -25,6 +25,8 @@ Options:
       --chrome <path>          Chrome or Chromium to render the diagrams with. Default: $CHROME_PATH, a Chromium of
                                the Playwright cache, or the Google Chrome installed on the system.
       --strict                 Fail when a document has a link warning (a broken @ref or a misplaced marker).
+      --index                  Also write index.html, a list of the exported documents, in --out-dir.
+      --index-title <title>    Title of index.html. Default: "Design Docs" in --lang.
   -h, --help                   Show this help.
   -v, --version                Show the version.
 
@@ -46,6 +48,9 @@ export interface ExportOptions {
   settings: ExportSettings;
   chrome?: string;
   strict: boolean;
+  /** Write a list of the documents (`indexPath`). */
+  index: boolean;
+  indexTitle?: string;
 }
 
 export type Command = { command: 'help' } | { command: 'version' } | ({ command: 'export' } & ExportOptions);
@@ -69,6 +74,8 @@ export function parseCommandLine(args: string[], cwd: string): Command {
         'no-sticky-table-header': { type: 'boolean' },
         chrome: { type: 'string' },
         strict: { type: 'boolean' },
+        index: { type: 'boolean' },
+        'index-title': { type: 'string' },
         help: { type: 'boolean', short: 'h' },
         version: { type: 'boolean', short: 'v' },
       },
@@ -102,6 +109,12 @@ export function parseCommandLine(args: string[], cwd: string): Command {
   if (!Number.isFinite(splitMinWidth) || splitMinWidth < 0) {
     throw new UsageError(`--split-min-width must be a number of pixels: ${values['split-min-width']}`);
   }
+  if (values.index && values['out-dir'] === undefined) {
+    throw new UsageError('--index requires --out-dir.');
+  }
+  if (values['index-title'] !== undefined && !values.index) {
+    throw new UsageError('--index-title requires --index.');
+  }
   return {
     command: 'export',
     inputs: inputs.map((input) => resolve(cwd, input)),
@@ -119,6 +132,8 @@ export function parseCommandLine(args: string[], cwd: string): Command {
     // A command name (without a folder) is looked up in PATH.
     chrome: values.chrome === undefined || !/[\\/]/.test(values.chrome) ? values.chrome : resolve(cwd, values.chrome),
     strict: values.strict ?? false,
+    index: values.index ?? false,
+    indexTitle: values['index-title'],
   };
 }
 
@@ -197,4 +212,9 @@ export function outputPath(document: string, outDir: string | undefined, root: s
     return join(dirname(document), name);
   }
   return isInFolder(document, root) ? join(outDir, dirname(relative(root, document)), name) : join(outDir, name);
+}
+
+/** The list of the documents written with `--index`. */
+export function indexPath(outDir: string): string {
+  return join(outDir, 'index.html');
 }
