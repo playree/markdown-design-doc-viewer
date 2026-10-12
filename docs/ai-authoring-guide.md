@@ -18,6 +18,15 @@ updated: 2026-10-10
 
 # Login Feature Design
 
+<details>
+<summary>Change history</summary>
+
+| Version | Date | Changes |
+|---|---|---|
+| 1.0 | 2026-10-10 | First version |
+
+</details>
+
 ## Sequence
 
 ```mermaid
@@ -51,11 +60,13 @@ The columns returned.
 
 ### 4. Issue token
 
-The token's claims and expiry.
+The token's claims. It expires after 1 hour[^expiry].
 
 <!-- link-headings:end -->
 
 ## Next section
+
+[^expiry]: A shorter expiry is preferred, but it stays at 1 hour until refresh tokens are supported.
 ````
 
 ## Sequence diagram
@@ -93,6 +104,20 @@ A flowchart (`flowchart TD` / `graph TD`) can be linked instead of a sequence di
 - Start the design document with YAML front matter that contains `type: design_doc`. The first line of the document is `---`, the metadata follows as `key: value` lines, and a `---` line closes it (the line right after the opening `---` must be a `key: value` line, or the block is not treated as front matter).
 - `title`, `version`, `product`, `status` and `updated` are shown in a row as the document's header. Other keys are shown in a table folded below the header (closed by default).
 - Also write a `#` heading with the same text as `title` at the start of the body.
+
+## Footnotes
+
+- Write notes that would interrupt the text (reasons, background, history, minor caveats) as footnotes: `[^label]` where the note applies, and the definition `[^label]: note` gathered at the end of the document. Give the label a name that tells what the note is about (`[^expiry]`).
+- The preview shows the footnotes at the end of the document, and hovering a reference shows its note in a popup.
+- Do not put the specification itself (what happens, validation rules, errors) in footnotes. Write it in the text.
+- A heading may have a footnote. Footnote references are ignored when matching headings with arrows.
+
+## Folded sections
+
+- Fold content that does not need to be read every time with `<details>`: for example the change history, alternatives considered and background, long lists (error codes and so on), and long samples (JSON, SQL). Do not fold the main points of the specification.
+- Put the change history right after the `#` heading, as a folded table (see the template). Keep its latest version and date the same as `version` and `updated` in the front matter.
+- Write `<details>`, `<summary>…</summary>` and `</details>` each on a line of its own at the top level, with a blank line after the `<summary>` line. Without it, the Markdown inside (tables, lists) is not rendered. Also put a blank line before the `</details>` line.
+- Do not write headings inside a folded section. They are treated like the headings outside it, and count as steps inside the step descriptions. Use bold text for a subheading.
 
 ## Other Markdown
 
