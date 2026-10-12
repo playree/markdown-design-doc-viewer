@@ -5,7 +5,8 @@
  *
  * The package.json of the repository is the extension's: its texts are placeholders (`%description%`) translated by
  * package.nls.json, and most of it only matters to VS Code. The package gets its own package.json, with the
- * placeholders replaced by the English texts and only the fields npm uses.
+ * placeholders replaced by the English texts and only the fields npm uses. Its README is the command line's
+ * (docs/cli.md), not the extension's.
  *
  * Expects a production build in dist/ (`node esbuild.mjs --production`).
  */
@@ -16,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, '.work/npm');
 
-/** The files of the package besides package.json, relative to the repository root. */
+/** The files of the package besides package.json, relative to the repository root: a path, or [path in the package, path in the repository]. */
 const FILES = [
   'dist/cli.js',
   'dist/webview.js',
@@ -24,11 +25,14 @@ const FILES = [
   'dist/export.js',
   'dist/export.css',
   'l10n',
-  'README.md',
-  'README.ja.md',
+  ['README.md', 'docs/cli.md'],
+  ['README.ja.md', 'docs/cli.ja.md'],
   'LICENSE',
   'ThirdPartyNotices.txt',
-];
+].map((file) => (typeof file === 'string' ? { to: file, from: file } : { to: file[0], from: file[1] }));
+
+/** The page of the command line, instead of the repository's README (the extension's). */
+const HOMEPAGE = 'https://github.com/playree/markdown-design-doc-viewer/blob/main/docs/cli.md';
 
 /** The files of dist/ the command line does not use: the extension, and the screenshot script (`pnpm screenshots`). */
 const DIST_EXCLUDED = ['extension.js', 'screenshots.cjs'];
@@ -71,17 +75,18 @@ if (!pkg.engines?.node) {
   throw new Error('No engines.node in package.json: the command line needs it.');
 }
 manifest.engines = { node: pkg.engines.node };
+manifest.homepage = HOMEPAGE;
 // The form npm normalizes it to, so that publishing does not warn about it.
 if (manifest.repository?.url?.startsWith('https://')) {
   manifest.repository = { ...manifest.repository, url: `git+${manifest.repository.url}` };
 }
 
-const missing = FILES.filter((file) => !existsSync(join(ROOT, file)));
+const missing = FILES.map((file) => file.from).filter((file) => !existsSync(join(ROOT, file)));
 if (missing.length > 0) {
   throw new Error(`Missing ${missing.join(', ')}: build first with \`node esbuild.mjs --production\`.`);
 }
 // A new file of the build (esbuild.mjs) is to be added to FILES, or to these if the command line does not use it.
-const unlisted = readdirSync(join(ROOT, 'dist')).filter((name) => !FILES.includes(`dist/${name}`) && !DIST_EXCLUDED.includes(name) && !name.endsWith('.map'));
+const unlisted = readdirSync(join(ROOT, 'dist')).filter((name) => !FILES.some((file) => file.from === `dist/${name}`) && !DIST_EXCLUDED.includes(name) && !name.endsWith('.map'));
 if (unlisted.length > 0) {
   throw new Error(`dist/${unlisted.join(', dist/')}: add to FILES in scripts/npm-package.mjs, or to DIST_EXCLUDED if the command line does not need it.`);
 }
@@ -89,7 +94,7 @@ if (unlisted.length > 0) {
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 for (const file of FILES) {
-  cpSync(join(ROOT, file), join(OUT, file), { recursive: true });
+  cpSync(join(ROOT, file.from), join(OUT, file.to), { recursive: true });
 }
 writeFileSync(join(OUT, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 console.log(`npm package ${manifest.name}@${manifest.version} prepared in ${OUT}`);

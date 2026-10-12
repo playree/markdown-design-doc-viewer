@@ -162,41 +162,13 @@ AI アシスタント（Claude Code、GitHub Copilot、Cursor など）にこの
 
 ## コマンドライン（CI）
 
-HTML エクスポートはコマンドラインからも実行でき、CI やバッチ処理で VS Code なしに設計書を変換できます。`Export Design Doc as HTML` コマンドと同じ HTML ファイルを書き出します（図はプレビューをヘッドレス Chrome で動かして描画します）。
+HTML エクスポートはコマンドラインからも実行でき、CI やバッチ処理で VS Code なしに設計書を変換できます。`Export Design Doc as HTML` コマンドと同じ HTML ファイルを書き出します（図はプレビューをヘッドレス Chrome で動かして描画します）。Node.js 22 以降と、Chrome か Chromium が必要です。
 
 ```sh
 npx markdown-design-doc-viewer export docs -o site     # docs/ 以下の Markdown をすべて site/docs/*.html に
-npx markdown-design-doc-viewer export README.md        # 隣に README.html を
 ```
 
-Node.js 22 以降と、Chrome か Chromium が必要です。`--chrome <パス>` か `$CHROME_PATH`、なければ `npx playwright-core install chromium` で入れた Chromium、それもなければシステムにインストールされた Google Chrome（GitHub Actions の Ubuntu ランナーには入っています）を使います。日本語などの CJK の文書には、そのフォント（Debian / Ubuntu では `fonts-noto-cjk`）が必要です。ないと図の文字が四角で描かれます。
-
-| オプション | 説明 |
-|---|---|
-| `-o`, `--out-dir <dir>` | HTML をこのフォルダに、`--root` 以下での文書と同じサブフォルダ構成で書き出す。省略時は各文書の隣に書き出す |
-| `--root <dir>` | `/` で始まる画像パスの基準のフォルダ（VS Code のワークスペースに相当）。この中と文書のフォルダの画像は埋め込み、それ以外はリンクのまま。既定はカレントフォルダ |
-| `--lang <lang>` | 文書に加える文言と紐付けの警告の言語。`en`（既定）か `ja` |
-| `--diagram-look <look>` | `neo`（既定）か `classic`。`mdDesignDoc.diagramLook` と同じ |
-| `--split-min-width <px>` | `mdDesignDoc.splitMinWidth` と同じ。既定は `1000` |
-| `--full-width` | 本文を中央の列に収めない（`mdDesignDoc.limitContentWidth` をオフ） |
-| `--no-heading-numbers`、`--no-front-matter`、`--no-sticky-table-header` | 同じ名前の設定をオフにする |
-| `--chrome <path>` | 図の描画に使う Chrome か Chromium |
-| `--strict` | 紐付けの警告（壊れた `@ref` や置き場所の誤ったマーカーなど、プレビュー上部に出るもの）があれば失敗にする。紐付いていないだけの矢印・見出しでは失敗しない |
-
-フォルダは `*.md` と `*.markdown` を探します（`node_modules` とドットで始まるフォルダは除く）。紐付けの警告は標準エラーに出します（GitHub Actions では注釈になります）。文書を書き出せなかったとき、mermaid が描画できない図があったとき（HTML は書き出します）、`--strict` で紐付けの警告があったときは終了コード 1、コマンドラインの誤りは 2 で終わります。
-
-たとえば、リポジトリの設計書をビルドごとに成果物として公開するには:
-
-```yaml
-- uses: actions/setup-node@v4
-  with:
-    node-version: 22
-- run: npx markdown-design-doc-viewer export docs -o site
-- uses: actions/upload-artifact@v4
-  with:
-    name: design-docs
-    path: site
-```
+オプションや GitHub Actions での例は [コマンドラインの README](docs/cli.ja.md) を参照してください。
 
 ## 設定
 

@@ -164,41 +164,13 @@ The guide also tells the assistant to read the diagnostics of the file. Agents t
 
 ## Command line (CI)
 
-The HTML export also runs from the command line, to convert documents in CI or in a batch, without VS Code. It writes the same HTML file as the `Export Design Doc as HTML` command, with the diagrams rendered by the preview in headless Chrome.
+The HTML export also runs from the command line, to convert documents in CI or in a batch, without VS Code. It writes the same HTML file as the `Export Design Doc as HTML` command, with the diagrams rendered by the preview in headless Chrome. It needs Node.js 22 or later, and Chrome or Chromium.
 
 ```sh
 npx markdown-design-doc-viewer export docs -o site     # all the Markdown files under docs/ to site/docs/*.html
-npx markdown-design-doc-viewer export README.md        # README.html next to it
 ```
 
-It needs Node.js 22 or later, and Chrome or Chromium: `--chrome <path>` or `$CHROME_PATH`, else a Chromium installed with `npx playwright-core install chromium`, else the Google Chrome installed on the system (GitHub Actions' Ubuntu runners have one). Documents in Japanese or other CJK languages need a font for them (`fonts-noto-cjk` on Debian / Ubuntu), or their diagrams are drawn with boxes.
-
-| Option | Description |
-|---|---|
-| `-o`, `--out-dir <dir>` | Write the HTML files to this folder, in the same subfolders as the documents under `--root`. By default, each one is written next to its document. |
-| `--root <dir>` | Folder that image paths starting with `/` are relative to, like the workspace in VS Code. Images in it or in the document's folder are embedded; others stay links. Default: the current folder. |
-| `--lang <lang>` | Language of the texts added to the document and of the link warnings: `en` (default) or `ja`. |
-| `--diagram-look <look>` | `neo` (default) or `classic`, like `mdDesignDoc.diagramLook`. |
-| `--split-min-width <px>` | Like `mdDesignDoc.splitMinWidth`. Default: `1000`. |
-| `--full-width` | Do not keep the text in a centered column (`mdDesignDoc.limitContentWidth` off). |
-| `--no-heading-numbers`, `--no-front-matter`, `--no-sticky-table-header` | Turn off the setting of the same name. |
-| `--chrome <path>` | Chrome or Chromium to render the diagrams with. |
-| `--strict` | Fail when a document has a link warning (a broken `@ref` or a misplaced marker, as shown at the top of the preview). Arrows and headings that are only not linked do not fail. |
-
-Folders are searched for `*.md` and `*.markdown` files, except in `node_modules` and folders starting with a dot. Link warnings are written to the standard error (as annotations in GitHub Actions). The exit status is 1 when a document could not be exported or has a diagram mermaid cannot render (its HTML is written anyway), or with `--strict` a link warning, and 2 for a wrong command line.
-
-For example, to publish the documents of a repository as an artifact of each build:
-
-```yaml
-- uses: actions/setup-node@v4
-  with:
-    node-version: 22
-- run: npx markdown-design-doc-viewer export docs -o site
-- uses: actions/upload-artifact@v4
-  with:
-    name: design-docs
-    path: site
-```
+See [the command line's README](docs/cli.md) for its options and an example of GitHub Actions.
 
 ## Settings
 
