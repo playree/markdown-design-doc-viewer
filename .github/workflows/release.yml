@@ -1,0 +1,103 @@
+name: Release
+
+# GitHub Release（タグ vX.Y.Z）を公開したら、CLI の npm パッケージを公開する。
+# npm の Trusted Publishing（OIDC）で公開するので npm のトークンは使わない（provenance も自動で付く）。
+# npmjs.com のパッケージ設定に Trusted Publisher としてこのファイル名（release.yml）を登録してあるので、改名しないこと。
+# VS Code Marketplace への公開（pnpm run vsce:publish）は手動で行う。
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  npm:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Trusted Publishing の OIDC トークン用
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # タグのコミットが main に入っているかを確かめるため
+          fetch-depth: 0
+
+      # pnpm のバージョンは package.json の packageManager から読む
+      - uses: pnpm/action-setup@v6
+
+      # Trusted Publishing には npm 11.5.1 以上が要る（Node 24 に付属の npm はこれを満たす）。
+      # registry-url は付けない（付けると .npmrc にダミーのトークンが入り、OIDC に失敗したときの原因が分かりにくくなる）
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # リリースのタグが main のコミットで package.json の version と一致し、そのバージョンがまだ npm にないときだけ公開する
+      # （初回は手元から公開してから Release を作るので、そこでは公開を飛ばす）
+      - id: version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::The release tag $TAG is not on main."
+            exit 1
+          fi
+          name=$(node -p 'require("./package.json").name')
+          version=$(node -p 'require("./package.json").version')
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::The release tag $TAG does not match the version in package.json (v$version)."
+            exit 1
+          fi
+          # 404 だけを「まだない」とみなし、ネットワークなどのエラーでは失敗にする
+          if found=$(npm view "$name@$version" version 2>&1); then
+            if [ -n "$found" ]; then
+              echo "::notice::$name@$version is already on npm: not published again."
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          elif ! grep -q E404 <<<"$found"; then
+            echo "$found"
+            echo "::error::Could not look up $name@$version on npm: $(head -n 1 <<<"$found")"
+            exit 1
+          fi
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+          # プレリリース（0.5.0-rc.1 など）は latest にしない
+          if [[ "$version" == *-* ]]; then
+            echo "dist-tag=next" >> "$GITHUB_OUTPUT"
+          else
+            echo "dist-tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.version.outputs.publish == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - if: steps.version.outputs.publish == 'true'
+        run: pnpm typecheck
+
+      - if: steps.version.outputs.publish == 'true'
+        run: pnpm test
+
+      # 公開するものと同じ tarball（prepack で production ビルドする）を別のフォルダにインストールし、
+      # CLI でエクスポートできることを確かめてから、その tarball を公開する
+      - if: steps.version.outputs.publish == 'true'
+        run: |
+          tarball="$RUNNER_TEMP/$(npm pack --pack-destination "$RUNNER_TEMP" | tail -n 1)"
+          echo "TARBALL=$tarball" >> "$GITHUB_ENV"
+          mkdir "$RUNNER_TEMP/smoke"
+          cd "$RUNNER_TEMP/smoke"
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund "$tarball"
+          npx md-design-doc export "$GITHUB_WORKSPACE/examples/login.md" -o out
+          test -s out/login.html
+
+      - if: steps.version.outputs.publish == 'true'
+        env:
+          DIST_TAG: ${{ steps.version.outputs.dist-tag }}
+        run: npm publish "$TARBALL" --tag "$DIST_TAG"
