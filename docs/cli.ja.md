@@ -12,6 +12,8 @@
 
 ![左にシーケンス図、右に紐付いた処理概要](https://raw.githubusercontent.com/playree/markdown-design-doc-viewer/main/images/screenshot.ja.png)
 
+**[サンプル](https://playree.github.io/markdown-design-doc-viewer/ja/)**: このコマンドで [examples/screenshot.ja.md](https://github.com/playree/markdown-design-doc-viewer/blob/main/examples/screenshot.ja.md) から書き出した HTML です。
+
 ## 使い方
 
 ```sh

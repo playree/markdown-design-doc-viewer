@@ -12,6 +12,8 @@ The HTML is the same as the VS Code extension's `Export Design Doc as HTML` comm
 
 ![Sequence diagram on the left, linked step descriptions on the right](https://raw.githubusercontent.com/playree/markdown-design-doc-viewer/main/images/screenshot.png)
 
+**[Live sample](https://playree.github.io/markdown-design-doc-viewer/)**: an HTML file written by this command from [examples/screenshot.md](https://github.com/playree/markdown-design-doc-viewer/blob/main/examples/screenshot.md).
+
 ## Usage
 
 ```sh

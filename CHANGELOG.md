@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- A sample design document exported to HTML is published on GitHub Pages ([English](https://playree.github.io/markdown-design-doc-viewer/), [Japanese](https://playree.github.io/markdown-design-doc-viewer/ja/)), to try the arrow ⇔ heading highlighting, sticky table headers and footnote popups in a browser.
+
 ## 0.5.0
 
 - The HTML export runs from the command line too, to convert documents in CI or in a batch: `npx markdown-design-doc-viewer export docs -o site`. The diagrams are rendered with headless Chrome, link warnings are reported (as annotations in GitHub Actions), and `--strict` fails on them.

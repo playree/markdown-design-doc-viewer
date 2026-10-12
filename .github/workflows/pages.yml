@@ -1,0 +1,85 @@
+name: Pages
+
+# GitHub Release（タグ vX.Y.Z）を公開したら、examples/screenshot.md と screenshot.ja.md を CLI で HTML にエクスポートし、
+# GitHub Pages にサンプルとして公開する（英語版を /、日本語版を /ja/ に）。npm に出したバージョンと見た目を揃えるため、リリースのタグから作る。
+# プレリリース（npm の dist-tag next）では更新しない。手動実行（main から）でも更新できる。
+# リポジトリの Settings → Pages の Source を「GitHub Actions」にし、環境 github-pages に main とタグ v* からのデプロイを許可しておくこと。
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.event_name != 'release' || !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    steps:
+      # 手動実行は main からだけ（環境 github-pages の設定に頼らず、ここでも止める）
+      - if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Run this workflow from main."
+          exit 1
+
+      - uses: actions/checkout@v7
+        with:
+          # リリースのタグのコミットが main に入っているかを確かめるため
+          fetch-depth: 0
+          # 後の手順（依存パッケージのスクリプトなど）にトークンを残さない
+          persist-credentials: false
+
+      - if: github.event_name == 'release'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::The release tag $TAG is not on main."
+            exit 1
+          fi
+
+      # pnpm のバージョンは package.json の packageManager から読む。公開するサイトを作るので release.yml と同じコミットで固定する
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      # 日本語版の図の文字を描くフォント（ないと四角で描かれる）
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+
+      # 図はランナーにインストール済みの Google Chrome で描く
+      - run: |
+          node dist/cli.js export examples/screenshot.md --root examples -o .work/pages --strict
+          node dist/cli.js export examples/screenshot.ja.md --root examples -o .work/pages --lang ja --strict
+          mkdir -p .work/site/ja
+          mv .work/pages/screenshot.html .work/site/index.html
+          mv .work/pages/screenshot.ja.html .work/site/ja/index.html
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: .work/site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
