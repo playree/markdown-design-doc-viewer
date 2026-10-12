@@ -227,8 +227,8 @@ async function highlight(page: Page, title: string, heading: string, top?: numbe
 }
 
 /**
- * Scrolls to the h2 `title` and returns the area from it to the next h2 (or the end of the document),
- * without the table of contents at the right edge.
+ * Scrolls to the h2 `title` and returns the area from it to the next h2 (or the footnotes gathered at the end of the document,
+ * or the end of the document), without the table of contents at the right edge.
  */
 async function sectionClip(page: Page, title: string): Promise<Clip> {
   await page.addStyleTag({ content: '.seqnotes-toc { display: none; }' });
@@ -239,7 +239,7 @@ async function sectionClip(page: Page, title: string): Promise<Clip> {
     }
     window.scrollTo(0, h2.getBoundingClientRect().top + window.scrollY - 24);
     let last: Element = h2;
-    for (let el = h2.nextElementSibling; el && el.tagName !== 'H2'; el = el.nextElementSibling) {
+    for (let el = h2.nextElementSibling; el && el.tagName !== 'H2' && !el.matches('.footnotes-sep, .footnotes'); el = el.nextElementSibling) {
       last = el;
     }
     const top = Math.max(0, h2.getBoundingClientRect().top - 24);

@@ -12,6 +12,8 @@
 
 ![左にシーケンス図、右に紐付いた処理概要](images/screenshot.ja.png)
 
+**[サンプル](https://playree.github.io/markdown-design-doc-viewer/ja/)**: 設計書（[examples/screenshot.ja.md](examples/screenshot.ja.md)）を HTML にエクスポートしたものです。矢印や見出しにマウスを載せて、ブラウザでハイライトを試せます。
+
 ## 機能
 
 - **横並び表示**: プレビューの幅が十分にあるとき、左に図（スクロールしても固定）、右に処理概要を表示します（紐付いた項目の間には区切り線が入ります）。幅が狭いときは通常の縦並びになります。

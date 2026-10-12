@@ -12,6 +12,8 @@ Each arrow (or flowchart node) in the diagram is linked to a heading in the desc
 
 ![Sequence diagram on the left, linked step descriptions on the right](images/screenshot.png)
 
+**[Live sample](https://playree.github.io/markdown-design-doc-viewer/)**: a design document exported to HTML ([examples/screenshot.md](examples/screenshot.md)). Hover the arrows and headings to try the highlighting in your browser.
+
 ## Features
 
 - **Side-by-side layout** — when the preview is wide enough, the diagram stays on the left (sticky) while the descriptions scroll on the right, with a line between linked steps. On narrow panes it falls back to the normal vertical layout.

@@ -89,7 +89,7 @@ WHERE sku = $1 AND quantity - reserved >= $2;
 
 ### Reservation ID
 
-The reservation expires after 15 minutes if the order is not confirmed.
+The reservation expires after 15 minutes[^expiry] if the order is not confirmed.
 
 ### 5. Authorize payment
 
@@ -233,6 +233,34 @@ The order was cancelled before shipping. The authorization is voided.
 
 <!-- link-headings:end -->
 
+## Error codes
+
+The errors of the Order API. The body of an error response is `{ "code": "ORD-011", "message": "..." }`.
+
+| Code | HTTP status | Meaning | Client action |
+|---|---|---|---|
+| `ORD-001` | 400 | The request body is not valid JSON. | Fix the request. |
+| `ORD-002` | 400 | A required field is missing. | Fix the request. |
+| `ORD-003` | 400 | The `Idempotency-Key` header is missing. | Add the header. |
+| `ORD-004` | 400 | `quantity` is not a positive integer. | Fix the request. |
+| `ORD-005` | 400 | Too many items in one order (max 100). | Split the order. |
+| `ORD-006` | 401 | The access token is missing or has expired. | Log in again. |
+| `ORD-007` | 402 | The payment was declined. | Ask for another payment method. |
+| `ORD-008` | 402 | The card has expired. | Ask for another card. |
+| `ORD-009` | 402 | The 3-D Secure check failed. | Retry the check. |
+| `ORD-010` | 403 | The account is suspended. | Show the support contact. |
+| `ORD-011` | 404 | The cart does not exist. | Reload the cart. |
+| `ORD-012` | 404 | The shipping address does not exist. | Ask for an address again. |
+| `ORD-013` | 404 | The payment method does not exist. | Ask for a payment method again. |
+| `ORD-014` | 409 | An item is out of stock. | Show the stock and ask again. |
+| `ORD-015` | 409 | The cart changed while checking out. | Show the new cart. |
+| `ORD-016` | 409 | The `Idempotency-Key` was used for another cart. | Create a new key. |
+| `ORD-017` | 422 | The address is outside the delivery area. | Ask for another address. |
+| `ORD-018` | 422 | The total is below the minimum order. | Show the minimum. |
+| `ORD-019` | 429 | Too many requests. | Retry after `Retry-After`. |
+| `ORD-020` | 502 | The payment gateway did not answer. | Check the order list before retrying. |
+| `ORD-021` | 503 | The inventory service is unavailable. | Retry later. |
+
 ## Refund (draft)
 
 ```mermaid
@@ -273,7 +301,7 @@ Returned items are checked and added back to the stock.
   - [x] Agree on the rules with the finance team
   - [ ] Add an amount to the refund request
 - [ ] Show the reservation timer on the checkout page
-- [x] Use idempotency keys for every payment call
+- [x] Use idempotency keys for every payment call[^idempotency]
 
 > [!TIP]
 > To try the checkout locally, start the gateway mock with `docker compose up -d payment-mock` and use the card `4242 4242 4242 4242`.
@@ -287,3 +315,6 @@ If the payment is authorized first and the stock then runs out, the authorizatio
 
 > [!CAUTION]
 > Never log the authorization code or any part of the card number.
+
+[^expiry]: Long enough for a 3-D Secure check, which can take several minutes. A job releases the expired reservations every minute.
+[^idempotency]: The gateway keeps a key for 24 hours. A retry after that would create a second payment.
