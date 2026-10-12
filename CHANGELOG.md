@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The [authoring guide for AI assistants](docs/ai-authoring-guide.md) and the usage of the command line are packaged as an Agent Skill, attached to each release: [markdown-design-doc-skill.zip](https://github.com/playree/markdown-design-doc-viewer/releases/latest/download/markdown-design-doc-skill.zip). Upload it to Claude, or unzip it into the skills folder of Claude Code or another assistant, and it is used when the assistant is asked to write a design document, in English or in Japanese.
 - The [authoring guide for AI assistants](docs/ai-authoring-guide.md) tells how to use footnotes for side notes, and folded `<details>` sections for content that does not need to be read every time, such as the change history.
 - The command line can write a list of the exported documents with `--index`: `index.html` in the output folder, with a table for each folder of the documents' titles (linked), file names, and the `version`, `product`, `status` and `updated` of their front matter. Its title is set with `--index-title`.
 - A sample design document exported to HTML is published on GitHub Pages ([English](https://playree.github.io/markdown-design-doc-viewer/), [Japanese](https://playree.github.io/markdown-design-doc-viewer/ja/)), to try the arrow ⇔ heading highlighting, sticky table headers and footnote popups in a browser.

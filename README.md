@@ -163,6 +163,8 @@ reviewers:
 
 To have an AI assistant (Claude Code, GitHub Copilot, Cursor and so on) write documents in this format, give it the [authoring guide for AI](docs/ai-authoring-guide.md) ([日本語](docs/ai-authoring-guide.ja.md)). Copy it into your project's instructions file (`CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md` and so on), or tell the assistant to read it.
 
+The guide is also packaged with the usage of the [command line](#command-line-ci) as an [Agent Skill](https://agentskills.io/): download [markdown-design-doc-skill.zip](https://github.com/playree/markdown-design-doc-viewer/releases/latest/download/markdown-design-doc-skill.zip), and upload it to the skills of Claude (claude.ai), or unzip it into `~/.claude/skills/` or the project's `.claude/skills/` for Claude Code (or the skills folder of another assistant that supports Agent Skills). The assistant then uses it when asked to write a design document, without copying the guide into the instructions file. The skill is in English, and writes in the language of the request.
+
 The guide also tells the assistant to read the diagnostics of the file. Agents that can read VS Code diagnostics (for example Copilot agent mode, or Claude Code connected to VS Code) can then find and fix arrows and headings that are not linked.
 
 ## Command line (CI)

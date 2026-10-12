@@ -234,6 +234,7 @@
     "package": "vsce package --no-dependencies",
     "vsce:publish": "vsce publish --no-dependencies",
     "npm:package": "node esbuild.mjs --production && node scripts/npm-package.mjs",
+    "skill:package": "node scripts/skill-package.mjs",
     "prepack": "node esbuild.mjs --production",
     "prepublishOnly": "node -e \"console.error('The npm package is published from .work/npm: pnpm npm:package, then npm publish .work/npm.'); process.exit(1)\""
   },
@@ -251,7 +252,8 @@
     "markdown-it-footnote": "^4.0.0",
     "mermaid": "^12.1.0",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.3",
+    "yazl": "^2.5.1"
   },
   "packageManager": "pnpm@12.3.4"
 }

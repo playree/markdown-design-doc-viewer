@@ -27,10 +27,13 @@ pnpm exec vitest run test/render.test.ts -t 'テスト名の一部'   # 単一�
 pnpm package      # vsce で .vsix を作成
 pnpm npm:package  # npm パッケージ（CLI）を .work/npm/ に作る（npm pack / npm publish はそのフォルダに対して行う）
 node dist/cli.js export examples -o .work/export   # CLI の HTML エクスポート（ビルド後。npm パッケージの bin `md-design-doc`）
+pnpm skill:package # AI 向けの Agent Skill（.work/skill/markdown-design-doc/ と markdown-design-doc-skill.zip）を作る
 pnpm screenshots  # README の画像（images/screenshot*.png、日本語版は *.ja.png）を examples/screenshot.md / screenshot.ja.md から再生成。シーン名・言語（en / ja）を付けるとそれだけ撮る
 ```
 
-CI（[.github/workflows/ci.yml](.github/workflows/ci.yml)）は main への push と PR で `typecheck`・`test`・`package` を実行し、.vsix を成果物としてアップロードする。続けて CLI で examples を HTML にエクスポートし（ランナーの Google Chrome を使い、link-checks.md 以外は `--strict` で紐付けの警告を失敗にする）、その HTML もアップロードする。
+AI 向けの Agent Skill は [scripts/skill-package.mjs](scripts/skill-package.mjs) が [skill/SKILL.md](skill/SKILL.md)（front matter と、ガイドに足す節）の `<!-- include: docs/ai-authoring-guide.md -->` をガイドの本文で置き換え、docs/cli.md を `references/cli.md` にして作る。ガイド・CLI の説明を変えれば Skill も変わるので、Skill 用に二重に書かない。Skill は英語版だけで、日本語の依頼にも対応させる（`description` に日本語のトリガー語を並べ、本文で「ユーザーの言語で書く」と指示する）。`description` は YAML のプレーンスカラーなので `: `・` #`・`<` `>` を含めない（スクリプトが検査する）。
+
+CI（[.github/workflows/ci.yml](.github/workflows/ci.yml)）は main への push と PR で `typecheck`・`test`・`package` を実行し、.vsix を成果物としてアップロードする。続けて CLI で examples を HTML にエクスポートし（ランナーの Google Chrome を使い、link-checks.md 以外は `--strict` で紐付けの警告を失敗にする）、その HTML と Agent Skill の zip もアップロードする。
 
 package.json は拡張機能のもので、npm パッケージ（CLI 用）はそこから [scripts/npm-package.mjs](scripts/npm-package.mjs)（`pnpm npm:package`）が `.work/npm/` に作る。npm 用の package.json は npm が使う項目だけにし、`%description%` などのプレースホルダを package.nls.json の英語に置き換える（npm は翻訳しないので）。リポジトリ直下からの `npm publish` は `prepublishOnly` のガードで止める。npm パッケージの README は拡張のものではなく CLI の README（docs/cli.md を README.md に、docs/cli.ja.md を README.ja.md にしてコピーする）で、npm のページと GitHub の両方で同じファイルを表示するのでリンク・画像は絶対 URL で書く。npm に入るのは `scripts/npm-package.mjs` の `FILES` の、vsix に入るのは `.vscodeignore` のホワイトリストのファイルだけ。dist/ に `FILES`（または CLI が使わないものの `DIST_EXCLUDED`）にないファイルがあると `pnpm npm:package` が失敗するので、ビルドの出力を増やしたら両方を見直す。CI でも `pnpm npm:package` を実行する。mermaid などは esbuild でバンドルするので `devDependencies` に置き、CLI が実行時に要る `playwright-core` だけを `dependencies` に置く。
 
@@ -46,6 +49,7 @@ package.json は拡張機能のもので、npm パッケージ（CLI 用）は�
    - 公開する tarball を別のフォルダにインストールし、CLI でエクスポートできることも確かめる。
    - npm の Trusted Publishing（OIDC、トークンなし、provenance 付き）で公開する。プレリリース（`-rc.1` など）は dist-tag `next` で出す。
    - そのバージョンが npm にすでにあれば公開を飛ばす。
+   - 続けて Agent Skill の zip（`markdown-design-doc-skill.zip`）を Release に添付する。README は `releases/latest/download/` の固定 URL でリンクしているので、ファイル名を変えない。
    - 同じ Release で [.github/workflows/pages.yml](.github/workflows/pages.yml) が examples/screenshot.md（英語、`/`）と screenshot.ja.md（日本語、`/ja/`）を CLI でエクスポートし、GitHub Pages（https://playree.github.io/markdown-design-doc-viewer/）にサンプルとして公開する。プレリリースでは更新しない。main からの手動実行（workflow_dispatch）でも更新できる。Pages の Source は「GitHub Actions」で、環境 `github-pages` に main とタグ `v*` からのデプロイを許可してある。
 3. Marketplace には、タグを checkout した変更のない作業ツリーから `pnpm run vsce:publish` で公開する（npm と同じコミットにするため）。
 
