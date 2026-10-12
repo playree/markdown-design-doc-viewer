@@ -233,7 +233,9 @@
     "vscode:prepublish": "node esbuild.mjs --production",
     "package": "vsce package --no-dependencies",
     "vsce:publish": "vsce publish --no-dependencies",
-    "prepack": "node esbuild.mjs --production"
+    "npm:package": "node esbuild.mjs --production && node scripts/npm-package.mjs",
+    "prepack": "node esbuild.mjs --production",
+    "prepublishOnly": "node -e \"console.error('The npm package is published from .work/npm: pnpm npm:package, then npm publish .work/npm.'); process.exit(1)\""
   },
   "dependencies": {
     "playwright-core": "^1.64.0"

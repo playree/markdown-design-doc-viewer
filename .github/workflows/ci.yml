@@ -46,6 +46,9 @@ jobs:
       # link-checks.md はわざと警告を出す例で、PR に注釈が付いてしまうので除く
       - run: node dist/cli.js export $(ls examples/*.md | grep -v link-checks) -o .work/export
 
+      # npm パッケージ（.work/npm）を作れること（ファイルの漏れや package.nls.json にない文言をここで見つける）
+      - run: pnpm npm:package && npm pack ./.work/npm --dry-run
+
       - uses: actions/upload-artifact@v7
         with:
           name: html-export
