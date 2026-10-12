@@ -85,11 +85,14 @@ jobs:
       - if: steps.version.outputs.publish == 'true'
         run: pnpm test
 
-      # 公開するものと同じ tarball（prepack で production ビルドする）を別のフォルダにインストールし、
-      # CLI でエクスポートできることを確かめてから、その tarball を公開する
+      # npm 用のフォルダ（.work/npm、npm 用の package.json と production ビルド）から tarball を作る。
+      # それを別のフォルダにインストールし、CLI でエクスポートできることを確かめてから、その tarball を公開する
+      - if: steps.version.outputs.publish == 'true'
+        run: pnpm npm:package
+
       - if: steps.version.outputs.publish == 'true'
         run: |
-          tarball="$RUNNER_TEMP/$(npm pack --pack-destination "$RUNNER_TEMP" | tail -n 1)"
+          tarball="$RUNNER_TEMP/$(npm pack ./.work/npm --pack-destination "$RUNNER_TEMP" | tail -n 1)"
           echo "TARBALL=$tarball" >> "$GITHUB_ENV"
           mkdir "$RUNNER_TEMP/smoke"
           cd "$RUNNER_TEMP/smoke"
