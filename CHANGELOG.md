@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0
 
 - The HTML export runs from the command line too, to convert documents in CI or in a batch: `npx markdown-design-doc-viewer export docs -o site`. The diagrams are rendered with headless Chrome, link warnings are reported (as annotations in GitHub Actions), and `--strict` fails on them.
 - Footnotes (`text[^1]` and `[^1]: note`) are rendered, with links between the references and the notes gathered at the end of the document. Hovering a reference shows its note in a popup.
