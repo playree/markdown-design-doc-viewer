@@ -29,8 +29,9 @@ jobs:
           # タグのコミットが main に入っているかを確かめるため
           fetch-depth: 0
 
-      # pnpm のバージョンは package.json の packageManager から読む
-      - uses: pnpm/action-setup@v6
+      # pnpm のバージョンは package.json の packageManager から読む。
+      # このジョブは npm に公開できる OIDC トークン（id-token: write）を持つので、サードパーティのアクションはコミットで固定する
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
 
       # Trusted Publishing には npm 11.5.1 以上が要る（Node 24 に付属の npm はこれを満たす）。
       # registry-url は付けない（付けると .npmrc にダミーのトークンが入り、OIDC に失敗したときの原因が分かりにくくなる）
