@@ -22,10 +22,18 @@ jobs:
     if: github.event_name != 'release' || !github.event.release.prerelease
     runs-on: ubuntu-latest
     steps:
+      # 手動実行は main からだけ（環境 github-pages の設定に頼らず、ここでも止める）
+      - if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Run this workflow from main."
+          exit 1
+
       - uses: actions/checkout@v7
         with:
           # リリースのタグのコミットが main に入っているかを確かめるため
           fetch-depth: 0
+          # 後の手順（依存パッケージのスクリプトなど）にトークンを残さない
+          persist-credentials: false
 
       - if: github.event_name == 'release'
         env:
