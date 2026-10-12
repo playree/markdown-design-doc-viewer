@@ -35,6 +35,22 @@ CI（[.github/workflows/ci.yml](.github/workflows/ci.yml)）は main への push
 
 動作確認は VS Code の F5（`.vscode/launch.json` の "Run Extension"）。ビルド後に `examples/` フォルダを開いた拡張開発ホストが起動するので、[examples/login.md](examples/login.md)（基本の紐付け）、[examples/password-reset.md](examples/password-reset.md)（autonumber・アラート・タスクリストなど）、[examples/link-checks.md](examples/link-checks.md)（紐付け漏れの表示と警告）、[examples/flowchart.md](examples/flowchart.md)（フローチャート、横向きの縦並び）、[examples/tables.md](examples/tables.md)（長い表のヘッダ行の固定）、[examples/front-matter.md](examples/front-matter.md)（`type: design_doc` のない front matter の表）をプレビューする。examples は設計書のサンプルなので、先頭の front matter に `type: design_doc` と `product: Example` を書き、`title`（本文の `#` 見出しと同じ文言）・`version`・`status`・`updated` も設定する（front-matter.md だけは表の表示を確かめるため `type` を書かない）。README のスクリーンショットは [examples/screenshot.md](examples/screenshot.md)（機能ごとの節に分けた撮影用サンプル）から `pnpm screenshots`（[scripts/screenshots.ts](scripts/screenshots.ts)）で撮る。README.ja.md 用の日本語版は、同じ構成で訳した [examples/screenshot.ja.md](examples/screenshot.ja.md) から `*.ja.png` に撮る（片方を変えたらもう片方も同じように変える）。webview を VS Code のライトテーマと各言語の文言（日本語は `l10n/bundle.l10n.ja.json`）を再現したページに載せ、headless Chrome（`playwright-core`）で撮影する。Chrome は `CHROME_PATH`、なければ Playwright のキャッシュ（Chromium または headless shell）から探す（`pnpm exec playwright-core install chromium` で入る）。日本語版には日本語フォント（Noto Sans CJK JP）が要る。撮る範囲・ハイライトする項目は `SCENES`（シーケンス図・フローチャート・紐付け漏れ・設計書の記法・設計書のヘッダ）、言語ごとの撮影元と探す見出しは `LOCALES` で定義する。mermaid のノードのラベルは幅 120px で折り返すので、日本語のラベルは 7 文字程度までにする。プレビューの見た目を変えたら撮り直す。
 
+## リリース
+
+拡張機能（VS Code Marketplace）と CLI（npm パッケージ `markdown-design-doc-viewer`）は同じバージョンで出す。
+
+1. package.json の `version` を上げ、CHANGELOG の `Unreleased` をそのバージョンにして、PR で main に入れる。
+2. main から GitHub Release（タグ `vX.Y.Z`）を作る。[.github/workflows/release.yml](.github/workflows/release.yml) が npm に公開する。
+   - 公開の前に次を確かめる: タグのコミットが main にあること、タグと `version` が一致すること。
+   - 公開する tarball を別のフォルダにインストールし、CLI でエクスポートできることも確かめる。
+   - npm の Trusted Publishing（OIDC、トークンなし、provenance 付き）で公開する。プレリリース（`-rc.1` など）は dist-tag `next` で出す。
+   - そのバージョンが npm にすでにあれば公開を飛ばす。
+3. Marketplace には、タグを checkout した変更のない作業ツリーから `pnpm run vsce:publish` で公開する（npm と同じコミットにするため）。
+
+npm の Trusted Publisher は npmjs.com のパッケージ設定に登録する（GitHub Actions、`playree/markdown-design-doc-viewer`、ワークフロー `release.yml`）。パッケージが npm にないと登録できないので、初回だけは手元から `npm publish` してから登録する。ワークフローのファイル名を変えると公開できなくなるので、変えるなら登録も直す。
+
+`publish` は npm のライフサイクルスクリプト名（`npm publish` の後に実行される）なので、スクリプトに `publish` という名前を付けないこと。
+
 ## アーキテクチャ
 
 3 つのバンドルに分かれ、[esbuild.mjs](esbuild.mjs) でそれぞれビルドされる。
