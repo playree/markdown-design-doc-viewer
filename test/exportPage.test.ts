@@ -56,6 +56,15 @@ describe('renderForExport', () => {
     expect(html).not.toContain('seqnotes-export-resource');
   });
 
+  it('keeps the query and fragment of a link, not of a data URI', async () => {
+    const html = await renderForExport(md, '![a](icons.svg#save) ![b](a.png?v=1) ![c](c.png#x)', {}, async (src) =>
+      src.startsWith('c') ? 'data:image/png;base64,AA' : `../${imagePath(src)}`,
+    );
+    expect(html).toContain('src="../icons.svg#save"');
+    expect(html).toContain('src="../a.png?v=1"');
+    expect(html).toContain('src="data:image/png;base64,AA"');
+  });
+
   it('renders without the source lines', async () => {
     const html = await renderForExport(md, '# Title', {}, async (src) => src);
     expect(html).not.toContain('data-line');

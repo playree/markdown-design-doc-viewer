@@ -69,7 +69,8 @@ const PLACEHOLDER_RE = new RegExp(`${RESOURCE_PLACEHOLDER}(\\d+)`, 'g');
 
 /**
  * Renders the document for an exported file (`forExport`). The local images (not `isExternalUrl`) are given to
- * `resolveImage`, which returns their data URI or a link to them.
+ * `resolveImage`, which returns their data URI or a link to them. A link keeps the query and fragment of `src`
+ * (such as `icons.svg#save`).
  */
 export async function renderForExport(
   md: MarkdownIt,
@@ -90,7 +91,13 @@ export async function renderForExport(
       return `${RESOURCE_PLACEHOLDER}${images.length - 1}`;
     },
   });
-  const resolved = await Promise.all(images.map(resolveImage));
+  const resolved = await Promise.all(
+    images.map(async (src) => {
+      const url = await resolveImage(src);
+      const suffix = /[?#].*$/s.exec(src)?.[0] ?? '';
+      return url.startsWith('data:') ? url : url + suffix;
+    }),
+  );
   return html.replace(PLACEHOLDER_RE, (_, i: string) => escapeHtml(resolved[Number(i)]));
 }
 
