@@ -16,7 +16,8 @@
   "icon": "images/icon.png",
   "l10n": "./l10n",
   "engines": {
-    "vscode": "^1.100.0"
+    "vscode": "^1.100.0",
+    "node": ">=22"
   },
   "categories": [
     "Visualization",
@@ -31,6 +32,9 @@
     "preview"
   ],
   "main": "./dist/extension.js",
+  "bin": {
+    "md-design-doc": "dist/cli.js"
+  },
   "activationEvents": [
     "onLanguage:markdown",
     "onWebviewPanel:mdDesignDoc.preview"
@@ -228,21 +232,22 @@
     "screenshots": "node esbuild.mjs && esbuild scripts/screenshots.ts --bundle --platform=node --format=cjs --external:playwright-core --log-level=warning --outfile=dist/screenshots.cjs && node dist/screenshots.cjs",
     "vscode:prepublish": "node esbuild.mjs --production",
     "package": "vsce package --no-dependencies",
-    "publish": "vsce publish --no-dependencies"
+    "publish": "vsce publish --no-dependencies",
+    "prepack": "node esbuild.mjs --production"
   },
   "dependencies": {
-    "dompurify": "^3.4.16",
-    "highlight.js": "^11.12.0",
-    "markdown-it": "^15.0.2",
-    "markdown-it-footnote": "^4.0.0",
-    "mermaid": "^12.1.0"
+    "playwright-core": "^1.64.0"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
     "@types/vscode": "~1.100.0",
     "@vscode/vsce": "^4.0.0",
+    "dompurify": "^3.4.16",
     "esbuild": "^0.28.2",
-    "playwright-core": "^1.64.0",
+    "highlight.js": "^11.12.0",
+    "markdown-it": "^15.0.2",
+    "markdown-it-footnote": "^4.0.0",
+    "mermaid": "^12.1.0",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"
   },

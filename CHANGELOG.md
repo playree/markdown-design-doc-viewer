@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The HTML export runs from the command line too, to convert documents in CI or in a batch: `npx markdown-design-doc-viewer export docs -o site`. The diagrams are rendered with headless Chrome, link warnings are reported (as annotations in GitHub Actions), and `--strict` fails on them.
 - Footnotes (`text[^1]` and `[^1]: note`) are rendered, with links between the references and the notes gathered at the end of the document. Hovering a reference shows its note in a popup.
 - The header of a design document (`type: design_doc`) is a box with the title on the left and the main entries on the right, separated by lines.
 - The preview can be shown in light or dark regardless of VS Code's color theme. The button in the preview's title bar switches it to the other of light and dark, and pressing it again makes it follow VS Code again. The choice is saved in `mdDesignDoc.theme` (`auto` / `light` / `dark`).

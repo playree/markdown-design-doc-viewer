@@ -126,7 +126,7 @@ function lookConfig(look: DiagramLook): MermaidConfig {
 }
 
 /** Renders the mermaid blocks of `container` and returns the SVGs it used, keyed like `svgCache`. */
-async function renderDiagrams(container: HTMLElement, idPrefix: string, dark: boolean): Promise<Map<string, string>> {
+async function renderDiagrams(container: HTMLElement, idPrefix: string, dark: boolean, look: DiagramLook): Promise<Map<string, string>> {
   const cache = new Map<string, string>();
   // Resets the settings of the previous render, as mermaid.initialize starts from its defaults.
   mermaid.initialize({
@@ -134,7 +134,7 @@ async function renderDiagrams(container: HTMLElement, idPrefix: string, dark: bo
     securityLevel: 'strict',
     theme: dark ? 'dark' : 'default',
     fontFamily: getComputedStyle(document.body).fontFamily,
-    ...lookConfig(diagramLook),
+    ...lookConfig(look),
   });
 
   const blocks = Array.from(container.querySelectorAll<HTMLElement>('.seqnotes-mermaid'));
@@ -144,7 +144,7 @@ async function renderDiagrams(container: HTMLElement, idPrefix: string, dark: bo
     const meta = metaJson ? (JSON.parse(metaJson) as DiagramMeta) : undefined;
     const id = `${idPrefix}-${i}`;
     const source = pre?.textContent ?? '';
-    const key = `${dark}\n${diagramLook}\n${source}`;
+    const key = `${dark}\n${look}\n${source}`;
     try {
       // A cached SVG carries the element ids of its first render, so reuse it only once per document.
       const cached = cache.has(key) ? undefined : svgCache.get(key);
@@ -176,11 +176,11 @@ async function renderDiagrams(container: HTMLElement, idPrefix: string, dark: bo
 }
 
 /** Sanitizes the HTML from the extension host and renders its diagrams into a new element. */
-async function buildContent(html: string, idPrefix: string, dark: boolean): Promise<{ content: HTMLElement; cache: Map<string, string> }> {
+async function buildContent(html: string, idPrefix: string, dark: boolean, look: DiagramLook): Promise<{ content: HTMLElement; cache: Map<string, string> }> {
   const content = document.createElement('div');
   // Raw HTML in Markdown is allowed, so sanitize like the built-in preview does.
   content.append(DOMPurify.sanitize(html, { RETURN_DOM_FRAGMENT: true }));
-  const cache = await queueRender(() => renderDiagrams(content, idPrefix, dark));
+  const cache = await queueRender(() => renderDiagrams(content, idPrefix, dark, look));
   return { content, cache };
 }
 
@@ -358,7 +358,7 @@ async function update(html: string): Promise<void> {
   const seq = ++renderSeq;
   // Set before rendering, so that other class changes of the body do not start another update meanwhile.
   const dark = (renderedDark = isDarkTheme());
-  const { content: next, cache } = await buildContent(html, `seqnotes-svg-${seq}`, dark);
+  const { content: next, cache } = await buildContent(html, `seqnotes-svg-${seq}`, dark, diagramLook);
   // Kept even when a newer update is waiting: it renders next and can reuse these.
   svgCache = cache;
   if (seq !== renderSeq) {
@@ -630,15 +630,16 @@ function openLink(href: string): void {
 
 /**
  * Renders the HTML of an exported file (`renderDocument` with `forExport`) with the light theme,
- * and returns the body without the data only the preview script uses.
+ * and returns the body without the data only the preview script uses, and the errors of the diagrams.
  */
-async function exportBody(id: number, html: string): Promise<string> {
-  const { content } = await buildContent(html, `seqnotes-export-${id}`, false);
+async function exportBody(id: number, html: string, look: DiagramLook): Promise<{ body: string; diagramErrors: string[] }> {
+  const { content } = await buildContent(html, `seqnotes-export-${id}`, false, look);
   content.querySelectorAll('.seqnotes-pair').forEach(wrapSections);
   for (const attr of ['data-seqnotes-meta', 'data-seqnotes-line']) {
     content.querySelectorAll(`[${attr}]`).forEach((el) => el.removeAttribute(attr));
   }
-  return content.innerHTML;
+  const diagramErrors = Array.from(content.querySelectorAll('.seqnotes-error-message'), (el) => el.textContent ?? '');
+  return { body: content.innerHTML, diagramErrors };
 }
 
 // ---------------------------------------------------------------------------
@@ -1127,8 +1128,8 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       markLine(message.line, true);
       break;
     case 'export':
-      exportBody(message.id, message.html).then(
-        (body) => vscode.postMessage({ type: 'exported', id: message.id, body }),
+      exportBody(message.id, message.html, message.diagramLook).then(
+        ({ body, diagramErrors }) => vscode.postMessage({ type: 'exported', id: message.id, body, diagramErrors }),
         (error: unknown) => vscode.postMessage({ type: 'exported', id: message.id, error: error instanceof Error ? error.message : String(error) }),
       );
       break;

@@ -1,38 +1,8 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { headingText } from './linker';
-import { parseFrontMatter } from './markdownExtras';
-import { isExternalUrl, readSettings, resolveDocumentPath, safeDecode, type PreviewManager, type Settings } from './previewPanel';
-import { createMarkdown, escapeHtml, renderDocument } from './render';
-
-const IMAGE_TYPES: Record<string, string> = {
-  apng: 'image/apng',
-  avif: 'image/avif',
-  bmp: 'image/bmp',
-  gif: 'image/gif',
-  ico: 'image/x-icon',
-  jpeg: 'image/jpeg',
-  jpg: 'image/jpeg',
-  png: 'image/png',
-  svg: 'image/svg+xml',
-  webp: 'image/webp',
-};
-
-/** Stands for a local image in the rendered HTML until it is embedded. */
-const RESOURCE_PLACEHOLDER = 'seqnotes-export-resource:';
-const PLACEHOLDER_RE = new RegExp(`${RESOURCE_PLACEHOLDER}(\\d+)`, 'g');
-
-/** Title of the exported page: the `title` of the front matter, the first h1, or the file name. */
-function documentTitle(md: ReturnType<typeof createMarkdown>, source: string, uri: vscode.Uri): string {
-  const tokens = md.parse(source, {});
-  const frontMatter = tokens[0]?.type === 'front_matter' ? parseFrontMatter(tokens[0].content) : [];
-  const title = frontMatter.find((entry) => entry.key === 'title')?.value.trim();
-  if (title) {
-    return title;
-  }
-  const h1 = tokens.findIndex((t) => t.type === 'heading_open' && t.tag === 'h1');
-  return (h1 >= 0 && headingText(tokens[h1 + 1]).trim()) || (uri.path.split('/').pop() ?? '');
-}
+import { documentTitle, exportFileName, exportPage, imagePath, imageType, renderForExport, stripSourceMap } from './exportPage';
+import { readSettings, resolveDocumentPath, type PreviewManager, type Settings } from './previewPanel';
+import { createMarkdown } from './render';
 
 /** A link to `image` from the exported file: relative to it when possible, so that it works next to it. */
 function linkFrom(target: vscode.Uri, image: vscode.Uri): string {
@@ -57,51 +27,31 @@ function embeddableFolders(document: vscode.Uri): vscode.Uri[] {
 }
 
 /** Renders the document for the exported file, with its local images embedded as data URIs. */
-async function renderWithImages(md: ReturnType<typeof createMarkdown>, source: string, uri: vscode.Uri, target: vscode.Uri, settings: Settings): Promise<string> {
-  const images: vscode.Uri[] = [];
-  const html = renderDocument(md, source, {
-    t: vscode.l10n.t,
-    frontMatter: settings.frontMatter,
-    headingNumbers: settings.headingNumbers,
-    forExport: true,
-    // Synchronous, so the images are only collected here and read below.
-    resolveResource: (src) => {
-      if (isExternalUrl(src)) {
-        return src;
-      }
-      const [imagePath] = src.split(/[?#]/, 1);
-      images.push(resolveDocumentPath(uri, safeDecode(imagePath)));
-      return `${RESOURCE_PLACEHOLDER}${images.length - 1}`;
-    },
-  });
+function renderWithImages(md: ReturnType<typeof createMarkdown>, source: string, uri: vscode.Uri, target: vscode.Uri, settings: Settings): Promise<string> {
   const folders = embeddableFolders(uri);
-  const embedded = await Promise.all(
-    images.map(async (image) => {
-      const type = IMAGE_TYPES[image.path.split('.').pop()?.toLowerCase() ?? ''];
-      try {
-        if (type && folders.some((folder) => isIn(image, folder))) {
-          return `data:${type};base64,${Buffer.from(await vscode.workspace.fs.readFile(image)).toString('base64')}`;
-        }
-      } catch {
-        // Linked instead, see below.
+  return renderForExport(md, source, { t: vscode.l10n.t, frontMatter: settings.frontMatter, headingNumbers: settings.headingNumbers }, async (src) => {
+    const image = resolveDocumentPath(uri, imagePath(src));
+    const type = imageType(image.path);
+    try {
+      if (type && folders.some((folder) => isIn(image, folder))) {
+        return `data:${type};base64,${Buffer.from(await vscode.workspace.fs.readFile(image)).toString('base64')}`;
       }
-      // An image of an unknown type, outside those folders or that cannot be read is linked instead,
-      // which works as long as the files stay where they are.
-      return linkFrom(target, image);
-    }),
-  );
-  return html.replace(PLACEHOLDER_RE, (_, i: string) => escapeHtml(embedded[Number(i)]));
+    } catch {
+      // Linked instead, see below.
+    }
+    // An image of an unknown type, outside those folders or that cannot be read is linked instead,
+    // which works as long as the files stay where they are.
+    return linkFrom(target, image);
+  });
 }
 
 async function readDist(extensionUri: vscode.Uri, name: string): Promise<string> {
-  const text = new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(extensionUri, 'dist', name)));
-  // Development builds point to source maps that are not exported.
-  return text.replace(/\n?(?:\/\/# sourceMappingURL=.*|\/\*# sourceMappingURL=.*\*\/)\s*$/, '');
+  return stripSourceMap(new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(extensionUri, 'dist', name))));
 }
 
 /** The default file to save to: next to the document, with `.html` instead of `.md`. */
 function defaultTarget(uri: vscode.Uri): vscode.Uri | undefined {
-  const name = `${(uri.path.split('/').pop() ?? 'document').replace(/\.(md|markdown)$/i, '')}.html`;
+  const name = exportFileName(uri.path.split('/').pop() ?? 'document');
   if (uri.scheme === 'file') {
     return vscode.Uri.joinPath(uri, '..', name);
   }
@@ -133,29 +83,19 @@ export async function exportHtml(manager: PreviewManager, extensionUri: vscode.U
         const html = await renderWithImages(md, source, uri, target, settings);
         const preview = await manager.readyPreview(uri);
         const [body, style, exportStyle, script] = await Promise.all([
-          preview.renderForExport(html),
+          preview.renderForExport(html, settings.diagramLook),
           readDist(extensionUri, 'webview.css'),
           readDist(extensionUri, 'export.css'),
           readDist(extensionUri, 'export.js'),
         ]);
-        const page = `<!DOCTYPE html>
-<html lang="${escapeHtml(vscode.env.language)}">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${escapeHtml(documentTitle(md, source, uri))}</title>
-<style>
-${(style + '\n' + exportStyle).replace(/<\/style/gi, '<\\/style')}
-</style>
-</head>
-<body data-seqnotes-theme="light" class="seqnotes-export${settings.limitContentWidth ? ' seqnotes-limit-width' : ''}${settings.stickyTableHeader ? ' seqnotes-sticky-table-header' : ''}" data-seqnotes-split-min-width="${Number.isFinite(Number(settings.splitMinWidth)) ? Number(settings.splitMinWidth) : 1000}">
-<div id="seqnotes-root">${body}</div>
-<script>
-${script.replace(/<\/script/gi, '<\\/script')}
-</script>
-</body>
-</html>
-`;
+        const page = exportPage({
+          lang: vscode.env.language,
+          title: documentTitle(md, source, uri.path.split('/').pop() ?? ''),
+          body,
+          styles: [style, exportStyle],
+          script,
+          settings,
+        });
         await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(page));
       },
     );

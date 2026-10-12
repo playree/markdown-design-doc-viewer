@@ -9,14 +9,16 @@
  *   pnpm screenshots flowchart     # only the scenes whose name is given
  *   pnpm screenshots ja header     # only the languages (en, ja) whose name is given, can be combined with scenes
  *
- * Chrome is looked up in $CHROME_PATH, then in the Playwright browser cache (`pnpm exec playwright-core install chromium`).
+ * Chrome is looked up in $CHROME_PATH, then in the Playwright browser cache (`pnpm exec playwright-core install chromium`),
+ * then among the browsers installed on the system (`launchChrome` in src/headless.ts).
  * The Japanese screenshots need a Japanese font (Noto Sans CJK JP, `fonts-noto-cjk` on Debian / Ubuntu); without one, their text is drawn as boxes.
  */
-import { existsSync, globSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { chromium, type Page } from 'playwright-core';
+import type { Page } from 'playwright-core';
+import { launchChrome } from '../src/headless';
 import { formatMessage, type Translate } from '../src/l10n';
 import type { ToWebview } from '../src/protocol';
 import { createMarkdown, escapeHtml, renderDocument } from '../src/render';
@@ -273,28 +275,6 @@ async function headerClip(page: Page): Promise<Clip> {
   });
 }
 
-/**
- * $CHROME_PATH, else a Chromium (or its headless shell) of the Playwright cache.
- * undefined lets Playwright launch its default browser, which reports how to install it when it is missing too.
- */
-function findChrome(): string | undefined {
-  if (process.env.CHROME_PATH) {
-    return process.env.CHROME_PATH;
-  }
-  const candidates: string[] = [];
-  try {
-    candidates.push(chromium.executablePath());
-  } catch {
-    // Not a platform Playwright has browsers for.
-  }
-  // Other revisions in the Playwright cache, newest first (Linux only).
-  const cache = process.env.PLAYWRIGHT_BROWSERS_PATH ?? join(homedir(), '.cache/ms-playwright');
-  const revision = (p: string): number => Number(/^chromium(?:_headless_shell)?-(\d+)/.exec(p)?.[1] ?? 0);
-  const cached = globSync(['chromium-*/chrome-linux*/chrome', 'chromium_headless_shell-*/chrome-headless-shell-linux*/chrome-headless-shell'], { cwd: cache });
-  candidates.push(...cached.sort((a, b) => revision(b) - revision(a)).map((p) => join(cache, p)));
-  return candidates.find((p) => existsSync(p));
-}
-
 function shell(update: ToWebview, locale: Locale): string {
   const dist = (name: string): string => pathToFileURL(join(ROOT, 'dist', name)).href;
   const vars = Object.entries(THEME)
@@ -342,7 +322,7 @@ async function main(): Promise<void> {
   const locales = pick(LOCALES);
 
   const dir = mkdtempSync(join(tmpdir(), 'mdai-screenshots-'));
-  const browser = await chromium.launch({ executablePath: findChrome() });
+  const browser = await launchChrome();
   try {
     for (const locale of locales) {
       const source = join(ROOT, locale.source);
