@@ -8,7 +8,7 @@
 
 ## インストール
 
-[最新のリリース](https://github.com/playree/markdown-design-doc-viewer/releases/latest)から、お使いの OS のインストーラをダウンロードします。
+[デスクトップアプリのリリース](https://github.com/playree/markdown-design-doc-viewer/releases?q=desktop-v&expanded=true)（タグ `desktop-vX.Y.Z`）の最新のものから、お使いの OS のインストーラをダウンロードします。
 
 | OS | ファイル |
 | --- | --- |
@@ -17,7 +17,7 @@
 | macOS（Intel） | `Markdown.Design.Doc.Viewer_<バージョン>_x64.dmg` |
 | Linux | `.deb`（Debian・Ubuntu）、`.rpm`（Fedora など）または `.AppImage` |
 
-アプリのバージョンは、拡張機能・コマンドラインと同じです。
+アプリのバージョンは、拡張機能・コマンドラインとは別です。変更点は[変更履歴](../desktop/CHANGELOG.md)（英語）にあります。
 
 ### 署名がないことによる警告
 

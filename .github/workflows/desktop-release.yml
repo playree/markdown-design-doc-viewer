@@ -1,0 +1,129 @@
+name: Desktop release
+
+# デスクトップアプリ（desktop/、Tauri 2）は拡張・CLI とは別のバージョン（tauri.conf.json の version）・別の Release で出す。
+# GitHub Release（タグ desktop-vX.Y.Z）を公開したら、インストーラを各 OS でビルドし、その Release に添付する（署名なし）。
+# 拡張・CLI の Release（タグ vX.Y.Z）は release.yml が扱う。
+# README などは releases/latest（Agent Skill の zip の固定 URL も）で拡張の Release を指すので、デスクトップの Release は Latest にしない。
+# Latest にして公開されたときは、拡張の最新の Release を Latest に戻す。
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  # タグのコミットが main にあり、タグと tauri.conf.json の version が一致することを確かめる。
+  # Release の Latest を直すので、このジョブは contents: write にする（依存のインストールはしない）
+  verify:
+    if: startsWith(github.event.release.tag_name, 'desktop-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # タグのコミットが main に入っているかを確かめるため
+          fetch-depth: 0
+          persist-credentials: false
+
+      - env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::The release tag $TAG is not on main."
+            exit 1
+          fi
+          version=$(node -p 'require("./desktop/src-tauri/tauri.conf.json").version')
+          if [ "$TAG" != "desktop-v$version" ]; then
+            echo "::error::The release tag $TAG does not match the version in desktop/src-tauri/tauri.conf.json (desktop-v$version)."
+            exit 1
+          fi
+
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
+          if [[ "$latest" != desktop-v* ]]; then
+            exit 0
+          fi
+          extension=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases --limit 100 --json tagName,publishedAt \
+            --jq '[.[] | select(.tagName | startswith("v"))] | sort_by(.publishedAt) | last | .tagName // empty')
+          if [ -z "$extension" ]; then
+            echo "::warning::The desktop app's release $latest is the latest release, and there is no release of the extension to make the latest instead."
+            exit 0
+          fi
+          gh release edit "$extension" --latest --repo "$GITHUB_REPOSITORY"
+          echo "::notice::$latest was the latest release: $extension is made the latest again (releases/latest is for the extension)."
+
+  # インストーラを各 OS でビルドし、Release に添付する。プレリリースでも添付する。
+  # Release に書き込むので、このジョブは contents: write にする
+  desktop:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: ubuntu-22.04
+            target: ''
+          - os: windows-latest
+            target: ''
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    steps:
+      # 書き込みのトークンを pnpm install（依存のスクリプト）から読めないよう、checkout に残さない。アップロードには GITHUB_TOKEN を渡す
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential file libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf
+
+      # pnpm のバージョンは package.json の packageManager から読む。
+      # このジョブは Release に書き込めるので、サードパーティのアクションはコミットで固定する
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      # contents: write のジョブなので、ほかのワークフローが書いたキャッシュは使わない（自動のキャッシュも切る）
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - run: rustup update stable && rustup default stable
+
+      - if: matrix.target != ''
+        run: rustup target add ${{ matrix.target }}
+
+      - run: pnpm install --frozen-lockfile
+
+      # MSI（WiX）は 0.2.0-rc.1 のような英字を含むプレリリースのバージョンを作れないので、そのときの Windows は NSIS（setup.exe）だけにする
+      - id: args
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          args=""
+          if [ -n "$TARGET" ]; then args="--target $TARGET"; fi
+          if [ "$RUNNER_OS" = Windows ] && [[ "$(node -p 'require("./desktop/src-tauri/tauri.conf.json").version')" == *-* ]]; then args="$args --bundles nsis"; fi
+          echo "args=$args" >> "$GITHUB_OUTPUT"
+
+      # tauri build（beforeBuildCommand で pnpm desktop:build）を実行し、インストーラをこの Release に添付する
+      - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          releaseId: ${{ github.event.release.id }}
+          tauriScript: pnpm tauri
+          args: ${{ steps.args.outputs.args }}

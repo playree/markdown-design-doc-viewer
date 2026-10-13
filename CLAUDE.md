@@ -45,16 +45,17 @@ package.json は拡張機能のもので、npm パッケージ（CLI 用）は�
 
 ## リリース
 
-拡張機能（VS Code Marketplace）と CLI（npm パッケージ `markdown-design-doc-viewer`）とデスクトップアプリ（GitHub Release に添付）は同じバージョンで出す。デスクトップアプリのバージョンは tauri.conf.json が package.json から読む。
+拡張機能（VS Code Marketplace）と CLI（npm パッケージ `markdown-design-doc-viewer`）は同じバージョン（package.json の `version`）・同じ GitHub Release（タグ `vX.Y.Z`）で出す。デスクトップアプリは別のバージョン（tauri.conf.json の `version`）・別の Release（タグ `desktop-vX.Y.Z`）で出す（後述）。
 
-1. package.json の `version` を上げ、CHANGELOG の `Unreleased` をそのバージョンにして、PR で main に入れる。Release を作る前に、main で desktop.yml を手動実行して、デスクトップアプリが 3 つの OS でビルドできることを確かめる。
+### 拡張機能・CLI
+
+1. package.json の `version` を上げ、CHANGELOG.md の `Unreleased` をそのバージョンにして、PR で main に入れる。
 2. main から GitHub Release（タグ `vX.Y.Z`）を作る。[.github/workflows/release.yml](.github/workflows/release.yml) が npm に公開する。
    - 公開の前に次を確かめる: タグのコミットが main にあること、タグと `version` が一致すること。
    - 公開する tarball を別のフォルダにインストールし、CLI でエクスポートできることも確かめる。
    - npm の Trusted Publishing（OIDC、トークンなし、provenance 付き）で公開する。プレリリース（`-rc.1` など）は dist-tag `next` で出す。
    - そのバージョンが npm にすでにあれば公開を飛ばす。
    - 続けて Agent Skill の zip（`markdown-design-doc-skill.zip`）を Release に添付する。README は `releases/latest/download/` の固定 URL でリンクしているので、ファイル名を変えない。
-   - 続けて `desktop` ジョブが、デスクトップアプリのインストーラ（Windows の .msi と NSIS の .exe、macOS の Apple シリコン用と Intel 用の .dmg、Linux の .deb・.rpm・.AppImage）を `tauri-apps/tauri-action` で Release に添付する。署名はまだしていない。MSI は英字を含むプレリリースのバージョン（`-rc.1` など）を作れないので、そのときの Windows は NSIS だけにする（CI も同じ）。
    - 同じ Release で [.github/workflows/pages.yml](.github/workflows/pages.yml) が examples/screenshot.md（英語、`/`）と screenshot.ja.md（日本語、`/ja/`）を CLI でエクスポートし、GitHub Pages（https://playree.github.io/markdown-design-doc-viewer/）にサンプルとして公開する。プレリリースでは更新しない。main からの手動実行（workflow_dispatch）でも更新できる。Pages の Source は「GitHub Actions」で、環境 `github-pages` に main とタグ `v*` からのデプロイを許可してある。
 3. Marketplace には、Marketplace の管理画面（https://marketplace.visualstudio.com/manage/publishers/playree ）から .vsix をアップロードして公開する（`vsce publish` と PAT は使わない）。
    - .vsix は、タグを checkout した変更のない作業ツリーで `pnpm package` を実行して作る（npm と同じコミットにするため。例: `git worktree add --detach .work/release vX.Y.Z` → `pnpm install --frozen-lockfile` → `pnpm package`）。
@@ -63,6 +64,16 @@ package.json は拡張機能のもので、npm パッケージ（CLI 用）は�
 npm の Trusted Publisher は npmjs.com のパッケージ設定に登録する（GitHub Actions、`playree/markdown-design-doc-viewer`、ワークフロー `release.yml`）。パッケージが npm にないと登録できないので、初回だけは手元から公開してから登録した（手元から公開するときは `pnpm npm:package` → `npm publish .work/npm`）。ワークフローのファイル名を変えると公開できなくなるので、変えるなら登録も直す。
 
 `publish` は npm のライフサイクルスクリプト名（`npm publish` の後に実行される）なので、スクリプトに `publish` という名前を付けないこと。
+
+### デスクトップアプリ
+
+1. desktop/src-tauri/tauri.conf.json の `version` を上げ、[desktop/CHANGELOG.md](desktop/CHANGELOG.md) の `Unreleased` をそのバージョンにして、PR で main に入れる（Cargo.toml の version は使わないので 0.0.0 のまま）。Release を作る前に、main で desktop.yml を手動実行して、3 つの OS でビルドできることを確かめる。
+2. main から GitHub Release（タグ `desktop-vX.Y.Z`、タイトルは「Desktop app X.Y.Z」）を作る。「Set as latest release」は外す（README などは `releases/latest` で拡張の Release を指し、Agent Skill の zip もそこからダウンロードさせているため）。[.github/workflows/desktop-release.yml](.github/workflows/desktop-release.yml) が次を行う。release.yml・pages.yml はこのタグでは動かない。
+   - タグのコミットが main にあること、タグと tauri.conf.json の `version` が一致することを確かめる。
+   - その Release が Latest になっていたら、拡張の最新の Release（タグ `v*`、プレリリースを除く）を Latest に戻す。
+   - インストーラ（Windows の .msi と NSIS の .exe、macOS の Apple シリコン用と Intel 用の .dmg、Linux の .deb・.rpm・.AppImage）を `tauri-apps/tauri-action` で Release に添付する。署名はまだしていない。MSI は英字を含むプレリリースのバージョン（`-rc.1` など）を作れないので、そのときの Windows は NSIS だけにする（desktop.yml も同じ）。
+
+README・docs/desktop.md はデスクトップの Release の一覧（`releases?q=desktop-v`）にリンクしている。タグの形を変えるならリンクも直す。
 
 ## アーキテクチャ
 

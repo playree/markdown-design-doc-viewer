@@ -169,7 +169,7 @@ The guide also tells the assistant to read the diagnostics of the file. Agents t
 
 ## Desktop app
 
-The preview also comes as a desktop app for Windows, macOS and Linux, to read design documents without VS Code. It shows a document like the preview of the extension, and updates it when the file is saved. Download the installer from the [latest release](https://github.com/playree/markdown-design-doc-viewer/releases/latest).
+The preview also comes as a desktop app for Windows, macOS and Linux, to read design documents without VS Code. It shows a document like the preview of the extension, and updates it when the file is saved. It has its own version and releases: download the installer from the [releases of the desktop app](https://github.com/playree/markdown-design-doc-viewer/releases?q=desktop-v&expanded=true).
 
 The installers are not signed yet. See [the desktop app's guide](docs/desktop.md) for the warnings of the system on the first launch, and its usage.
 
