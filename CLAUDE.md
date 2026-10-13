@@ -8,6 +8,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `main` への反映は PR 経由で行う（PR は CodeRabbit がレビューする）。
 - PR を作る前に、差分をセルフコードレビュー（`/code-review`）し、指摘を反映してから PR を作る。
 
+## コミット
+
+- コミットメッセージは変更内容を日本語の 1 行にまとめる（本文は書かない）。
+- チケットに対応するときは、末尾にチケット ID を付ける（例: `通知設定の保存に失敗する問題を修正 (MDDV-1)`）。
+- コミットと Pull Request には、個人情報（氏名・メールアドレス）や URL を含めない（`Co-Authored-By` などの署名の行も付けない）。
+
+## Pull Request
+
+- 説明は箇条書き程度に簡潔にまとめる。
+
 ## 概要
 
 VS Code 拡張「Markdown Design Doc Viewer」（日本語表記: Markdown 設計書ビューア）。設計書 Markdown のビューアで、主な機能として設計書内の mermaid シーケンス図・フローチャートと、その後ろの処理概要（見出し）を横並びでプレビューし、矢印（フローチャートではノード）と見出しを相互に紐付ける。記法・挙動の仕様は [README.md](README.md)（英語）と [README.ja.md](README.ja.md)（日本語）が正（両方を同じ内容で保守する）。CLI の使い方（オプション・終了コードなど）は [docs/cli.md](docs/cli.md) と [docs/cli.ja.md](docs/cli.ja.md) が正で、拡張の README には CLI の短い紹介だけを書く。デスクトップアプリ（`desktop/`、Tauri 2）も同じで、使い方・開発方法は [docs/desktop.md](docs/desktop.md) と [docs/desktop.ja.md](docs/desktop.ja.md) が正。
