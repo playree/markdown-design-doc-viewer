@@ -384,6 +384,13 @@ async function update(html: string): Promise<void> {
 
   // Its reference is replaced.
   footnotePopup.hide();
+  if (!keep) {
+    // The warnings of another document are shown even if they read the same, and its diagrams are not zoomed.
+    dismissedWarnings = undefined;
+    if (zoom) {
+      closeZoom();
+    }
+  }
   root.replaceChildren(...Array.from(next.childNodes));
   const metadata = root.querySelector<HTMLDetailsElement>('.seqnotes-doc-more');
   if (metadata) {
