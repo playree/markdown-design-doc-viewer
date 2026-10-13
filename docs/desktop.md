@@ -72,4 +72,4 @@ pnpm desktop:dev -- -- /absolute/path/to/doc.md   # builds and starts the app, o
 pnpm desktop:bundle                               # the installers, in desktop/src-tauri/target/release/bundle/
 ```
 
-`pnpm desktop:build` builds only the web part (desktop/dist/); both commands above run it first. The app has to be tried on a machine with a display.
+`pnpm desktop:build` builds only the web part (desktop/dist/); both commands above run it first. The app has to be tried on a machine with a display. In CI, the build on Windows, macOS and Linux takes a while, so it runs only when started by hand ([desktop.yml](../.github/workflows/desktop.yml)): run it for changes of desktop/src-tauri, of the Tauri settings or of the dependencies, and before a release.

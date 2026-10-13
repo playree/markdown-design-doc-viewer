@@ -31,6 +31,9 @@ jobs:
 
       - run: pnpm typecheck
 
+      # デスクトップアプリの Web 側（desktop/dist/）。Rust とインストーラのビルドは desktop.yml（手動実行）
+      - run: pnpm desktop:build
+
       - run: pnpm test
 
       # vscode:prepublish で production ビルドも行う
@@ -64,63 +67,4 @@ jobs:
         with:
           name: skill
           path: .work/skill/markdown-design-doc-skill.zip
-          if-no-files-found: error
-
-  # デスクトップアプリ（desktop/、Tauri 2）を各 OS でビルドする。インストーラ（署名なし）を成果物としてアップロードする
-  desktop:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-22.04, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v7
-
-      # Tauri 2 は webkit2gtk-4.1 を使う（4.0 は要らない）
-      - if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential file libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf
-
-      - uses: pnpm/action-setup@v6
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-
-      # ランナーに入っている rustup で最新の stable にする
-      - run: rustup update stable && rustup default stable && rustup component add clippy
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: desktop/src-tauri
-
-      - run: pnpm install --frozen-lockfile
-
-      # tauri.conf.json の frontendDist（desktop/dist）がないと Rust のコンパイルが通らないので先に作る
-      - run: pnpm desktop:build
-
-      - run: cargo clippy --all-targets --locked -- -D warnings
-        working-directory: desktop/src-tauri
-
-      # MSI（WiX）は 1.1.0-rc.1 のような英字を含むプレリリースのバージョンを作れないので、そのときの Windows は NSIS（setup.exe）だけにする
-      - shell: bash
-        run: |
-          if [ "$RUNNER_OS" = Windows ] && [[ "$(node -p 'require("./package.json").version')" == *-* ]]; then
-            pnpm desktop:bundle --bundles nsis
-          else
-            pnpm desktop:bundle
-          fi
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: desktop-${{ runner.os }}
-          path: |
-            desktop/src-tauri/target/release/bundle/msi/*.msi
-            desktop/src-tauri/target/release/bundle/nsis/*.exe
-            desktop/src-tauri/target/release/bundle/dmg/*.dmg
-            desktop/src-tauri/target/release/bundle/deb/*.deb
-            desktop/src-tauri/target/release/bundle/rpm/*.rpm
-            desktop/src-tauri/target/release/bundle/appimage/*.AppImage
           if-no-files-found: error

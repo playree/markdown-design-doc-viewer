@@ -72,4 +72,4 @@ pnpm desktop:dev -- -- /absolute/path/to/doc.md   # ビルドしてアプリを�
 pnpm desktop:bundle                               # インストーラを desktop/src-tauri/target/release/bundle/ に作る
 ```
 
-`pnpm desktop:build` は Web 側（desktop/dist/）だけをビルドします（上の 2 つのコマンドは最初にこれを実行します）。アプリの動作確認は画面のある環境で行ってください。
+`pnpm desktop:build` は Web 側（desktop/dist/）だけをビルドします（上の 2 つのコマンドは最初にこれを実行します）。アプリの動作確認は画面のある環境で行ってください。CI での Windows・macOS・Linux のビルドは時間がかかるので、手動で実行したときだけ動きます（[desktop.yml](../.github/workflows/desktop.yml)）。desktop/src-tauri・Tauri の設定・依存を変えたときと、リリースの前に実行してください。

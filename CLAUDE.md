@@ -36,7 +36,7 @@ pnpm screenshots  # README の画像（images/screenshot*.png、日本語版は 
 
 AI 向けの Agent Skill は [scripts/skill-package.mjs](scripts/skill-package.mjs) が [skill/SKILL.md](skill/SKILL.md)（front matter と、ガイドに足す節）の `<!-- include: docs/ai-authoring-guide.md -->` をガイドの本文で置き換え、docs/cli.md を `references/cli.md` にして作る。ガイド・CLI の説明を変えれば Skill も変わるので、Skill 用に二重に書かない。Skill は英語版だけで、日本語の依頼にも対応させる（`description` に日本語のトリガー語を並べ、本文で「ユーザーの言語で書く」と指示する）。`description` は YAML のプレーンスカラーなので `: `・` #`・`<` `>` を含めない（スクリプトが検査する）。
 
-CI（[.github/workflows/ci.yml](.github/workflows/ci.yml)）は main への push と PR で `typecheck`・`test`・`package` を実行し、.vsix を成果物としてアップロードする。続けて CLI で examples を HTML にエクスポートし（ランナーの Google Chrome を使い、link-checks.md 以外は `--strict` で紐付けの警告を失敗にする）、その HTML と Agent Skill の zip もアップロードする。`desktop` ジョブは Ubuntu 22.04・macOS・Windows でデスクトップアプリをビルドし（`cargo clippy -- -D warnings` も実行する）、インストーラをアップロードする。
+CI（[.github/workflows/ci.yml](.github/workflows/ci.yml)）は main への push と PR で `typecheck`・`test`・`package` を実行し、.vsix を成果物としてアップロードする。続けて CLI で examples を HTML にエクスポートし（ランナーの Google Chrome を使い、link-checks.md 以外は `--strict` で紐付けの警告を失敗にする）、その HTML と Agent Skill の zip もアップロードする。`build` ジョブではデスクトップアプリの Web 側（`pnpm desktop:build`）もビルドする。Rust とインストーラのビルド（Ubuntu 22.04・macOS・Windows、`cargo clippy -- -D warnings` も実行し、インストーラをアップロードする）は時間がかかるので [.github/workflows/desktop.yml](.github/workflows/desktop.yml) に分け、手動実行（Actions の Run workflow、または `gh workflow run desktop.yml --ref <ブランチ>`）だけにしている。desktop/src-tauri・Tauri の設定・依存を変えたら PR のブランチで実行する。
 
 package.json は拡張機能のもので、npm パッケージ（CLI 用）はそこから [scripts/npm-package.mjs](scripts/npm-package.mjs)（`pnpm npm:package`）が `.work/npm/` に作る。npm 用の package.json は npm が使う項目だけにし、`%description%` などのプレースホルダを package.nls.json の英語に置き換える（npm は翻訳しないので）。リポジトリ直下からの `npm publish` は `prepublishOnly` のガードで止める。npm パッケージの README は拡張のものではなく CLI の README（docs/cli.md を README.md に、docs/cli.ja.md を README.ja.md にしてコピーする）で、npm のページと GitHub の両方で同じファイルを表示するのでリンク・画像は絶対 URL で書く。npm に入るのは `scripts/npm-package.mjs` の `FILES` の、vsix に入るのは `.vscodeignore` のホワイトリストのファイルだけ。dist/ に `FILES`（または CLI が使わないものの `DIST_EXCLUDED`）にないファイルがあると `pnpm npm:package` が失敗するので、ビルドの出力を増やしたら両方を見直す。CI でも `pnpm npm:package` を実行する。mermaid などは esbuild でバンドルするので `devDependencies` に置き、CLI が実行時に要る `playwright-core` だけを `dependencies` に置く。
 
@@ -48,7 +48,7 @@ package.json は拡張機能のもので、npm パッケージ（CLI 用）は�
 
 拡張機能（VS Code Marketplace）と CLI（npm パッケージ `markdown-design-doc-viewer`）とデスクトップアプリ（GitHub Release に添付）は同じバージョンで出す。デスクトップアプリのバージョンは tauri.conf.json が package.json から読む。
 
-1. package.json の `version` を上げ、CHANGELOG の `Unreleased` をそのバージョンにして、PR で main に入れる。
+1. package.json の `version` を上げ、CHANGELOG の `Unreleased` をそのバージョンにして、PR で main に入れる。Release を作る前に、main で desktop.yml を手動実行して、デスクトップアプリが 3 つの OS でビルドできることを確かめる。
 2. main から GitHub Release（タグ `vX.Y.Z`）を作る。[.github/workflows/release.yml](.github/workflows/release.yml) が npm に公開する。
    - 公開の前に次を確かめる: タグのコミットが main にあること、タグと `version` が一致すること。
    - 公開する tarball を別のフォルダにインストールし、CLI でエクスポートできることも確かめる。
