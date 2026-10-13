@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.0
 
 - The [authoring guide for AI assistants](docs/ai-authoring-guide.md) and the usage of the command line are packaged as an Agent Skill, attached to each release: [markdown-design-doc-skill.zip](https://github.com/playree/markdown-design-doc-viewer/releases/latest/download/markdown-design-doc-skill.zip). Upload it to Claude, or unzip it into the skills folder of Claude Code or another assistant, and it is used when the assistant is asked to write a design document, in English or in Japanese.
 - The [authoring guide for AI assistants](docs/ai-authoring-guide.md) tells how to use footnotes for side notes, and folded `<details>` sections for content that does not need to be read every time, such as the change history.
