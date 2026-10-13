@@ -1,6 +1,6 @@
 name: Release
 
-# GitHub Release（タグ vX.Y.Z）を公開したら、CLI の npm パッケージを公開する。
+# GitHub Release（タグ vX.Y.Z）を公開したら、CLI の npm パッケージを公開し、AI 向けの Agent Skill の zip を Release に添付する。
 # npm の Trusted Publishing（OIDC）で公開するので npm のトークンは使わない（provenance も自動で付く）。
 # npmjs.com のパッケージ設定に Trusted Publisher としてこのファイル名（release.yml）を登録してあるので、改名しないこと。
 # VS Code Marketplace への公開（pnpm run vsce:publish）は手動で行う。
@@ -105,3 +105,33 @@ jobs:
         env:
           DIST_TAG: ${{ steps.version.outputs.dist-tag }}
         run: npm publish "$TARBALL" --tag "$DIST_TAG"
+
+  # AI 向けの Agent Skill の zip を Release に添付する。README は releases/latest/download/ の固定 URL でリンクするので、ファイル名を変えないこと。
+  # npm ジョブの検証（タグが main にあり version と一致する）を通ってから行う。Release に書き込むので、このジョブだけ contents: write にする
+  skill:
+    needs: npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # 書き込みのトークンを pnpm install（依存のスクリプト）から読めないよう、checkout に残さない。アップロードには GH_TOKEN を渡す
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      # contents: write のジョブなので、ほかのワークフローが書いたキャッシュは使わない（自動のキャッシュも切る）
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm skill:package
+
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" .work/skill/markdown-design-doc-skill.zip --clobber --repo "$GITHUB_REPOSITORY"

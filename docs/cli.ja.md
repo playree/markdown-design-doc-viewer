@@ -75,7 +75,7 @@ md-design-doc export docs -o site
 
 ## 書き方
 
-図の中に `%% @link-headings` を書くと、その図が後ろの見出しと紐付きます。矢印・ノードと見出しは文言で、または `%% @ref` で対応付けます。記法は [書き方](https://github.com/playree/markdown-design-doc-viewer/blob/main/README.ja.md#書き方) を、AI アシスタントにこの形式で書かせるには [AI 向けの記法ガイド](https://github.com/playree/markdown-design-doc-viewer/blob/main/docs/ai-authoring-guide.ja.md) を参照してください。
+図の中に `%% @link-headings` を書くと、その図が後ろの見出しと紐付きます。矢印・ノードと見出しは文言で、または `%% @ref` で対応付けます。記法は [書き方](https://github.com/playree/markdown-design-doc-viewer/blob/main/README.ja.md#書き方) を、AI アシスタントにこの形式で書かせるには [AI 向けの記法ガイド](https://github.com/playree/markdown-design-doc-viewer/blob/main/docs/ai-authoring-guide.ja.md) を参照してください。ガイドとこのコマンドの使い方は Agent Skill の [markdown-design-doc-skill.zip](https://github.com/playree/markdown-design-doc-viewer/releases/latest/download/markdown-design-doc-skill.zip) にもしてあります。
 
 エディタとプレビューを同期させながら書くには、[VS Code 拡張](https://marketplace.visualstudio.com/items?itemName=playree.markdown-design-doc-viewer)を使ってください。
 

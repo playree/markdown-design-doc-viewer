@@ -75,7 +75,7 @@ For example, to publish the documents of a repository as an artifact of each bui
 
 ## Writing linked documents
 
-A diagram is linked to the headings after it with `%% @link-headings` in the diagram; arrows and nodes are matched with the headings by their text, or with `%% @ref`. See [Writing linked documents](https://github.com/playree/markdown-design-doc-viewer#writing-linked-documents) for the syntax, and the [authoring guide for AI](https://github.com/playree/markdown-design-doc-viewer/blob/main/docs/ai-authoring-guide.md) to have an AI assistant write documents in this format.
+A diagram is linked to the headings after it with `%% @link-headings` in the diagram; arrows and nodes are matched with the headings by their text, or with `%% @ref`. See [Writing linked documents](https://github.com/playree/markdown-design-doc-viewer#writing-linked-documents) for the syntax, and the [authoring guide for AI](https://github.com/playree/markdown-design-doc-viewer/blob/main/docs/ai-authoring-guide.md) to have an AI assistant write documents in this format. The guide and the usage of this command are also packaged as an Agent Skill: [markdown-design-doc-skill.zip](https://github.com/playree/markdown-design-doc-viewer/releases/latest/download/markdown-design-doc-skill.zip).
 
 To preview the documents while writing them, with the editor and the preview in sync, use the [VS Code extension](https://marketplace.visualstudio.com/items?itemName=playree.markdown-design-doc-viewer).
 

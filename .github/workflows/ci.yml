@@ -56,3 +56,12 @@ jobs:
           name: html-export
           path: .work/export
           if-no-files-found: error
+
+      # AI 向けの Agent Skill（docs/ai-authoring-guide.md と docs/cli.md から作る zip）
+      - run: pnpm skill:package
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: skill
+          path: .work/skill/markdown-design-doc-skill.zip
+          if-no-files-found: error
