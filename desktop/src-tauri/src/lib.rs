@@ -1,7 +1,10 @@
 //! The Rust side of the desktop app: reads the Markdown files, follows their changes, lets the webview load
 //! their images, and opens the links. The documents are rendered in the webview (desktop/host.ts).
+//!
+//! The commands that touch the disk are async, so that a slow share does not block the main thread. Their errors
+//! are English texts, which the webview translates.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
@@ -25,17 +28,16 @@ const OPENED_EXTENSIONS: &[&str] = &[
     "yml", "docx", "xlsx", "pptx",
 ];
 
-/// The file a window shows, with the watcher of its folder.
-struct Watch {
-    path: PathBuf,
-    _debouncer: Debouncer<RecommendedWatcher, RecommendedCache>,
-}
-
-/// The watches by window label. A watch is dropped (and stops) when its window opens another file or is closed.
+/// The watcher of the folder of the file a window shows, by window label. It stops when it is dropped: when its
+/// window opens another file or is closed.
 #[derive(Default)]
-struct Watches(Mutex<HashMap<String, Watch>>);
+struct Watches(Mutex<HashMap<String, Debouncer<RecommendedWatcher, RecommendedCache>>>);
 
-/// A document read by `open_document`.
+/// The images already allowed by `allow_images`.
+#[derive(Default)]
+struct AllowedImages(Mutex<HashSet<PathBuf>>);
+
+/// A document read by `open_document` or `read_document`.
 #[derive(Serialize)]
 struct Document {
     /// The absolute path, without symbolic links.
@@ -65,18 +67,40 @@ fn initial_path() -> Option<String> {
     Some(to_string(&dunce::canonicalize(&path).unwrap_or(path)))
 }
 
-/// Reads a Markdown file for the window, and follows its changes (`document-changed`).
+/// Reads a Markdown file for the window, and follows its changes (`document-changed`) in place of those of the
+/// file the window showed before.
 #[tauri::command]
-fn open_document(window: Window, watches: State<'_, Watches>, path: String) -> Result<Document, String> {
+async fn open_document(window: Window, watches: State<'_, Watches>, path: String) -> Result<Document, String> {
+    let document = read(&path)?;
+    let path = PathBuf::from(&document.path);
+    let mut watches = watches.0.lock().unwrap_or_else(PoisonError::into_inner);
+    // The changes of the previous file are no longer followed, even if the new watch fails.
+    watches.remove(window.label());
+    match watch(&window, &path) {
+        Ok(watcher) => {
+            watches.insert(window.label().to_string(), watcher);
+        }
+        // Shown without following its changes (e.g. no more inotify watches, or a share that cannot be watched).
+        Err(error) => eprintln!("Could not watch {}: {error}", path.display()),
+    }
+    Ok(document)
+}
+
+/// Reads the file of the window again after a change, without changing what is watched.
+#[tauri::command]
+async fn read_document(path: String) -> Result<Document, String> {
+    read(&path)
+}
+
+fn read(path: &str) -> Result<Document, String> {
     // dunce: without the \\?\ prefix std::fs::canonicalize adds on Windows.
-    let path = dunce::canonicalize(&path).map_err(|e| e.to_string())?;
+    let path = dunce::canonicalize(path).map_err(|e| e.to_string())?;
     let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
     let mut text = String::from_utf8(bytes).map_err(|_| "The file is not UTF-8 text.".to_string())?;
     if text.starts_with('\u{feff}') {
         text.remove(0);
     }
     let dir = path.parent().ok_or("The file has no folder.")?;
-    watch(&window, &watches, &path, dir)?;
     Ok(Document {
         path: to_string(&path),
         dir: to_string(dir),
@@ -85,19 +109,13 @@ fn open_document(window: Window, watches: State<'_, Watches>, path: String) -> R
     })
 }
 
-fn watch(window: &Window, watches: &Watches, path: &Path, dir: &Path) -> Result<(), String> {
-    let mut watches = watches.0.lock().unwrap_or_else(PoisonError::into_inner);
-    let label = window.label().to_string();
-    // Read again after a change: the watch goes on.
-    if watches.get(&label).is_some_and(|watch| watch.path == path) {
-        return Ok(());
-    }
-    watches.remove(&label);
-
+/// Watches the folder of the file, and tells the window when the file changes.
+fn watch(window: &Window, path: &Path) -> Result<Debouncer<RecommendedWatcher, RecommendedCache>, String> {
+    let dir = path.parent().ok_or("The file has no folder.")?;
     let app = window.app_handle().clone();
+    let label = window.label().to_string();
     let target = to_string(path);
     let name = path.file_name().map(ToOwned::to_owned);
-    let window_label = label.clone();
     let mut debouncer = new_debouncer(DEBOUNCE, None, move |result: DebounceEventResult| {
         let Ok(events) = result else {
             return;
@@ -106,23 +124,24 @@ fn watch(window: &Window, watches: &Watches, path: &Path, dir: &Path) -> Result<
             !matches!(event.kind, EventKind::Access(_)) && event.paths.iter().any(|p| p.file_name() == name.as_deref())
         });
         if changed {
-            let _ = app.emit_to(window_label.as_str(), "document-changed", &target);
+            let _ = app.emit_to(label.as_str(), "document-changed", &target);
         }
     })
     .map_err(|e| e.to_string())?;
     // The folder rather than the file: editors that write another file and rename it to the document replace the
     // file, which would end a watch of the file itself.
     debouncer.watch(dir, RecursiveMode::NonRecursive).map_err(|e| e.to_string())?;
-    watches.insert(label, Watch { path: path.to_path_buf(), _debouncer: debouncer });
-    Ok(())
+    Ok(debouncer)
 }
 
 /// Lets the webview load these images (local images of the document) with the asset protocol.
 #[tauri::command]
-fn allow_images(app: AppHandle, paths: Vec<String>) {
+async fn allow_images(app: AppHandle, allowed: State<'_, AllowedImages>, paths: Vec<String>) -> Result<(), String> {
     let scope = app.asset_protocol_scope();
+    let mut allowed = allowed.0.lock().unwrap_or_else(PoisonError::into_inner);
     for path in paths.into_iter().map(PathBuf::from) {
-        if !has_extension(&path, IMAGE_EXTENSIONS) || !path.is_file() {
+        // A missing image is looked up again on the next render: it may have been added meanwhile.
+        if allowed.contains(&path) || !has_extension(&path, IMAGE_EXTENSIONS) || !path.is_file() {
             continue;
         }
         let _ = scope.allow_file(&path);
@@ -132,25 +151,28 @@ fn allow_images(app: AppHandle, paths: Vec<String>) {
                 let _ = scope.allow_file(&canonical);
             }
         }
+        allowed.insert(path);
     }
+    Ok(())
 }
 
 /// Opens a web or mail link in its default app.
 #[tauri::command]
-fn open_url(app: AppHandle, url: String) -> Result<(), String> {
+async fn open_url(app: AppHandle, url: String) -> Result<(), String> {
     let lower = url.to_ascii_lowercase();
     if !["http://", "https://", "mailto:"].iter().any(|scheme| lower.starts_with(scheme)) {
-        return Err(format!("Not a web or mail link: {url}"));
+        return Err("Not a web or mail link.".to_string());
     }
     app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
 
-/// Opens a linked file (not Markdown) with its default app, or shows it in its folder.
+/// Opens a linked file (not Markdown) with its default app, or shows it in its folder. A folder is shown too, not
+/// opened: on macOS an app is a folder (`Tool.app`).
 #[tauri::command]
-fn open_path(app: AppHandle, path: String) -> Result<(), String> {
+async fn open_path(app: AppHandle, path: String) -> Result<(), String> {
     let path = dunce::canonicalize(&path).map_err(|e| e.to_string())?;
     let opener = app.opener();
-    if path.is_dir() || has_extension(&path, OPENED_EXTENSIONS) {
+    if path.is_file() && has_extension(&path, OPENED_EXTENSIONS) {
         opener.open_path(to_string(&path), None::<&str>)
     } else {
         opener.reveal_item_in_dir(&path)
@@ -163,7 +185,15 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(Watches::default())
-        .invoke_handler(tauri::generate_handler![initial_path, open_document, allow_images, open_url, open_path])
+        .manage(AllowedImages::default())
+        .invoke_handler(tauri::generate_handler![
+            initial_path,
+            open_document,
+            read_document,
+            allow_images,
+            open_url,
+            open_path
+        ])
         .on_window_event(|window, event| {
             if let WindowEvent::Destroyed = event {
                 window.state::<Watches>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(window.label());

@@ -70,5 +70,8 @@
   "Light": "ライト",
   "Dark": "ダーク",
   "Open a Markdown file, or drop one here.": "Markdown ファイルを開くか、ここにドロップしてください。",
-  "Open File...": "ファイルを開く..."
+  "Open File...": "ファイルを開く...",
+  "The file is not UTF-8 text.": "ファイルが UTF-8 のテキストではありません。",
+  "The file has no folder.": "ファイルのフォルダがありません。",
+  "Not a web or mail link.": "Web やメールのリンクではありません。"
 }

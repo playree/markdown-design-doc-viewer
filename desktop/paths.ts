@@ -7,23 +7,8 @@ import { imagePath, isExternalUrl, safeDecode, SCHEME_RE } from '../src/exportPa
 /** `C:\…`, `C:/…` or a UNC path `\\server\…`. */
 const WINDOWS_RE = /^(?:[a-z]:[\\/]|\\\\)/i;
 
-export function isWindowsPath(path: string): boolean {
+function isWindowsPath(path: string): boolean {
   return WINDOWS_RE.test(path);
-}
-
-/** The folder of a file. */
-export function dirname(path: string): string {
-  const windows = isWindowsPath(path);
-  const at = Math.max(path.lastIndexOf('/'), windows ? path.lastIndexOf('\\') : -1);
-  if (at < 0) {
-    return '.';
-  }
-  const dir = path.slice(0, at);
-  // Keep the root: `/` and `C:\`.
-  if (dir === '' || (windows && /^[a-z]:$/i.test(dir))) {
-    return path.slice(0, at + 1);
-  }
-  return dir;
 }
 
 /**
@@ -61,11 +46,6 @@ export function resolveDocumentPath(dir: string, path: string): string {
     }
   }
   return root + parts.join(sep);
-}
-
-/** The file name of a path. */
-export function basename(path: string): string {
-  return path.split(isWindowsPath(path) ? /[\\/]/ : /\//).pop() ?? path;
 }
 
 /** true for a Markdown file, which the app opens itself instead of passing it to the system. */

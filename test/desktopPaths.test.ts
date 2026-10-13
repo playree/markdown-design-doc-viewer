@@ -1,29 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { basename, dirname, linkTarget, resolveDocumentPath, resourcePath } from '../desktop/paths';
-
-describe('dirname', () => {
-  it('takes the folder of a file', () => {
-    expect(dirname('/home/me/docs/a.md')).toBe('/home/me/docs');
-    expect(dirname('C:\\docs\\a.md')).toBe('C:\\docs');
-    expect(dirname('C:/docs/a.md')).toBe('C:/docs');
-  });
-
-  it('keeps the root', () => {
-    expect(dirname('/a.md')).toBe('/');
-    expect(dirname('C:\\a.md')).toBe('C:\\');
-  });
-
-  it('takes a backslash as a part of a POSIX file name', () => {
-    expect(dirname('/home/me/a\\b.md')).toBe('/home/me');
-  });
-});
-
-describe('basename', () => {
-  it('takes the file name', () => {
-    expect(basename('/home/me/docs/a.md')).toBe('a.md');
-    expect(basename('C:\\docs\\設計書.md')).toBe('設計書.md');
-  });
-});
+import { linkTarget, resolveDocumentPath, resourcePath } from '../desktop/paths';
 
 describe('resolveDocumentPath', () => {
   it('resolves a path relative to the folder of the document', () => {

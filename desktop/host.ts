@@ -47,8 +47,8 @@ const empty = document.getElementById('desktop-empty')!;
 
 let ready = false;
 let current: OpenedDocument | undefined;
-/** The heading to scroll to, given when the document was opened before the webview was ready. */
-let pendingFragment: string | undefined;
+/** The heading of the document to scroll to on its first render (the fragment of the link that opened it). */
+let pendingFragment: { path: string; fragment: string } | undefined;
 /** Renders one at a time, so that the updates reach the webview in order. */
 let rendering: Promise<void> = Promise.resolve();
 
@@ -69,10 +69,7 @@ function post(message: ToWebview): void {
   window.postMessage(message, '*');
 }
 
-function render(fragment?: string): void {
-  if (fragment) {
-    pendingFragment = fragment;
-  }
+function render(): void {
   rendering = rendering.then(renderNow).catch((error: unknown) => console.error(error));
 }
 
@@ -82,7 +79,7 @@ async function renderNow(): Promise<void> {
   if (!ready || !doc) {
     return;
   }
-  const fragment = pendingFragment;
+  const fragment = pendingFragment?.path === doc.path ? pendingFragment.fragment : undefined;
   pendingFragment = undefined;
   const images: string[] = [];
   const html = renderDocument(md, doc.text, {
@@ -105,8 +102,9 @@ async function renderNow(): Promise<void> {
   post({ type: 'update', uri: doc.path, html, ...SETTINGS, ...(fragment ? { fragment } : {}) });
 }
 
+/** Shows an error: `text`, and the reason (an English text of the Rust commands, translated, or one of the system). */
 async function showError(text: string, error: unknown): Promise<void> {
-  await message(`${text}\n${error instanceof Error ? error.message : String(error)}`, { title: APP_NAME, kind: 'error' });
+  await message(`${text}\n${t(error instanceof Error ? error.message : String(error))}`, { title: APP_NAME, kind: 'error' });
 }
 
 /** Opens a document in the window, at the heading `fragment` when given. */
@@ -119,6 +117,7 @@ async function openDocument(path: string, fragment?: string): Promise<void> {
     return;
   }
   current = doc;
+  pendingFragment = fragment ? { path: doc.path, fragment } : undefined;
   try {
     sessionStorage.setItem(DOCUMENT_KEY, doc.path);
   } catch {
@@ -126,7 +125,7 @@ async function openDocument(path: string, fragment?: string): Promise<void> {
   }
   empty.hidden = true;
   void appWindow.setTitle(`${doc.name} — ${APP_NAME}`);
-  render(fragment);
+  render();
 }
 
 /** Reads the document again: when it changed (`report` false: a file being saved may be missing for a moment), or from the menu. */
@@ -136,7 +135,8 @@ async function reload(report: boolean): Promise<void> {
     return;
   }
   try {
-    const doc = await invoke<OpenedDocument>('open_document', { path });
+    // Not open_document: the watch stays, also when another document is being opened meanwhile.
+    const doc = await invoke<OpenedDocument>('read_document', { path });
     // Unless another document was opened meanwhile.
     if (current?.path === path) {
       current = doc;
@@ -216,6 +216,8 @@ const THEMES: [PreviewTheme, string][] = [
 
 async function setUpMenu(): Promise<void> {
   const mac = navigator.userAgent.includes('Mac');
+  // The access keys (`&File`, `ファイル(&F)`) are for Windows and Linux: macOS menus have none.
+  const label = (text: string) => (mac ? t(text).replace(/\(&\w\)/, '').replace(/&/g, '') : t(text));
   const themeItems: CheckMenuItem[] = [];
   const setTheme = (value: PreviewTheme) => {
     theme = value;
@@ -234,17 +236,17 @@ async function setUpMenu(): Promise<void> {
   const separator = () => PredefinedMenuItem.new({ item: 'Separator' });
 
   const file = await Submenu.new({
-    text: t('&File'),
+    text: label('&File'),
     items: [
-      await MenuItem.new({ text: t('&Open...'), accelerator: 'CmdOrCtrl+O', action: () => void chooseDocument() }),
-      await MenuItem.new({ text: t('&Reload'), accelerator: 'CmdOrCtrl+R', action: () => void reload(true) }),
+      await MenuItem.new({ text: label('&Open...'), accelerator: 'CmdOrCtrl+O', action: () => void chooseDocument() }),
+      await MenuItem.new({ text: label('&Reload'), accelerator: 'CmdOrCtrl+R', action: () => void reload(true) }),
       // On macOS in the app menu.
-      ...(mac ? [] : [await separator(), await MenuItem.new({ text: t('E&xit'), action: () => void appWindow.close() })]),
+      ...(mac ? [] : [await separator(), await MenuItem.new({ text: label('E&xit'), action: () => void appWindow.close() })]),
     ],
   });
   const view = await Submenu.new({
-    text: t('&View'),
-    items: [await Submenu.new({ text: t('&Theme'), items: themeItems })],
+    text: label('&View'),
+    items: [await Submenu.new({ text: label('&Theme'), items: themeItems })],
   });
   const items = [file, view];
   if (mac) {
@@ -262,7 +264,7 @@ async function setUpMenu(): Promise<void> {
     });
     // Without it, the copy keys do nothing on macOS.
     const edit = await Submenu.new({
-      text: t('&Edit'),
+      text: label('&Edit'),
       items: [await PredefinedMenuItem.new({ item: 'Copy' }), await PredefinedMenuItem.new({ item: 'SelectAll' })],
     });
     items.splice(0, 0, app);

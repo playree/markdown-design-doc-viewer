@@ -35,3 +35,19 @@ export interface WebviewState {
   /** Width of the diagram column in percent. */
   split?: number;
 }
+
+/**
+ * Titles (tooltips) of the preview's controls, in English: the host translates them and writes them on the body as
+ * `data-seqnotes-<name>` attributes, which the webview reads.
+ */
+export const WEBVIEW_TITLES: Record<string, string> = {
+  'splitter-title': 'Drag to resize, double-click to reset',
+  'hide-warnings-title': 'Hide warnings',
+  'toc-title': 'Contents',
+  'zoom-title': 'Zoom diagram',
+  'zoom-image-title': 'Zoom image',
+  'zoom-in-title': 'Zoom in',
+  'zoom-out-title': 'Zoom out',
+  'zoom-fit-title': 'Fit to window',
+  'zoom-close-title': 'Close',
+};
