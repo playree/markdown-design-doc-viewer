@@ -2,8 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-ユーザーとの会話は日本語で行うこと。
-
 ## ブランチ運用
 
 - `main` で直接作業・コミットしない。ファイルを変更する前に、最新の `main` から `feature/<内容を表す名前>`（例: `feature/seq-notes-marker`）を作成して切り替える。
