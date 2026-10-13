@@ -1,0 +1,3 @@
+/* The styles of the desktop app (desktop/dist/app.css): those of the preview, and the variables VS Code would give it. */
+@import "../webview/preview.css";
+@import "./theme.css";

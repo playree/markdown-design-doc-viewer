@@ -165,6 +165,12 @@ AI アシスタント（Claude Code、GitHub Copilot、Cursor など）にこの
 
 ガイドでは、ファイルの診断を確認するよう AI に指示しています。VS Code の診断を読めるエージェント（Copilot のエージェントモードや、VS Code に接続した Claude Code など）は、紐付いていない矢印や見出しを自分で見つけて直せます。
 
+## デスクトップアプリ
+
+プレビューは Windows・macOS・Linux のデスクトップアプリとしても使え、VS Code がなくても設計書を読めます。表示は拡張機能のプレビューと同じで、ファイルを保存すると表示を更新します。インストーラは[最新のリリース](https://github.com/playree/markdown-design-doc-viewer/releases/latest)からダウンロードしてください。
+
+インストーラにはまだ署名がありません。初回起動時の OS の警告への対処と使い方は [デスクトップアプリの説明](docs/desktop.ja.md) を参照してください。
+
 ## コマンドライン（CI）
 
 HTML エクスポートはコマンドラインからも実行でき、CI やバッチ処理で VS Code なしに設計書を変換できます。`Export Design Doc as HTML` コマンドと同じ HTML ファイルを書き出します（図はプレビューをヘッドレス Chrome で動かして描画します）。Node.js 22 以降と、Chrome か Chromium が必要です。

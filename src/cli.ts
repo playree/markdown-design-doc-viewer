@@ -12,7 +12,7 @@ import { documentInfo, indexBody, type IndexEntry } from './exportIndex';
 import { exportPage, imagePath, imageType, renderForExport, stripSourceMap } from './exportPage';
 import { HeadlessRenderer } from './headless';
 import { collectIssues } from './issues';
-import { formatMessage, type Translate } from './l10n';
+import { formatMessage, translatorFor, type Translate } from './l10n';
 import { createMarkdown } from './render';
 
 /** dist/, where the script runs from. */
@@ -28,8 +28,7 @@ function translator(lang: string): Translate {
   if (!/^[a-z]{2,3}(?:-[a-z0-9]+)*$/i.test(lang) || !existsSync(bundle)) {
     throw new UsageError(`Unsupported language: ${lang}`);
   }
-  const messages = JSON.parse(readFileSync(bundle, 'utf8')) as Record<string, string>;
-  return (message, ...args) => formatMessage(messages[message] ?? message, ...args);
+  return translatorFor(JSON.parse(readFileSync(bundle, 'utf8')) as Record<string, string>);
 }
 
 /** A path shown in the messages: relative to `base` (the current folder) when it is in it. */

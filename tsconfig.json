@@ -10,7 +10,9 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": false,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true
   },
-  "include": ["src", "webview", "test", "scripts"]
+  "include": ["src", "webview", "desktop", "test", "scripts"],
+  "exclude": ["desktop/dist", "desktop/src-tauri"]
 }

@@ -31,6 +31,9 @@ jobs:
 
       - run: pnpm typecheck
 
+      # デスクトップアプリの Web 側（desktop/dist/）。Rust とインストーラのビルドは desktop.yml（手動実行）
+      - run: pnpm desktop:build
+
       - run: pnpm test
 
       # vscode:prepublish で production ビルドも行う

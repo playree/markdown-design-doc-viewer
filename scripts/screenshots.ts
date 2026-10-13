@@ -19,8 +19,8 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { Page } from 'playwright-core';
 import { launchChrome } from '../src/headless';
-import { formatMessage, type Translate } from '../src/l10n';
-import type { ToWebview } from '../src/protocol';
+import { formatMessage, translatorFor, type Translate } from '../src/l10n';
+import { WEBVIEW_TITLES, type ToWebview } from '../src/protocol';
 import { createMarkdown, escapeHtml, renderDocument } from '../src/render';
 
 /** The repository root: the script runs as dist/screenshots.cjs. */
@@ -59,19 +59,6 @@ const THEME: Record<string, string> = {
   'charts-purple': '#652d90',
   'charts-red': '#e51400',
   'charts-yellow': '#bf8803',
-};
-
-/** The same data attributes as `Preview.shell()` in src/previewPanel.ts, in English (translated with `Locale.t`). */
-const TITLES: Record<string, string> = {
-  'splitter-title': 'Drag to resize, double-click to reset',
-  'hide-warnings-title': 'Hide warnings',
-  'toc-title': 'Contents',
-  'zoom-title': 'Zoom diagram',
-  'zoom-image-title': 'Zoom image',
-  'zoom-in-title': 'Zoom in',
-  'zoom-out-title': 'Zoom out',
-  'zoom-fit-title': 'Fit to window',
-  'zoom-close-title': 'Close',
 };
 
 /** The h2 sections and the steps in them that the scenes look for, in the language of the source. */
@@ -120,7 +107,7 @@ const LOCALES: Locale[] = [
     source: 'examples/screenshot.ja.md',
     suffix: '.ja',
     lang: 'ja',
-    t: (message, ...args) => formatMessage(jaBundle[message] ?? message, ...args),
+    t: translatorFor(jaBundle),
     names: {
       sequence: '注文確定のシーケンス',
       sequenceStep: '3. 在庫を引き当て',
@@ -280,7 +267,7 @@ function shell(update: ToWebview, locale: Locale): string {
   const vars = Object.entries(THEME)
     .map(([name, value]) => `--vscode-${name}: ${value};`)
     .join('\n');
-  const titles = Object.entries(TITLES)
+  const titles = Object.entries(WEBVIEW_TITLES)
     .map(([name, title]) => ` data-seqnotes-${name}="${escapeHtml(locale.t(title))}"`)
     .join('');
   // `<` is escaped so that the HTML in the message cannot close the script element.

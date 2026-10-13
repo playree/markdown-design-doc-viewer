@@ -1,0 +1,32 @@
+[package]
+name = "markdown-design-doc-viewer"
+# The version of the app is that of package.json (tauri.conf.json); this one is not used.
+version = "0.0.0"
+description = "Markdown Design Doc Viewer"
+authors = ["playree"]
+license = "MIT"
+repository = "https://github.com/playree/markdown-design-doc-viewer"
+edition = "2021"
+publish = false
+
+[lib]
+name = "mddv_lib"
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+tauri = { version = "2.12", features = ["protocol-asset"] }
+tauri-plugin-dialog = "2.8"
+tauri-plugin-opener = "2.6"
+notify = "8.2"
+notify-debouncer-full = "0.7"
+serde = { version = "1", features = ["derive"] }
+dunce = "1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

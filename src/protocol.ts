@@ -7,7 +7,11 @@ export type DiagramLook = 'neo' | 'classic';
 export type PreviewTheme = 'auto' | 'light' | 'dark';
 
 export type ToWebview =
-  | { type: 'update'; uri: string; html: string; splitMinWidth: number; syncEditor: boolean; toc: boolean; diagramLook: DiagramLook; theme: PreviewTheme; limitContentWidth: boolean; stickyTableHeader: boolean }
+  /**
+   * Render this document. With another `uri` than the previous update (another document opened in the same
+   * window, by the desktop app), the preview starts at the top, or at `fragment` (the id of a heading) when given.
+   */
+  | { type: 'update'; uri: string; html: string; splitMinWidth: number; syncEditor: boolean; toc: boolean; diagramLook: DiagramLook; theme: PreviewTheme; limitContentWidth: boolean; stickyTableHeader: boolean; fragment?: string }
   /** Editor scrolled: align the preview so that this line is at the top. */
   | { type: 'scrollToLine'; line: number }
   /** Editor cursor moved: mark the element for this line. */
@@ -31,3 +35,19 @@ export interface WebviewState {
   /** Width of the diagram column in percent. */
   split?: number;
 }
+
+/**
+ * Titles (tooltips) of the preview's controls, in English: the host translates them and writes them on the body as
+ * `data-seqnotes-<name>` attributes, which the webview reads.
+ */
+export const WEBVIEW_TITLES: Record<string, string> = {
+  'splitter-title': 'Drag to resize, double-click to reset',
+  'hide-warnings-title': 'Hide warnings',
+  'toc-title': 'Contents',
+  'zoom-title': 'Zoom diagram',
+  'zoom-image-title': 'Zoom image',
+  'zoom-in-title': 'Zoom in',
+  'zoom-out-title': 'Zoom out',
+  'zoom-fit-title': 'Fit to window',
+  'zoom-close-title': 'Close',
+};

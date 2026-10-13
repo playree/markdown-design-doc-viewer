@@ -1,0 +1,8 @@
+# LF in the repository and in the working trees (also on Windows).
+* text=auto eol=lf
+
+*.png binary
+*.ico binary
+*.icns binary
+*.vsix binary
+*.zip binary
