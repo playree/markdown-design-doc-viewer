@@ -43,7 +43,8 @@
     "longDescription": "Preview design documents written in Markdown: mermaid sequence diagrams and flowcharts side by side with their linked step descriptions, a document header from the front matter, a table of contents, GitHub alerts and task lists.",
     "resources": {
       "../../LICENSE": "LICENSE",
-      "../../ThirdPartyNotices.txt": "ThirdPartyNotices.txt"
+      "../../ThirdPartyNotices.txt": "ThirdPartyNotices.txt",
+      "ThirdPartyLicenses.txt": "ThirdPartyLicenses.txt"
     },
     "icon": [
       "icons/32x32.png",

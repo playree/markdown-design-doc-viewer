@@ -29,13 +29,12 @@ SOFTWARE.
 
 ================================================================================
 Tauri (https://github.com/tauri-apps/tauri)
-The framework of the desktop app (desktop/): the Rust crates tauri, wry, tao,
-muda, tauri-plugin-dialog and tauri-plugin-opener, and the npm packages
-@tauri-apps/api and @tauri-apps/plugin-dialog. Licensed under Apache-2.0 or
-MIT (tao: Apache-2.0); the MIT license is reproduced below.
-The desktop app also includes other Rust crates, mostly under MIT and/or
-Apache-2.0, listed with their licenses in desktop/src-tauri/Cargo.lock
-(`cargo metadata` shows the license of each).
+The npm packages @tauri-apps/api and @tauri-apps/plugin-dialog, in the script of
+the desktop app (desktop/). Licensed under Apache-2.0 or MIT; the MIT license is
+reproduced below.
+The licenses of the Rust crates of the desktop app (Tauri and the others) are in
+ThirdPartyLicenses.txt, next to this file in the desktop app
+(desktop/src-tauri/ThirdPartyLicenses.txt in the repository).
 ================================================================================
 
 MIT License

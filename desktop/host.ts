@@ -107,8 +107,21 @@ async function showError(text: string, error: unknown): Promise<void> {
   await message(`${text}\n${t(error instanceof Error ? error.message : String(error))}`, { title: APP_NAME, kind: 'error' });
 }
 
+/** Opens one document at a time: in order, so that the last one opened is shown and watched. */
+let opening: Promise<void> = Promise.resolve();
+/** Numbers the reads (`openDocument` and `reload`), so that an older answer does not replace a newer one. */
+let readSeq = 0;
+/** The number of the read shown. */
+let shownSeq = 0;
+
 /** Opens a document in the window, at the heading `fragment` when given. */
-async function openDocument(path: string, fragment?: string): Promise<void> {
+function openDocument(path: string, fragment?: string): Promise<void> {
+  opening = opening.then(() => openNow(path, fragment)).catch((error: unknown) => console.error(error));
+  return opening;
+}
+
+async function openNow(path: string, fragment?: string): Promise<void> {
+  const seq = ++readSeq;
   let doc: OpenedDocument;
   try {
     doc = await invoke<OpenedDocument>('open_document', { path });
@@ -116,7 +129,11 @@ async function openDocument(path: string, fragment?: string): Promise<void> {
     await showError(t('Could not open {0}.', path), error);
     return;
   }
-  current = doc;
+  // Unless the same file was read again meanwhile (it changed while it was being opened again).
+  if (current?.path !== doc.path || seq > shownSeq) {
+    shownSeq = seq;
+    current = doc;
+  }
   pendingFragment = fragment ? { path: doc.path, fragment } : undefined;
   try {
     sessionStorage.setItem(DOCUMENT_KEY, doc.path);
@@ -134,11 +151,13 @@ async function reload(report: boolean): Promise<void> {
   if (!path) {
     return;
   }
+  const seq = ++readSeq;
   try {
     // Not open_document: the watch stays, also when another document is being opened meanwhile.
     const doc = await invoke<OpenedDocument>('read_document', { path });
-    // Unless another document was opened meanwhile.
-    if (current?.path === path) {
+    // Unless another document was opened, or the file read again, meanwhile.
+    if (current?.path === path && seq > shownSeq) {
+      shownSeq = seq;
       current = doc;
       render();
     }

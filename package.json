@@ -237,6 +237,7 @@
     "desktop:build": "node esbuild.mjs --desktop --production",
     "desktop:dev": "tauri dev",
     "desktop:bundle": "tauri build",
+    "desktop:licenses": "cargo about generate --locked --manifest-path desktop/src-tauri/Cargo.toml -o desktop/src-tauri/ThirdPartyLicenses.txt desktop/src-tauri/about.hbs",
     "tauri": "tauri",
     "prepack": "node esbuild.mjs --production",
     "prepublishOnly": "node -e \"console.error('The npm package is published from .work/npm: pnpm npm:package, then npm publish .work/npm.'); process.exit(1)\""

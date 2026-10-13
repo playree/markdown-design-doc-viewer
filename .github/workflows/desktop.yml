@@ -57,6 +57,13 @@ jobs:
       - run: cargo clippy --all-targets --locked -- -D warnings
         working-directory: desktop/src-tauri
 
+      # インストーラに入れる Rust のクレートのライセンス（ThirdPartyLicenses.txt）が Cargo.lock と合っていること
+      - if: runner.os == 'Linux'
+        run: |
+          cargo install cargo-about --version 0.9.2 --locked --features cli
+          pnpm desktop:licenses
+          git diff --exit-code -- desktop/src-tauri/ThirdPartyLicenses.txt || { echo "::error::desktop/src-tauri/ThirdPartyLicenses.txt is out of date: run pnpm desktop:licenses."; exit 1; }
+
       # MSI（WiX）は 1.1.0-rc.1 のような英字を含むプレリリースのバージョンを作れないので、そのときの Windows は NSIS（setup.exe）だけにする
       - shell: bash
         run: |
