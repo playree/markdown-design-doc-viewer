@@ -232,7 +232,6 @@
     "screenshots": "node esbuild.mjs && esbuild scripts/screenshots.ts --bundle --platform=node --format=cjs --external:playwright-core --log-level=warning --outfile=dist/screenshots.cjs && node dist/screenshots.cjs",
     "vscode:prepublish": "node esbuild.mjs --production",
     "package": "vsce package --no-dependencies",
-    "vsce:publish": "vsce publish --no-dependencies",
     "npm:package": "node esbuild.mjs --production && node scripts/npm-package.mjs",
     "skill:package": "node scripts/skill-package.mjs",
     "prepack": "node esbuild.mjs --production",
