@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The main window. The files are read and opened by the Rust commands (src/lib.rs), so the webview has no fs or opener permission.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:menu:default",
+    "core:window:allow-set-title",
+    "core:window:allow-close",
+    "core:webview:default",
+    "dialog:allow-open",
+    "dialog:allow-message"
+  ]
+}

@@ -19,7 +19,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { Page } from 'playwright-core';
 import { launchChrome } from '../src/headless';
-import { formatMessage, type Translate } from '../src/l10n';
+import { formatMessage, translatorFor, type Translate } from '../src/l10n';
 import type { ToWebview } from '../src/protocol';
 import { createMarkdown, escapeHtml, renderDocument } from '../src/render';
 
@@ -120,7 +120,7 @@ const LOCALES: Locale[] = [
     source: 'examples/screenshot.ja.md',
     suffix: '.ja',
     lang: 'ja',
-    t: (message, ...args) => formatMessage(jaBundle[message] ?? message, ...args),
+    t: translatorFor(jaBundle),
     names: {
       sequence: '注文確定のシーケンス',
       sequenceStep: '3. 在庫を引き当て',

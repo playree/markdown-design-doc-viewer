@@ -1,7 +1,10 @@
+import { copyFileSync, mkdirSync } from 'node:fs';
 import * as esbuild from 'esbuild';
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
+// The desktop app (desktop/, built to desktop/dist/ for Tauri) instead of the extension and the command line.
+const desktop = process.argv.includes('--desktop');
 
 const common = {
   bundle: true,
@@ -10,7 +13,25 @@ const common = {
   logLevel: 'info',
 };
 
-const contexts = await Promise.all([
+const desktopContexts = () => [
+  esbuild.context({
+    ...common,
+    entryPoints: { app: 'desktop/main.ts' },
+    outdir: 'desktop/dist',
+    platform: 'browser',
+    format: 'iife',
+    // WebView2 on Windows, WebKitGTK on Linux, WKWebView on macOS.
+    target: ['chrome120', 'safari16'],
+  }),
+  esbuild.context({
+    ...common,
+    entryPoints: { app: 'desktop/app.css' },
+    outdir: 'desktop/dist',
+    target: ['chrome120', 'safari16'],
+  }),
+];
+
+const contexts = await Promise.all(desktop ? desktopContexts() : [
   esbuild.context({
     ...common,
     entryPoints: ['src/extension.ts'],
@@ -45,6 +66,11 @@ const contexts = await Promise.all([
     outdir: 'dist',
   }),
 ]);
+
+if (desktop) {
+  mkdirSync('desktop/dist', { recursive: true });
+  copyFileSync('desktop/index.html', 'desktop/dist/index.html');
+}
 
 if (watch) {
   await Promise.all(contexts.map((ctx) => ctx.watch()));

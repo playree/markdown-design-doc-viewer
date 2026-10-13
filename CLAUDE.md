@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 概要
 
-VS Code 拡張「Markdown Design Doc Viewer」（日本語表記: Markdown 設計書ビューア）。設計書 Markdown のビューアで、主な機能として設計書内の mermaid シーケンス図・フローチャートと、その後ろの処理概要（見出し）を横並びでプレビューし、矢印（フローチャートではノード）と見出しを相互に紐付ける。記法・挙動の仕様は [README.md](README.md)（英語）と [README.ja.md](README.ja.md)（日本語）が正（両方を同じ内容で保守する）。CLI の使い方（オプション・終了コードなど）は [docs/cli.md](docs/cli.md) と [docs/cli.ja.md](docs/cli.ja.md) が正で、拡張の README には CLI の短い紹介だけを書く。
+VS Code 拡張「Markdown Design Doc Viewer」（日本語表記: Markdown 設計書ビューア）。設計書 Markdown のビューアで、主な機能として設計書内の mermaid シーケンス図・フローチャートと、その後ろの処理概要（見出し）を横並びでプレビューし、矢印（フローチャートではノード）と見出しを相互に紐付ける。記法・挙動の仕様は [README.md](README.md)（英語）と [README.ja.md](README.ja.md)（日本語）が正（両方を同じ内容で保守する）。CLI の使い方（オプション・終了コードなど）は [docs/cli.md](docs/cli.md) と [docs/cli.ja.md](docs/cli.ja.md) が正で、拡張の README には CLI の短い紹介だけを書く。デスクトップアプリ（`desktop/`、Tauri 2）も同じで、使い方・開発方法は [docs/desktop.md](docs/desktop.md) と [docs/desktop.ja.md](docs/desktop.ja.md) が正。
 
 ## コマンド
 
@@ -21,27 +21,32 @@ VS Code 拡張「Markdown Design Doc Viewer」（日本語表記: Markdown 設�
 ```sh
 pnpm build        # esbuild で dist/ に extension.js, cli.js, webview.js, webview.css, export.js, export.css を出力
 pnpm watch        # 監視ビルド
-pnpm typecheck    # tsc --noEmit（src, webview, test, scripts すべて）
+pnpm typecheck    # tsc --noEmit（src, webview, desktop, test, scripts すべて）
 pnpm test         # vitest run
 pnpm exec vitest run test/render.test.ts -t 'テスト名の一部'   # 単一テスト
 pnpm package      # vsce で .vsix を作成
 pnpm npm:package  # npm パッケージ（CLI）を .work/npm/ に作る（npm pack / npm publish はそのフォルダに対して行う）
 node dist/cli.js export examples -o .work/export   # CLI の HTML エクスポート（ビルド後。npm パッケージの bin `md-design-doc`）
 pnpm skill:package # AI 向けの Agent Skill（.work/skill/markdown-design-doc/ と markdown-design-doc-skill.zip）を作る
+pnpm desktop:build   # デスクトップアプリの Web 側だけを desktop/dist/ に出力（app.js, app.css, index.html）
+pnpm desktop:dev -- -- <絶対パス.md>   # デスクトップアプリをビルドして起動（ファイルは省略可。アプリは desktop/src-tauri で動くので絶対パスで渡す）
+pnpm desktop:bundle  # デスクトップアプリのインストーラを desktop/src-tauri/target/release/bundle/ に作る
 pnpm screenshots  # README の画像（images/screenshot*.png、日本語版は *.ja.png）を examples/screenshot.md / screenshot.ja.md から再生成。シーン名・言語（en / ja）を付けるとそれだけ撮る
 ```
 
 AI 向けの Agent Skill は [scripts/skill-package.mjs](scripts/skill-package.mjs) が [skill/SKILL.md](skill/SKILL.md)（front matter と、ガイドに足す節）の `<!-- include: docs/ai-authoring-guide.md -->` をガイドの本文で置き換え、docs/cli.md を `references/cli.md` にして作る。ガイド・CLI の説明を変えれば Skill も変わるので、Skill 用に二重に書かない。Skill は英語版だけで、日本語の依頼にも対応させる（`description` に日本語のトリガー語を並べ、本文で「ユーザーの言語で書く」と指示する）。`description` は YAML のプレーンスカラーなので `: `・` #`・`<` `>` を含めない（スクリプトが検査する）。
 
-CI（[.github/workflows/ci.yml](.github/workflows/ci.yml)）は main への push と PR で `typecheck`・`test`・`package` を実行し、.vsix を成果物としてアップロードする。続けて CLI で examples を HTML にエクスポートし（ランナーの Google Chrome を使い、link-checks.md 以外は `--strict` で紐付けの警告を失敗にする）、その HTML と Agent Skill の zip もアップロードする。
+CI（[.github/workflows/ci.yml](.github/workflows/ci.yml)）は main への push と PR で `typecheck`・`test`・`package` を実行し、.vsix を成果物としてアップロードする。続けて CLI で examples を HTML にエクスポートし（ランナーの Google Chrome を使い、link-checks.md 以外は `--strict` で紐付けの警告を失敗にする）、その HTML と Agent Skill の zip もアップロードする。`desktop` ジョブは Ubuntu 22.04・macOS・Windows でデスクトップアプリをビルドし（`cargo clippy -- -D warnings` も実行する）、インストーラをアップロードする。
 
 package.json は拡張機能のもので、npm パッケージ（CLI 用）はそこから [scripts/npm-package.mjs](scripts/npm-package.mjs)（`pnpm npm:package`）が `.work/npm/` に作る。npm 用の package.json は npm が使う項目だけにし、`%description%` などのプレースホルダを package.nls.json の英語に置き換える（npm は翻訳しないので）。リポジトリ直下からの `npm publish` は `prepublishOnly` のガードで止める。npm パッケージの README は拡張のものではなく CLI の README（docs/cli.md を README.md に、docs/cli.ja.md を README.ja.md にしてコピーする）で、npm のページと GitHub の両方で同じファイルを表示するのでリンク・画像は絶対 URL で書く。npm に入るのは `scripts/npm-package.mjs` の `FILES` の、vsix に入るのは `.vscodeignore` のホワイトリストのファイルだけ。dist/ に `FILES`（または CLI が使わないものの `DIST_EXCLUDED`）にないファイルがあると `pnpm npm:package` が失敗するので、ビルドの出力を増やしたら両方を見直す。CI でも `pnpm npm:package` を実行する。mermaid などは esbuild でバンドルするので `devDependencies` に置き、CLI が実行時に要る `playwright-core` だけを `dependencies` に置く。
 
 動作確認は VS Code の F5（`.vscode/launch.json` の "Run Extension"）。ビルド後に `examples/` フォルダを開いた拡張開発ホストが起動するので、[examples/login.md](examples/login.md)（基本の紐付け）、[examples/password-reset.md](examples/password-reset.md)（autonumber・アラート・タスクリストなど）、[examples/link-checks.md](examples/link-checks.md)（紐付け漏れの表示と警告）、[examples/flowchart.md](examples/flowchart.md)（フローチャート、横向きの縦並び）、[examples/tables.md](examples/tables.md)（長い表のヘッダ行の固定）、[examples/front-matter.md](examples/front-matter.md)（`type: design_doc` のない front matter の表）をプレビューする。examples は設計書のサンプルなので、先頭の front matter に `type: design_doc` と `product: Example` を書き、`title`（本文の `#` 見出しと同じ文言）・`version`・`status`・`updated` も設定する（front-matter.md だけは表の表示を確かめるため `type` を書かない）。README のスクリーンショットは [examples/screenshot.md](examples/screenshot.md)（機能ごとの節に分けた撮影用サンプル）から `pnpm screenshots`（[scripts/screenshots.ts](scripts/screenshots.ts)）で撮る。README.ja.md 用の日本語版は、同じ構成で訳した [examples/screenshot.ja.md](examples/screenshot.ja.md) から `*.ja.png` に撮る（片方を変えたらもう片方も同じように変える）。この 2 つは GitHub Pages のサンプル（後述のリリース）も兼ねるので、紐付けの警告が出ないように保つ（`--strict` でエクスポートする）。webview を VS Code のライトテーマと各言語の文言（日本語は `l10n/bundle.l10n.ja.json`）を再現したページに載せ、headless Chrome（`playwright-core`）で撮影する。Chrome は `CHROME_PATH`、なければ Playwright のキャッシュ（Chromium または headless shell）から探す（`pnpm exec playwright-core install chromium` で入る）。日本語版には日本語フォント（Noto Sans CJK JP）が要る。撮る範囲・ハイライトする項目は `SCENES`（シーケンス図・フローチャート・紐付け漏れ・設計書の記法・設計書のヘッダ）、言語ごとの撮影元と探す見出しは `LOCALES` で定義する。mermaid のノードのラベルは幅 120px で折り返すので、日本語のラベルは 7 文字程度までにする。プレビューの見た目を変えたら撮り直す。
 
+デスクトップアプリは `pnpm desktop:dev` で動かして確かめる（画面のある環境で行う）。Rust（rustup の stable）のほか、Windows では Visual Studio Build Tools（C++ によるデスクトップ開発）と WebView2、Linux では webkit2gtk-4.1 など（[docs/desktop.ja.md](docs/desktop.ja.md)）が要る。環境変数 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222` を付けて起動すると、Windows では CDP（`playwright-core` の `chromium.connectOverCDP`）で DOM を調べたりスクリーンショットを撮ったりできる。
+
 ## リリース
 
-拡張機能（VS Code Marketplace）と CLI（npm パッケージ `markdown-design-doc-viewer`）は同じバージョンで出す。
+拡張機能（VS Code Marketplace）と CLI（npm パッケージ `markdown-design-doc-viewer`）とデスクトップアプリ（GitHub Release に添付）は同じバージョンで出す。デスクトップアプリのバージョンは tauri.conf.json が package.json から読む。
 
 1. package.json の `version` を上げ、CHANGELOG の `Unreleased` をそのバージョンにして、PR で main に入れる。
 2. main から GitHub Release（タグ `vX.Y.Z`）を作る。[.github/workflows/release.yml](.github/workflows/release.yml) が npm に公開する。
@@ -50,6 +55,7 @@ package.json は拡張機能のもので、npm パッケージ（CLI 用）は�
    - npm の Trusted Publishing（OIDC、トークンなし、provenance 付き）で公開する。プレリリース（`-rc.1` など）は dist-tag `next` で出す。
    - そのバージョンが npm にすでにあれば公開を飛ばす。
    - 続けて Agent Skill の zip（`markdown-design-doc-skill.zip`）を Release に添付する。README は `releases/latest/download/` の固定 URL でリンクしているので、ファイル名を変えない。
+   - 続けて `desktop` ジョブが、デスクトップアプリのインストーラ（Windows の .msi と NSIS の .exe、macOS の Apple シリコン用と Intel 用の .dmg、Linux の .deb・.rpm・.AppImage）を `tauri-apps/tauri-action` で Release に添付する。署名はまだしていない。MSI は英字を含むプレリリースのバージョン（`-rc.1` など）を作れないので、そのときの Windows は NSIS だけにする（CI も同じ）。
    - 同じ Release で [.github/workflows/pages.yml](.github/workflows/pages.yml) が examples/screenshot.md（英語、`/`）と screenshot.ja.md（日本語、`/ja/`）を CLI でエクスポートし、GitHub Pages（https://playree.github.io/markdown-design-doc-viewer/）にサンプルとして公開する。プレリリースでは更新しない。main からの手動実行（workflow_dispatch）でも更新できる。Pages の Source は「GitHub Actions」で、環境 `github-pages` に main とタグ `v*` からのデプロイを許可してある。
 3. Marketplace には、Marketplace の管理画面（https://marketplace.visualstudio.com/manage/publishers/playree ）から .vsix をアップロードして公開する（`vsce publish` と PAT は使わない）。
    - .vsix は、タグを checkout した変更のない作業ツリーで `pnpm package` を実行して作る（npm と同じコミットにするため。例: `git worktree add --detach .work/release vX.Y.Z` → `pnpm install --frozen-lockfile` → `pnpm package`）。
@@ -61,11 +67,12 @@ npm の Trusted Publisher は npmjs.com のパッケージ設定に登録する�
 
 ## アーキテクチャ
 
-3 つのバンドルに分かれ、[esbuild.mjs](esbuild.mjs) でそれぞれビルドされる。
+3 つのバンドルに分かれ、[esbuild.mjs](esbuild.mjs) でそれぞれビルドされる。デスクトップアプリ（4 つ目）は `--desktop` のときだけ、それだけをビルドする。
 
 - **拡張ホスト**（`src/extension.ts` → `dist/extension.js`, Node/CJS）: Markdown を HTML に変換して webview に送る。
 - **webview**（`webview/main.ts` → `dist/webview.js`, ブラウザ/IIFE）: HTML のサニタイズ、mermaid 描画、ハイライト・スクロール同期などの UI。エクスポートした HTML に埋め込むスクリプトは `webview/export.ts` → `dist/export.js`。
 - **CLI**（`src/cli.ts` → `dist/cli.js`, Node/CJS）: HTML エクスポートのコマンドライン版。`vscode` を external にしていないので、vscode に依存するモジュールを import するとビルドが失敗する。
+- **デスクトップアプリ**（`desktop/main.ts` → `desktop/dist/app.js`, ブラウザ/IIFE。Tauri 2）: 拡張の webview（`webview/main.ts`）をそのまま載せる。[desktop/vscodeShim.ts](desktop/vscodeShim.ts) が `acquireVsCodeApi` のスタブ（state は localStorage）と翻訳した body の data 属性を用意し、[desktop/host.ts](desktop/host.ts) が拡張ホストの代わりに `renderDocument` で HTML にして `update` を送る（設定は拡張の既定値、`syncEditor` は false、`theme` は常に `auto` で、配色は body の `vscode-light` / `vscode-dark` クラスで切り替え、[desktop/theme.css](desktop/theme.css) がその変数を定義する）。メニュー・D&D・開くダイアログも host.ts。パスの処理は [desktop/paths.ts](desktop/paths.ts)（Windows のパスも扱う純粋なモジュール）。Rust 側（[desktop/src-tauri/src/lib.rs](desktop/src-tauri/src/lib.rs)）は薄い層で、ファイルの読み込み（`open_document`）、親フォルダの監視（`document-changed`、rename で保存するエディタにも追従）、画像の asset スコープへの追加（`allow_images`、画像ファイルだけ）、リンクを開く処理（`open_url` は http/https/mailto だけ、`open_path` は文書・画像などだけ既定のアプリで開き、ほかはフォルダで表示）だけを行う。webview には fs・opener の権限を与えない（capabilities/default.json）。ビルドの出力は `desktop/dist/` で、`dist/` には出さない（vsix・npm パッケージに影響させないため）。
 
 HTML エクスポートは、vscode 非依存の共通部分（画像の解決、タイトル、ページの組み立て）が [src/exportPage.ts](src/exportPage.ts) にあり、VS Code のコマンド（[src/exportHtml.ts](src/exportHtml.ts)）と CLI が使う。図の描画はどちらも webview の `exportBody`（`export` メッセージ）で、VS Code ではプレビューの webview、CLI では [src/headless.ts](src/headless.ts) がヘッドレス Chrome に `dist/webview.js` を載せて行う（`pnpm screenshots` も同じ Chrome の探し方を使う）。
 

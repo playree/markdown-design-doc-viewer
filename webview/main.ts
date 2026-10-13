@@ -29,6 +29,13 @@ let pinned: Active | undefined;
 let currentLine: number | undefined;
 /** `data-seqnotes-key` of the warnings the user closed. The panel is hidden while the warnings are the same. */
 let dismissedWarnings: string | undefined;
+/** `uri` of the last update. */
+let currentUri: string | undefined;
+/**
+ * Where the next render scrolls to instead of keeping the position: set by an update that opens another document
+ * (`newDocument`) or a heading in it (`fragment`). Kept until a render is not superseded by a newer one.
+ */
+let pendingScroll: { newDocument: boolean; fragment?: string } | undefined;
 
 // ---------------------------------------------------------------------------
 // Layout
@@ -365,11 +372,15 @@ async function update(html: string): Promise<void> {
     return;
   }
 
-  const scrollY = window.scrollY;
-  const colScroll = Array.from(root.querySelectorAll('.seqnotes-seq-col'), (col) => col.scrollTop);
-  const pinnedState = pinned && { diagram: pinned.pair.getAttribute('data-diagram'), target: pinned.target };
+  const scroll = pendingScroll;
+  pendingScroll = undefined;
+  // The state of the previous document does not apply to another one.
+  const keep = !scroll?.newDocument;
+  const scrollY = keep ? window.scrollY : 0;
+  const colScroll = keep ? Array.from(root.querySelectorAll('.seqnotes-seq-col'), (col) => col.scrollTop) : [];
+  const pinnedState = keep && pinned && { diagram: pinned.pair.getAttribute('data-diagram'), target: pinned.target };
   // The folded metadata of the header stays open while the document is edited.
-  const metadataOpen = root.querySelector<HTMLDetailsElement>('.seqnotes-doc-more')?.open === true;
+  const metadataOpen = keep && root.querySelector<HTMLDetailsElement>('.seqnotes-doc-more')?.open === true;
 
   // Its reference is replaced.
   footnotePopup.hide();
@@ -394,6 +405,9 @@ async function update(html: string): Promise<void> {
   window.scrollTo(0, scrollY);
   root.querySelectorAll('.seqnotes-seq-col').forEach((col, i) => (col.scrollTop = colScroll[i] ?? 0));
   buildToc();
+  if (scroll?.fragment) {
+    scrollToFragment(`#${scroll.fragment}`);
+  }
 
   const pair = pinnedState && root.querySelector(`.seqnotes-pair[data-diagram="${pinnedState.diagram}"]`);
   pinned = pair && pair.querySelector(`[data-seqnotes-section="${CSS.escape(pinnedState.target)}"]`) ? { pair, target: pinnedState.target } : undefined;
@@ -1118,6 +1132,10 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       document.body.classList.toggle('seqnotes-limit-width', message.limitContentWidth);
       document.body.classList.toggle('seqnotes-sticky-table-header', message.stickyTableHeader);
       vscode.setState({ ...vscode.getState(), uri: message.uri });
+      if ((currentUri !== undefined && message.uri !== currentUri) || message.fragment) {
+        pendingScroll = { newDocument: pendingScroll?.newDocument === true || message.uri !== currentUri, fragment: message.fragment };
+      }
+      currentUri = message.uri;
       applyLayout();
       void update(message.html);
       break;

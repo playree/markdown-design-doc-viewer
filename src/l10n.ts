@@ -9,3 +9,8 @@ export type Translate = (message: string, ...args: (string | number)[]) => strin
 /** Default `Translate` that keeps the English text and only fills in the arguments. */
 export const formatMessage: Translate = (message, ...args) =>
   message.replace(/\{(\d+)\}/g, (match, index: string) => (Number(index) < args.length ? String(args[Number(index)]) : match));
+
+/** `Translate` with the translations of a bundle (l10n/bundle.l10n.<lang>.json), keeping the English text of the others. */
+export function translatorFor(messages: Record<string, string>): Translate {
+  return (message, ...args) => formatMessage(messages[message] ?? message, ...args);
+}

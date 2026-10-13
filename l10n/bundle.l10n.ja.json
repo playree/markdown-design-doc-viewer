@@ -57,5 +57,18 @@
   "Other metadata ({0})": "その他のメタ情報（{0}）",
   "Design Docs": "設計書一覧",
   "Title": "タイトル",
-  "File": "ファイル"
+  "File": "ファイル",
+  "Could not open {0}.": "{0} を開けませんでした。",
+  "&File": "ファイル(&F)",
+  "&Open...": "開く(&O)...",
+  "&Reload": "再読み込み(&R)",
+  "E&xit": "終了(&X)",
+  "&Edit": "編集(&E)",
+  "&View": "表示(&V)",
+  "&Theme": "テーマ(&T)",
+  "Follow the System": "システムに合わせる",
+  "Light": "ライト",
+  "Dark": "ダーク",
+  "Open a Markdown file, or drop one here.": "Markdown ファイルを開くか、ここにドロップしてください。",
+  "Open File...": "ファイルを開く..."
 }

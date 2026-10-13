@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The preview is also a desktop app for Windows, macOS and Linux, to read design documents without VS Code: the installers are attached to each [release](https://github.com/playree/markdown-design-doc-viewer/releases/latest). It opens a Markdown file from its menu, by drag and drop or from the command line, shows it like the extension's preview, and updates it when the file is saved. Links to other Markdown files open in the app, and web links in the browser. The installers are not signed yet; see [the desktop app's guide](docs/desktop.md) for the warnings of the system on the first launch.
+
 ## 1.0.0
 
 - The [authoring guide for AI assistants](docs/ai-authoring-guide.md) and the usage of the command line are packaged as an Agent Skill, attached to each release: [markdown-design-doc-skill.zip](https://github.com/playree/markdown-design-doc-viewer/releases/latest/download/markdown-design-doc-skill.zip). Upload it to Claude, or unzip it into the skills folder of Claude Code or another assistant, and it is used when the assistant is asked to write a design document, in English or in Japanese.

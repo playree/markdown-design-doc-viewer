@@ -7,7 +7,11 @@ export type DiagramLook = 'neo' | 'classic';
 export type PreviewTheme = 'auto' | 'light' | 'dark';
 
 export type ToWebview =
-  | { type: 'update'; uri: string; html: string; splitMinWidth: number; syncEditor: boolean; toc: boolean; diagramLook: DiagramLook; theme: PreviewTheme; limitContentWidth: boolean; stickyTableHeader: boolean }
+  /**
+   * Render this document. With another `uri` than the previous update (another document opened in the same
+   * window, by the desktop app), the preview starts at the top, or at `fragment` (the id of a heading) when given.
+   */
+  | { type: 'update'; uri: string; html: string; splitMinWidth: number; syncEditor: boolean; toc: boolean; diagramLook: DiagramLook; theme: PreviewTheme; limitContentWidth: boolean; stickyTableHeader: boolean; fragment?: string }
   /** Editor scrolled: align the preview so that this line is at the top. */
   | { type: 'scrollToLine'; line: number }
   /** Editor cursor moved: mark the element for this line. */

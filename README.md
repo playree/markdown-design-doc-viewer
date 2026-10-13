@@ -167,6 +167,12 @@ The guide is also packaged with the usage of the [command line](#command-line-ci
 
 The guide also tells the assistant to read the diagnostics of the file. Agents that can read VS Code diagnostics (for example Copilot agent mode, or Claude Code connected to VS Code) can then find and fix arrows and headings that are not linked.
 
+## Desktop app
+
+The preview also comes as a desktop app for Windows, macOS and Linux, to read design documents without VS Code. It shows a document like the preview of the extension, and updates it when the file is saved. Download the installer from the [latest release](https://github.com/playree/markdown-design-doc-viewer/releases/latest).
+
+The installers are not signed yet. See [the desktop app's guide](docs/desktop.md) for the warnings of the system on the first launch, and its usage.
+
 ## Command line (CI)
 
 The HTML export also runs from the command line, to convert documents in CI or in a batch, without VS Code. It writes the same HTML file as the `Export Design Doc as HTML` command, with the diagrams rendered by the preview in headless Chrome. It needs Node.js 22 or later, and Chrome or Chromium.
