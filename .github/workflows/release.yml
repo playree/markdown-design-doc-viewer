@@ -3,7 +3,7 @@ name: Release
 # GitHub Release（タグ vX.Y.Z）を公開したら、CLI の npm パッケージを公開し、AI 向けの Agent Skill の zip を Release に添付する。
 # npm の Trusted Publishing（OIDC）で公開するので npm のトークンは使わない（provenance も自動で付く）。
 # npmjs.com のパッケージ設定に Trusted Publisher としてこのファイル名（release.yml）を登録してあるので、改名しないこと。
-# VS Code Marketplace への公開（pnpm run vsce:publish）は手動で行う。
+# VS Code Marketplace へは、タグから作った .vsix を Marketplace の管理画面からアップロードして公開する（Trusted Publishing に対応したらここに移す）。
 
 on:
   release:

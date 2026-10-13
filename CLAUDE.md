@@ -51,7 +51,9 @@ package.json は拡張機能のもので、npm パッケージ（CLI 用）は�
    - そのバージョンが npm にすでにあれば公開を飛ばす。
    - 続けて Agent Skill の zip（`markdown-design-doc-skill.zip`）を Release に添付する。README は `releases/latest/download/` の固定 URL でリンクしているので、ファイル名を変えない。
    - 同じ Release で [.github/workflows/pages.yml](.github/workflows/pages.yml) が examples/screenshot.md（英語、`/`）と screenshot.ja.md（日本語、`/ja/`）を CLI でエクスポートし、GitHub Pages（https://playree.github.io/markdown-design-doc-viewer/）にサンプルとして公開する。プレリリースでは更新しない。main からの手動実行（workflow_dispatch）でも更新できる。Pages の Source は「GitHub Actions」で、環境 `github-pages` に main とタグ `v*` からのデプロイを許可してある。
-3. Marketplace には、タグを checkout した変更のない作業ツリーから `pnpm run vsce:publish` で公開する（npm と同じコミットにするため）。
+3. Marketplace には、Marketplace の管理画面（https://marketplace.visualstudio.com/manage/publishers/playree ）から .vsix をアップロードして公開する（`vsce publish` と PAT は使わない）。
+   - .vsix は、タグを checkout した変更のない作業ツリーで `pnpm package` を実行して作る（npm と同じコミットにするため。例: `git worktree add --detach .work/release vX.Y.Z` → `pnpm install --frozen-lockfile` → `pnpm package`）。
+   - Marketplace が Trusted Publishing（`vsce publish --oidc`）に対応したら、release.yml に公開のジョブを足して CI から公開するように切り替える。
 
 npm の Trusted Publisher は npmjs.com のパッケージ設定に登録する（GitHub Actions、`playree/markdown-design-doc-viewer`、ワークフロー `release.yml`）。パッケージが npm にないと登録できないので、初回だけは手元から公開してから登録した（手元から公開するときは `pnpm npm:package` → `npm publish .work/npm`）。ワークフローのファイル名を変えると公開できなくなるので、変えるなら登録も直す。
 
