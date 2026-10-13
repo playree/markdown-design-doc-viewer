@@ -11,7 +11,7 @@ on:
       release:
         description: 公開するインストーラを作る（キャッシュを使わず、clippy とライセンスの検査を行わない）
         type: boolean
-        default: false
+        required: true
 
 permissions:
   contents: read
@@ -78,12 +78,10 @@ jobs:
       - if: ${{ !inputs.release }}
         run: pnpm desktop:build
 
-      - if: ${{ !inputs.release }}
-        shell: bash
+      # macOS は Apple シリコンのランナー（ホスト）で 1 回だけ行う（Intel 用を足しても同じ cfg なので見つかるものは変わらない）
+      - if: ${{ !inputs.release && matrix.name != 'macos-x64' }}
         working-directory: desktop/src-tauri
-        env:
-          TARGET: ${{ matrix.target }}
-        run: cargo clippy --all-targets --locked ${TARGET:+--target "$TARGET"} -- -D warnings
+        run: cargo clippy --all-targets --locked -- -D warnings
 
       # インストーラに入れる Rust のクレートのライセンス（ThirdPartyLicenses.txt）が Cargo.lock と合っていること
       - if: ${{ !inputs.release && runner.os == 'Linux' }}
