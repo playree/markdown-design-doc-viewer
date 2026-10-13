@@ -70,7 +70,7 @@ npm の Trusted Publisher は npmjs.com のパッケージ設定に登録する�
 1. desktop/src-tauri/tauri.conf.json の `version` を上げ、[desktop/CHANGELOG.md](desktop/CHANGELOG.md) の `Unreleased` をそのバージョンにして、PR で main に入れる（Cargo.toml の version は使わないので 0.0.0 のまま）。Release を作る前に、main で desktop.yml を手動実行して、3 つの OS でビルドできることを確かめる。
 2. main から GitHub Release（タグ `desktop-vX.Y.Z`、タイトルは「Desktop app X.Y.Z」）を作る。「Set as latest release」は外す（README などは `releases/latest` で拡張の Release を指し、Agent Skill の zip もそこからダウンロードさせているため）。[.github/workflows/desktop-release.yml](.github/workflows/desktop-release.yml) が次を行う。release.yml・pages.yml はこのタグでは動かない。
    - タグのコミットが main にあること、タグと tauri.conf.json の `version` が一致することを確かめる。
-   - その Release が Latest になっていたら、拡張の最新の Release（タグ `v*`、プレリリースを除く）を Latest に戻す。
+   - その Release が Latest になっていたら、拡張の Release（タグ `vX.Y.Z`、プレリリースを除く）のうちバージョンが最も大きいものを Latest に戻す（上の確認が失敗しても行う）。
    - インストーラ（Windows の .msi と NSIS の .exe、macOS の Apple シリコン用と Intel 用の .dmg、Linux の .deb・.rpm・.AppImage）を `tauri-apps/tauri-action` で Release に添付する。署名はまだしていない。MSI は英字を含むプレリリースのバージョン（`-rc.1` など）を作れないので、そのときの Windows は NSIS だけにする（desktop.yml も同じ）。
 
 README・docs/desktop.md はデスクトップの Release の一覧（`releases?q=desktop-v`）にリンクしている。タグの形を変えるならリンクも直す。
@@ -111,5 +111,5 @@ vitest のテストは VS Code API を使わない純粋なモジュール（`se
 - `contributes` の文字列は `package.nls.json` / `package.nls.ja.json` にある。両方を更新すること。
 - プレビューや通知に出す文言は英語の原文を `vscode.l10n.t`（`render.ts` / `linker.ts` では引数の `Translate`、[src/l10n.ts](src/l10n.ts)）に通し、日本語訳を `l10n/bundle.l10n.ja.json` に追加すること。webview 側の文言は拡張ホストで翻訳して HTML の data 属性で渡す。
 - `.vscodeignore` はホワイトリスト方式。実行時に必要なファイルを増やしたら追記すること。
-- 利用者に見える変更は [CHANGELOG.md](CHANGELOG.md) に書く。
+- 利用者に見える変更は [CHANGELOG.md](CHANGELOG.md) に書く。デスクトップアプリだけの変更は [desktop/CHANGELOG.md](desktop/CHANGELOG.md) に書く（拡張とデスクトップアプリの両方に効く変更は両方に書く）。
 - PR は CodeRabbit が日本語でレビューする（`.coderabbit.yaml`）。

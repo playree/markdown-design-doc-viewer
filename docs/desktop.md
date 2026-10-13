@@ -8,7 +8,7 @@ The app is a viewer: edit the documents in your editor, and the app shows them a
 
 ## Install
 
-Download the installer of your system from the latest of the [releases of the desktop app](https://github.com/playree/markdown-design-doc-viewer/releases?q=desktop-v&expanded=true) (tagged `desktop-vX.Y.Z`):
+Download the installer of your system from the newest of the [releases of the desktop app](https://github.com/playree/markdown-design-doc-viewer/releases?q=desktop-v&expanded=true) (tagged `desktop-vX.Y.Z`; the ones marked Pre-release are release candidates):
 
 | System | File |
 | --- | --- |

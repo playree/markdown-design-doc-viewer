@@ -14,7 +14,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}
+  # 拡張・CLI の Release（タグ v*）とデスクトップアプリの Release（タグ desktop-v*）はどちらもこのワークフローを起動するので、
+  # 何もしない側の実行が待っている実行を取り消さないよう、グループを分ける
+  group: ${{ github.workflow }}-${{ startsWith(github.event.release.tag_name, 'desktop-v') && 'desktop' || 'extension' }}
   cancel-in-progress: false
 
 jobs:
