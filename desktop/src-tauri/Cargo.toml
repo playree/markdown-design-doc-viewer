@@ -1,6 +1,6 @@
 [package]
 name = "markdown-design-doc-viewer"
-# The version of the app is that of package.json (tauri.conf.json); this one is not used.
+# The version of the app is the one in tauri.conf.json (apart from the extension's package.json); this one is not used.
 version = "0.0.0"
 description = "Markdown Design Doc Viewer"
 authors = ["playree"]

@@ -2,7 +2,7 @@ name: Pages
 
 # GitHub Release（タグ vX.Y.Z）を公開したら、examples/screenshot.md と screenshot.ja.md を CLI で HTML にエクスポートし、
 # GitHub Pages にサンプルとして公開する（英語版を /、日本語版を /ja/ に）。npm に出したバージョンと見た目を揃えるため、リリースのタグから作る。
-# プレリリース（npm の dist-tag next）では更新しない。手動実行（main から）でも更新できる。
+# プレリリース（npm の dist-tag next）とデスクトップアプリの Release（タグ desktop-vX.Y.Z）では更新しない。手動実行（main から）でも更新できる。
 # リポジトリの Settings → Pages の Source を「GitHub Actions」にし、環境 github-pages に main とタグ v* からのデプロイを許可しておくこと。
 
 on:
@@ -14,12 +14,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}
+  # 拡張・CLI の Release（タグ v*）とデスクトップアプリの Release（タグ desktop-v*）はどちらもこのワークフローを起動するので、
+  # 何もしない側の実行が待っている実行を取り消さないよう、グループを分ける
+  group: ${{ github.workflow }}-${{ startsWith(github.event.release.tag_name, 'desktop-v') && 'desktop' || 'extension' }}
   cancel-in-progress: false
 
 jobs:
   build:
-    if: github.event_name != 'release' || !github.event.release.prerelease
+    if: github.event_name != 'release' || (!github.event.release.prerelease && startsWith(github.event.release.tag_name, 'v'))
     runs-on: ubuntu-latest
     steps:
       # 手動実行は main からだけ（環境 github-pages の設定に頼らず、ここでも止める）

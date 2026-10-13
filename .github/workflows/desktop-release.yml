@@ -1,0 +1,165 @@
+name: Desktop release
+
+# デスクトップアプリ（desktop/、Tauri 2）は拡張・CLI とは別のバージョン（tauri.conf.json の version）・別の Release で出す。
+# GitHub Release（タグ desktop-vX.Y.Z）を公開したら、インストーラを各 OS でビルドし、その Release に添付する（署名なし）。
+# 拡張・CLI の Release（タグ vX.Y.Z）は release.yml が扱う。
+# README などは releases/latest（Agent Skill の zip の固定 URL も）で拡張の Release を指すので、デスクトップの Release は Latest にしない。
+# Latest にして公開されたときは、拡張の最新の Release を Latest に戻す。
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  # 拡張・CLI の Release（タグ v*）とデスクトップアプリの Release（タグ desktop-v*）はどちらもこのワークフローを起動するので、
+  # 何もしない側の実行が待っている実行を取り消さないよう、グループを分ける
+  group: ${{ github.workflow }}-${{ startsWith(github.event.release.tag_name, 'desktop-v') && 'desktop' || 'extension' }}
+  cancel-in-progress: false
+
+jobs:
+  # タグのコミットが main にあり、タグと tauri.conf.json の version が一致することを確かめる
+  verify:
+    if: startsWith(github.event.release.tag_name, 'desktop-v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # タグのコミットが main に入っているかを確かめるため
+          fetch-depth: 0
+          persist-credentials: false
+
+      - env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::The release tag $TAG is not on main."
+            exit 1
+          fi
+          version=$(node -p 'require("./desktop/src-tauri/tauri.conf.json").version')
+          if [ "$TAG" != "desktop-v$version" ]; then
+            echo "::error::The release tag $TAG does not match the version in desktop/src-tauri/tauri.conf.json (desktop-v$version)."
+            exit 1
+          fi
+
+  # デスクトップの Release が Latest になっていたら、拡張の Release（タグ v*、プレリリースを除く）のうちバージョンが最も大きいものを Latest に戻す。
+  # verify が失敗しても戻すよう、別のジョブにする（インストーラのビルドはこのジョブを待たない）。
+  # Release の Latest を変えるので contents: write にする（checkout も依存のインストールもしない）
+  latest:
+    if: startsWith(github.event.release.tag_name, 'desktop-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
+          if [[ "$latest" != desktop-v* ]]; then
+            exit 0
+          fi
+          extension=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases --limit 100 --json tagName \
+            --jq '[.[] | select(.tagName | test("^v[0-9]+[.][0-9]+[.][0-9]+$"))] | sort_by(.tagName | ltrimstr("v") | split(".") | map(tonumber)) | last | .tagName // empty')
+          if [ -z "$extension" ]; then
+            echo "::warning::The desktop app's release $latest is the latest release, and there is no release of the extension to make the latest instead."
+            exit 0
+          fi
+          gh release edit "$extension" --latest --repo "$GITHUB_REPOSITORY"
+          echo "::notice::$latest was the latest release: $extension is made the latest again (releases/latest is for the extension)."
+
+  # インストーラを各 OS でビルドし、成果物としてアップロードする。プレリリースでも作る。
+  # ビルドは依存のコード（pnpm の依存・Rust のビルドスクリプト）を実行するので、Release に書き込めるトークンを渡さない（contents: read）。
+  # Release への添付は upload ジョブで行う
+  desktop:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            name: macos-aarch64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            name: macos-x64
+          - os: ubuntu-22.04
+            target: ''
+            name: linux
+          - os: windows-latest
+            target: ''
+            name: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential file libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf
+
+      # pnpm のバージョンは package.json の packageManager から読む。
+      # 公開するインストーラを作るので、サードパーティのアクションはコミットで固定する
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      # 公開するインストーラを作るので、ほかのワークフローが書いたキャッシュは使わない（自動のキャッシュも切る）
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - run: rustup update stable && rustup default stable
+
+      - if: matrix.target != ''
+        run: rustup target add ${{ matrix.target }}
+
+      - run: pnpm install --frozen-lockfile
+
+      # tauri build（beforeBuildCommand で pnpm desktop:build）。--target を付けると target/<ターゲット>/release/bundle/ に出力される。
+      # MSI（WiX）は 0.2.0-rc.1 のような英字を含むプレリリースのバージョンを作れないので、そのときの Windows は NSIS（setup.exe）だけにする
+      - shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          args=()
+          if [ -n "$TARGET" ]; then args+=(--target "$TARGET"); fi
+          if [ "$RUNNER_OS" = Windows ] && [[ "$(node -p 'require("./desktop/src-tauri/tauri.conf.json").version')" == *-* ]]; then args+=(--bundles nsis); fi
+          pnpm desktop:bundle "${args[@]}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: desktop-${{ matrix.name }}
+          path: |
+            desktop/src-tauri/target/**/release/bundle/msi/*.msi
+            desktop/src-tauri/target/**/release/bundle/nsis/*.exe
+            desktop/src-tauri/target/**/release/bundle/dmg/*.dmg
+            desktop/src-tauri/target/**/release/bundle/deb/*.deb
+            desktop/src-tauri/target/**/release/bundle/rpm/*.rpm
+            desktop/src-tauri/target/**/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
+
+  # desktop ジョブのインストーラを Release に添付する。Release に書き込むので contents: write にし、
+  # checkout も依存のインストールもしない（ファイル名の空白は GitHub がアップロード時に . に置き換える）
+  upload:
+    needs: desktop
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      # このワークフロー実行の成果物を gh run download で取得するため
+      actions: read
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --pattern 'desktop-*' --dir "$RUNNER_TEMP/installers"
+          mapfile -d '' files < <(find "$RUNNER_TEMP/installers" -type f \( -name '*.msi' -o -name '*.exe' -o -name '*.dmg' -o -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \) -print0)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::No installers were built."
+            exit 1
+          fi
+          printf '%s\n' "${files[@]}"
+          gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"

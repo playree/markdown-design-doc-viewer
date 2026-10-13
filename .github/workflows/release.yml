@@ -1,6 +1,7 @@
 name: Release
 
-# GitHub Release（タグ vX.Y.Z）を公開したら、CLI の npm パッケージを公開し、AI 向けの Agent Skill の zip とデスクトップアプリのインストーラを Release に添付する。
+# GitHub Release（タグ vX.Y.Z）を公開したら、CLI の npm パッケージを公開し、AI 向けの Agent Skill の zip を Release に添付する。
+# デスクトップアプリは別のバージョン・別の Release（タグ desktop-vX.Y.Z）で出す（desktop-release.yml）。そのタグでは何もしない。
 # npm の Trusted Publishing（OIDC）で公開するので npm のトークンは使わない（provenance も自動で付く）。
 # npmjs.com のパッケージ設定に Trusted Publisher としてこのファイル名（release.yml）を登録してあるので、改名しないこと。
 # VS Code Marketplace へは、タグから作った .vsix を Marketplace の管理画面からアップロードして公開する（Trusted Publishing に対応したらここに移す）。
@@ -13,11 +14,15 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}
+  # 拡張・CLI の Release（タグ v*）とデスクトップアプリの Release（タグ desktop-v*）はどちらもこのワークフローを起動するので、
+  # 何もしない側の実行が待っている実行を取り消さないよう、グループを分ける
+  group: ${{ github.workflow }}-${{ startsWith(github.event.release.tag_name, 'desktop-v') && 'desktop' || 'extension' }}
   cancel-in-progress: false
 
 jobs:
   npm:
+    # skill ジョブは needs: npm なので、ここで飛ばせば一緒に飛ぶ
+    if: startsWith(github.event.release.tag_name, 'v')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -135,70 +140,3 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}
         run: gh release upload "$TAG" .work/skill/markdown-design-doc-skill.zip --clobber --repo "$GITHUB_REPOSITORY"
-
-  # デスクトップアプリ（desktop/、Tauri 2）のインストーラを各 OS でビルドし、Release に添付する（署名なし）。
-  # npm ジョブの検証（タグが main にあり version と一致する）を通ってから行う。プレリリースでも添付する。
-  # Release に書き込むので、このジョブだけ contents: write にする
-  desktop:
-    needs: npm
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-latest
-            target: aarch64-apple-darwin
-          - os: macos-latest
-            target: x86_64-apple-darwin
-          - os: ubuntu-22.04
-            target: ''
-          - os: windows-latest
-            target: ''
-    runs-on: ${{ matrix.os }}
-    permissions:
-      contents: write
-    steps:
-      # 書き込みのトークンを pnpm install（依存のスクリプト）から読めないよう、checkout に残さない。アップロードには GITHUB_TOKEN を渡す
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential file libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf
-
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
-
-      # contents: write のジョブなので、ほかのワークフローが書いたキャッシュは使わない（自動のキャッシュも切る）
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          package-manager-cache: false
-
-      - run: rustup update stable && rustup default stable
-
-      - if: matrix.target != ''
-        run: rustup target add ${{ matrix.target }}
-
-      - run: pnpm install --frozen-lockfile
-
-      # MSI（WiX）は 1.1.0-rc.1 のような英字を含むプレリリースのバージョンを作れないので、そのときの Windows は NSIS（setup.exe）だけにする
-      - id: args
-        shell: bash
-        env:
-          TARGET: ${{ matrix.target }}
-        run: |
-          args=""
-          if [ -n "$TARGET" ]; then args="--target $TARGET"; fi
-          if [ "$RUNNER_OS" = Windows ] && [[ "$(node -p 'require("./package.json").version')" == *-* ]]; then args="$args --bundles nsis"; fi
-          echo "args=$args" >> "$GITHUB_OUTPUT"
-
-      # tauri build（beforeBuildCommand で pnpm desktop:build）を実行し、インストーラをこの Release に添付する。
-      # Release への書き込みがあるので、サードパーティのアクションはコミットで固定する
-      - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          releaseId: ${{ github.event.release.id }}
-          tauriScript: pnpm tauri
-          args: ${{ steps.args.outputs.args }}

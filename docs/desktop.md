@@ -8,7 +8,7 @@ The app is a viewer: edit the documents in your editor, and the app shows them a
 
 ## Install
 
-Download the installer of your system from the [latest release](https://github.com/playree/markdown-design-doc-viewer/releases/latest):
+Download the installer of your system from the newest of the [releases of the desktop app](https://github.com/playree/markdown-design-doc-viewer/releases?q=desktop-v&expanded=true) (tagged `desktop-vX.Y.Z`; the ones marked Pre-release are release candidates):
 
 | System | File |
 | --- | --- |
@@ -17,7 +17,7 @@ Download the installer of your system from the [latest release](https://github.c
 | macOS (Intel) | `Markdown.Design.Doc.Viewer_<version>_x64.dmg` |
 | Linux | `.deb` (Debian, Ubuntu), `.rpm` (Fedora…) or `.AppImage` |
 
-The app has the same version as the extension and the command line.
+The app has its own version, apart from the extension and the command line. Its changes are in [its changelog](../desktop/CHANGELOG.md).
 
 ### Warnings of unsigned apps
 

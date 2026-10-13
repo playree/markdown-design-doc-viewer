@@ -64,10 +64,11 @@ jobs:
           pnpm desktop:licenses
           git diff --exit-code -- desktop/src-tauri/ThirdPartyLicenses.txt || { echo "::error::desktop/src-tauri/ThirdPartyLicenses.txt is out of date: run pnpm desktop:licenses."; exit 1; }
 
-      # MSI（WiX）は 1.1.0-rc.1 のような英字を含むプレリリースのバージョンを作れないので、そのときの Windows は NSIS（setup.exe）だけにする
+      # MSI（WiX）は 1.1.0-rc.1 のような英字を含むプレリリースのバージョンを作れないので、そのときの Windows は NSIS（setup.exe）だけにする。
+      # アプリのバージョンは拡張の package.json ではなく tauri.conf.json のもの
       - shell: bash
         run: |
-          if [ "$RUNNER_OS" = Windows ] && [[ "$(node -p 'require("./package.json").version')" == *-* ]]; then
+          if [ "$RUNNER_OS" = Windows ] && [[ "$(node -p 'require("./desktop/src-tauri/tauri.conf.json").version')" == *-* ]]; then
             pnpm desktop:bundle --bundles nsis
           else
             pnpm desktop:bundle
