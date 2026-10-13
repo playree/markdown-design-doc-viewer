@@ -69,8 +69,9 @@ jobs:
           gh release edit "$extension" --latest --repo "$GITHUB_REPOSITORY"
           echo "::notice::$latest was the latest release: $extension is made the latest again (releases/latest is for the extension)."
 
-  # インストーラを各 OS でビルドし、Release に添付する。プレリリースでも添付する。
-  # Release に書き込むので、このジョブは contents: write にする
+  # インストーラを各 OS でビルドし、成果物としてアップロードする。プレリリースでも作る。
+  # ビルドは依存のコード（pnpm の依存・Rust のビルドスクリプト）を実行するので、Release に書き込めるトークンを渡さない（contents: read）。
+  # Release への添付は upload ジョブで行う
   desktop:
     needs: verify
     strategy:
@@ -79,17 +80,18 @@ jobs:
         include:
           - os: macos-latest
             target: aarch64-apple-darwin
+            name: macos-aarch64
           - os: macos-latest
             target: x86_64-apple-darwin
+            name: macos-x64
           - os: ubuntu-22.04
             target: ''
+            name: linux
           - os: windows-latest
             target: ''
+            name: windows
     runs-on: ${{ matrix.os }}
-    permissions:
-      contents: write
     steps:
-      # 書き込みのトークンを pnpm install（依存のスクリプト）から読めないよう、checkout に残さない。アップロードには GITHUB_TOKEN を渡す
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -100,10 +102,10 @@ jobs:
           sudo apt-get install -y build-essential file libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf
 
       # pnpm のバージョンは package.json の packageManager から読む。
-      # このジョブは Release に書き込めるので、サードパーティのアクションはコミットで固定する
+      # 公開するインストーラを作るので、サードパーティのアクションはコミットで固定する
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
 
-      # contents: write のジョブなので、ほかのワークフローが書いたキャッシュは使わない（自動のキャッシュも切る）
+      # 公開するインストーラを作るので、ほかのワークフローが書いたキャッシュは使わない（自動のキャッシュも切る）
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -116,22 +118,48 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # tauri build（beforeBuildCommand で pnpm desktop:build）。--target を付けると target/<ターゲット>/release/bundle/ に出力される。
       # MSI（WiX）は 0.2.0-rc.1 のような英字を含むプレリリースのバージョンを作れないので、そのときの Windows は NSIS（setup.exe）だけにする
-      - id: args
-        shell: bash
+      - shell: bash
         env:
           TARGET: ${{ matrix.target }}
         run: |
-          args=""
-          if [ -n "$TARGET" ]; then args="--target $TARGET"; fi
-          if [ "$RUNNER_OS" = Windows ] && [[ "$(node -p 'require("./desktop/src-tauri/tauri.conf.json").version')" == *-* ]]; then args="$args --bundles nsis"; fi
-          echo "args=$args" >> "$GITHUB_OUTPUT"
+          args=()
+          if [ -n "$TARGET" ]; then args+=(--target "$TARGET"); fi
+          if [ "$RUNNER_OS" = Windows ] && [[ "$(node -p 'require("./desktop/src-tauri/tauri.conf.json").version')" == *-* ]]; then args+=(--bundles nsis); fi
+          pnpm desktop:bundle "${args[@]}"
 
-      # tauri build（beforeBuildCommand で pnpm desktop:build）を実行し、インストーラをこの Release に添付する
-      - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+      - uses: actions/upload-artifact@v7
         with:
-          releaseId: ${{ github.event.release.id }}
-          tauriScript: pnpm tauri
-          args: ${{ steps.args.outputs.args }}
+          name: desktop-${{ matrix.name }}
+          path: |
+            desktop/src-tauri/target/**/release/bundle/msi/*.msi
+            desktop/src-tauri/target/**/release/bundle/nsis/*.exe
+            desktop/src-tauri/target/**/release/bundle/dmg/*.dmg
+            desktop/src-tauri/target/**/release/bundle/deb/*.deb
+            desktop/src-tauri/target/**/release/bundle/rpm/*.rpm
+            desktop/src-tauri/target/**/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
+
+  # desktop ジョブのインストーラを Release に添付する。Release に書き込むので contents: write にし、
+  # checkout も依存のインストールもしない（ファイル名の空白は GitHub がアップロード時に . に置き換える）
+  upload:
+    needs: desktop
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      # このワークフロー実行の成果物を gh run download で取得するため
+      actions: read
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --pattern 'desktop-*' --dir "$RUNNER_TEMP/installers"
+          mapfile -d '' files < <(find "$RUNNER_TEMP/installers" -type f \( -name '*.msi' -o -name '*.exe' -o -name '*.dmg' -o -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \) -print0)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::No installers were built."
+            exit 1
+          fi
+          printf '%s\n' "${files[@]}"
+          gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"

@@ -71,7 +71,7 @@ npm の Trusted Publisher は npmjs.com のパッケージ設定に登録する�
 2. main から GitHub Release（タグ `desktop-vX.Y.Z`、タイトルは「Desktop app X.Y.Z」）を作る。「Set as latest release」は外す（README などは `releases/latest` で拡張の Release を指し、Agent Skill の zip もそこからダウンロードさせているため）。[.github/workflows/desktop-release.yml](.github/workflows/desktop-release.yml) が次を行う。release.yml・pages.yml はこのタグでは動かない。
    - タグのコミットが main にあること、タグと tauri.conf.json の `version` が一致することを確かめる。
    - その Release が Latest になっていたら、拡張の Release（タグ `vX.Y.Z`、プレリリースを除く）のうちバージョンが最も大きいものを Latest に戻す（上の確認が失敗しても行う）。
-   - インストーラ（Windows の .msi と NSIS の .exe、macOS の Apple シリコン用と Intel 用の .dmg、Linux の .deb・.rpm・.AppImage）を `tauri-apps/tauri-action` で Release に添付する。署名はまだしていない。MSI は英字を含むプレリリースのバージョン（`-rc.1` など）を作れないので、そのときの Windows は NSIS だけにする（desktop.yml も同じ）。
+   - インストーラ（Windows の .msi と NSIS の .exe、macOS の Apple シリコン用と Intel 用の .dmg、Linux の .deb・.rpm・.AppImage）を各 OS でビルドし、Release に添付する。署名はまだしていない。ビルドは依存のコードを実行するので読み取りの権限だけで行い、成果物を受け取った別のジョブ（`upload`、checkout も依存のインストールもしない）が書き込みの権限で添付する。MSI は英字を含むプレリリースのバージョン（`-rc.1` など）を作れないので、そのときの Windows は NSIS だけにする（desktop.yml も同じ）。
 
 README・docs/desktop.md はデスクトップの Release の一覧（`releases?q=desktop-v`）にリンクしている。タグの形を変えるならリンクも直す。
 

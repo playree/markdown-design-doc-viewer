@@ -1,6 +1,6 @@
 # Changelog
 
-The changes of the extension and the command line. The desktop app has its own version and [changelog](desktop/CHANGELOG.md).
+This changelog covers the extension and the command line. The desktop app has its own version and [changelog](desktop/CHANGELOG.md).
 
 ## Unreleased
 
