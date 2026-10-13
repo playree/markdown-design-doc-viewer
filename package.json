@@ -237,6 +237,7 @@
     "desktop:build": "node esbuild.mjs --desktop --production",
     "desktop:dev": "tauri dev",
     "desktop:bundle": "tauri build",
+    "notices": "node scripts/third-party-notices.mjs",
     "desktop:licenses": "cargo about generate --locked --manifest-path desktop/src-tauri/Cargo.toml -o desktop/src-tauri/ThirdPartyLicenses.txt desktop/src-tauri/about.hbs",
     "tauri": "tauri",
     "prepack": "node esbuild.mjs --production",

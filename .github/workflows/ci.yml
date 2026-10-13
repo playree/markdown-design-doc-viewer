@@ -29,6 +29,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # vsix・npm パッケージ・インストーラに入れる、バンドルした npm パッケージのライセンス（ThirdPartyNotices.txt）が依存と合っていること
+      - run: |
+          pnpm notices
+          git diff --exit-code -- ThirdPartyNotices.txt || { echo "::error::ThirdPartyNotices.txt is out of date: run pnpm notices."; exit 1; }
+
       - run: pnpm typecheck
 
       # デスクトップアプリの Web 側（desktop/dist/）。Rust とインストーラのビルドは desktop.yml（手動実行）
