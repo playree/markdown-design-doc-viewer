@@ -11,31 +11,33 @@ function isWindowsPath(path: string): boolean {
   return WINDOWS_RE.test(path);
 }
 
-/**
- * The file a link or image path (decoded, without its query and fragment) of a document in `dir` points to:
- * relative to the document's folder, also with a leading `/` (the app has no workspace folder, as the extension has).
- * `..` does not go above the root.
- */
-export function resolveDocumentPath(dir: string, path: string): string {
+/** An absolute path: its root (`C:\`, `\\server\share\` or `/`), and the names of its folders and file below it. */
+interface ParsedPath {
+  windows: boolean;
+  root: string;
+  parts: string[];
+}
+
+/** Parses the absolute path `dir`, followed by `path` (relative to it). `..` does not go above the root. */
+function parsePath(dir: string, path = ''): ParsedPath {
   const windows = isWindowsPath(dir);
-  const sep = windows ? '\\' : '/';
   const split = (p: string) => p.split(windows ? /[\\/]/ : /\//);
   let root: string;
-  let rest: string;
+  let rest: string[];
   if (windows && dir.startsWith('\\\\')) {
     // \\server\share is the root of a UNC path.
     const [server = '', share = '', ...more] = dir.slice(2).split(/[\\/]/);
     root = `\\\\${server}\\${share}\\`;
-    rest = more.join(sep);
+    rest = more;
   } else if (windows) {
     root = `${dir.slice(0, 2)}\\`;
-    rest = dir.slice(3);
+    rest = split(dir.slice(3));
   } else {
     root = '/';
-    rest = dir.replace(/^\/+/, '');
+    rest = split(dir);
   }
   const parts: string[] = [];
-  for (const part of [...split(rest), ...split(path)]) {
+  for (const part of [...rest, ...split(path)]) {
     if (part === '' || part === '.') {
       continue;
     }
@@ -45,7 +47,50 @@ export function resolveDocumentPath(dir: string, path: string): string {
       parts.push(part);
     }
   }
-  return root + parts.join(sep);
+  return { windows, root, parts };
+}
+
+/**
+ * The file a link or image path (decoded, without its query and fragment) of a document in `dir` points to:
+ * relative to the document's folder, also with a leading `/` (the app has no workspace folder, as the extension has).
+ * `..` does not go above the root.
+ */
+export function resolveDocumentPath(dir: string, path: string): string {
+  const { windows, root, parts } = parsePath(dir, path);
+  return root + parts.join(windows ? '\\' : '/');
+}
+
+/** The `file:` URL of an absolute path. */
+export function fileUrl(path: string): string {
+  const { windows, root, parts } = parsePath(path);
+  const encoded = parts.map(encodeURIComponent).join('/');
+  if (!windows) {
+    return `file:///${encoded}`;
+  }
+  // file://server/share/… for \\server\share\…, file:///C:/… for C:\….
+  const host = root.startsWith('\\\\') ? root.slice(2, -1).split('\\').map(encodeURIComponent).join('/') : `/${root.slice(0, 2)}`;
+  return `file://${host}/${encoded}`;
+}
+
+/**
+ * A link from the file `from` (an exported HTML file) to the file `to`: relative to the folder of `from`, so that it
+ * works as long as both stay where they are, or a `file:` URL on another drive or share. As `linkFrom` of the export
+ * command (src/exportHtml.ts) and of the command line (src/cli.ts).
+ */
+export function relativeLink(from: string, to: string): string {
+  const source = parsePath(from);
+  const target = parsePath(to);
+  // Windows does not tell apart the case of the names.
+  const same = (a: string, b: string) => (source.windows ? a.toLowerCase() === b.toLowerCase() : a === b);
+  if (source.windows !== target.windows || !same(source.root, target.root)) {
+    return fileUrl(to);
+  }
+  const dir = source.parts.slice(0, -1);
+  let common = 0;
+  while (common < dir.length && common < target.parts.length && same(dir[common], target.parts[common])) {
+    common++;
+  }
+  return [...dir.slice(common).map(() => '..'), ...target.parts.slice(common).map(encodeURIComponent)].join('/');
 }
 
 /** true for a Markdown file, which the app opens itself instead of passing it to the system. */

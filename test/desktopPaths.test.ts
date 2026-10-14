@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { linkTarget, resolveDocumentPath, resourcePath } from '../desktop/paths';
+import { fileUrl, linkTarget, relativeLink, resolveDocumentPath, resourcePath } from '../desktop/paths';
 
 describe('resolveDocumentPath', () => {
   it('resolves a path relative to the folder of the document', () => {
@@ -57,5 +57,37 @@ describe('linkTarget', () => {
 
   it('opens other files with their default app', () => {
     expect(linkTarget('/docs', 'files/spec.pdf?download=1')).toEqual({ kind: 'file', path: '/docs/files/spec.pdf' });
+  });
+});
+
+describe('relativeLink', () => {
+  it('links relative to the folder of the exported file', () => {
+    expect(relativeLink('/home/me/docs/a.html', '/home/me/docs/images/a.png')).toBe('images/a.png');
+    expect(relativeLink('/home/me/out/a.html', '/home/me/docs/a.png')).toBe('../docs/a.png');
+    expect(relativeLink('/a.html', '/home/a.png')).toBe('home/a.png');
+  });
+
+  it('uses / and escapes the names', () => {
+    expect(relativeLink('D:\\work\\out\\a.html', 'D:\\work\\docs\\my images\\a#1.png')).toBe('../docs/my%20images/a%231.png');
+  });
+
+  it('compares the names of Windows without case', () => {
+    expect(relativeLink('C:\\Work\\Docs\\a.html', 'c:\\work\\docs\\images\\a.png')).toBe('images/a.png');
+    expect(relativeLink('/home/Me/a.html', '/home/me/a.png')).toBe('../me/a.png');
+  });
+
+  it('uses a file URL on another drive or share', () => {
+    expect(relativeLink('C:\\out\\a.html', 'D:\\docs\\a b.png')).toBe('file:///D:/docs/a%20b.png');
+    expect(relativeLink('C:\\out\\a.html', '\\\\server\\share\\docs\\a.png')).toBe('file://server/share/docs/a.png');
+    expect(relativeLink('\\\\server\\share\\out\\a.html', '\\\\server\\share\\docs\\a.png')).toBe('../docs/a.png');
+    expect(relativeLink('\\\\server\\one\\a.html', '\\\\server\\two\\a.png')).toBe('file://server/two/a.png');
+  });
+});
+
+describe('fileUrl', () => {
+  it('makes a file URL of a path', () => {
+    expect(fileUrl('/home/me/a b.png')).toBe('file:///home/me/a%20b.png');
+    expect(fileUrl('C:\\docs\\a.png')).toBe('file:///C:/docs/a.png');
+    expect(fileUrl('\\\\server\\share\\a.png')).toBe('file://server/share/a.png');
   });
 });

@@ -62,6 +62,7 @@
   "&File": "ファイル(&F)",
   "&Open...": "開く(&O)...",
   "&Reload": "再読み込み(&R)",
+  "&Export as HTML...": "HTML にエクスポート(&E)...",
   "&Close": "閉じる(&C)",
   "E&xit": "終了(&X)",
   "&Edit": "編集(&E)",
@@ -74,5 +75,6 @@
   "Open File...": "ファイルを開く...",
   "The file is not UTF-8 text.": "ファイルが UTF-8 のテキストではありません。",
   "The file has no folder.": "ファイルのフォルダがありません。",
-  "Not a web or mail link.": "Web やメールのリンクではありません。"
+  "Not a web or mail link.": "Web やメールのリンクではありません。",
+  "No file was chosen to export to.": "エクスポート先のファイルが選ばれていません。"
 }

@@ -27,6 +27,21 @@ export function buildOptions({ production, desktop }) {
         outdir: 'desktop/dist',
         target: ['chrome120', 'safari16'],
       },
+      // The script and styles of an exported HTML file (File > Export as HTML...), built as in dist/ so that the file
+      // is the same as the extension's (app.css has the theme of the app).
+      {
+        ...common,
+        entryPoints: { export: 'webview/export.ts' },
+        outdir: 'desktop/dist',
+        platform: 'browser',
+        format: 'iife',
+        target: 'chrome120',
+      },
+      {
+        ...common,
+        entryPoints: { webview: 'webview/preview.css', export: 'webview/export.css' },
+        outdir: 'desktop/dist',
+      },
     ];
   }
   return [

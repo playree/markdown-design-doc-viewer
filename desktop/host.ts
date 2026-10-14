@@ -1,7 +1,7 @@
 /**
  * The desktop app's side of the preview, in place of the extension host (Preview in src/previewPanel.ts): opens a
  * Markdown file through the Rust commands (src-tauri/src/lib.rs), renders it with `renderDocument` and sends it to
- * the webview, and follows its changes. Also the menu, the dropped files and the theme.
+ * the webview, and follows its changes. Also the menu, the dropped files, the theme and the HTML export.
  *
  * Each window of the app runs its own copy: the app opens a window for each file given to it while it runs.
  */
@@ -10,10 +10,11 @@ import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu } from '@tau
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { message, open } from '@tauri-apps/plugin-dialog';
+import { documentTitle, exportFileName, exportPage, imageType, renderForExport, stripSourceMap } from '../src/exportPage';
 import type { FromWebview, PreviewTheme, ToWebview } from '../src/protocol';
 import { createMarkdown, renderDocument } from '../src/render';
-import { t } from './l10n';
-import { isMarkdownPath, linkTarget, resourcePath } from './paths';
+import { lang, t } from './l10n';
+import { isMarkdownPath, linkTarget, relativeLink, resourcePath } from './paths';
 
 const APP_NAME = 'Markdown Design Doc Viewer';
 
@@ -39,6 +40,9 @@ const SETTINGS = {
   stickyTableHeader: true,
 } as const;
 
+/** The settings of the extension that apply to the rendering of the documents, at their defaults. */
+const RENDER_SETTINGS = { frontMatter: true, headingNumbers: true } as const;
+
 /** The document of the window, kept across reloads of the page (F5) in the session. */
 const DOCUMENT_KEY = 'mdDesignDoc.document';
 const THEME_KEY = 'mdDesignDoc.theme';
@@ -58,12 +62,22 @@ export function onWebviewMessage(message: FromWebview): void {
   switch (message.type) {
     case 'ready':
       ready = true;
+      updateExportItem();
       render();
       break;
     case 'openLink':
       void openLink(message.href);
       break;
-    // `revealLine` is not sent without an editor (syncEditor), and the app has no HTML export (`exported`).
+    case 'exported': {
+      const pending = pendingExports.get(message.id);
+      if (message.body !== undefined) {
+        pending?.resolve(message.body);
+      } else {
+        pending?.reject(new Error(message.error ?? ''));
+      }
+      break;
+    }
+    // `revealLine` is not sent without an editor (syncEditor).
   }
 }
 
@@ -86,8 +100,7 @@ async function renderNow(): Promise<void> {
   const images: string[] = [];
   const html = renderDocument(md, doc.text, {
     t,
-    frontMatter: true,
-    headingNumbers: true,
+    ...RENDER_SETTINGS,
     resolveResource: (src) => {
       const path = resourcePath(doc.dir, src);
       if (path === undefined) {
@@ -104,9 +117,14 @@ async function renderNow(): Promise<void> {
   post({ type: 'update', uri: doc.path, html, ...SETTINGS, ...(fragment ? { fragment } : {}) });
 }
 
-/** Shows an error: `text`, and the reason (an English text of the Rust commands, translated, or one of the system). */
+/** The reason of an error: an English text of the Rust commands, translated, or one of the system. */
+function reason(error: unknown): string {
+  return t(error instanceof Error ? error.message : String(error));
+}
+
+/** Shows an error: `text`, and its reason. */
 async function showError(text: string, error: unknown): Promise<void> {
-  await message(`${text}\n${t(error instanceof Error ? error.message : String(error))}`, { title: APP_NAME, kind: 'error' });
+  await message(`${text}\n${reason(error)}`, { title: APP_NAME, kind: 'error' });
 }
 
 /** Opens one document at a time: in order, so that the last one opened is shown and watched. */
@@ -143,6 +161,7 @@ async function openNow(path: string, fragment?: string): Promise<void> {
     // Not reopened by a reload of the page.
   }
   empty.hidden = true;
+  updateExportItem();
   void appWindow.setTitle(`${doc.name} — ${APP_NAME}`);
   render();
 }
@@ -198,6 +217,143 @@ async function openLink(href: string): Promise<void> {
     }
   } catch (error) {
     await showError(t('Could not open {0}.', href), error);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// HTML export: the same file as the extension's "Export Design Doc as HTML" (src/exportHtml.ts).
+
+/** An exported document is rendered by the webview; it gives up after this long. */
+const EXPORT_TIMEOUT_MS = 60_000;
+
+let exportId = 0;
+/** The documents being rendered by the webview for an export, by id. */
+const pendingExports = new Map<number, { resolve: (body: string) => void; reject: (error: Error) => void }>();
+let exporting = false;
+/** File > Export as HTML..., enabled when the window shows a document (rendered by the webview, once it is ready). */
+let exportItem: MenuItem | undefined;
+
+function canExport(): boolean {
+  return ready && current !== undefined && !exporting;
+}
+
+function updateExportItem(): void {
+  void exportItem?.setEnabled(canExport());
+}
+
+/** Has the webview render `html` (from `renderForExport`) for an exported file, and returns the rendered body. */
+function renderInWebview(html: string): Promise<string> {
+  const id = ++exportId;
+  return new Promise<string>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      pendingExports.delete(id);
+      reject(new Error(t('The preview did not respond.')));
+    }, EXPORT_TIMEOUT_MS);
+    const done = (fn: () => void) => {
+      clearTimeout(timer);
+      pendingExports.delete(id);
+      fn();
+    };
+    pendingExports.set(id, { resolve: (body) => done(() => resolve(body)), reject: (error) => done(() => reject(error)) });
+    post({ type: 'export', id, html, diagramLook: SETTINGS.diagramLook });
+  });
+}
+
+function dataUri(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error('The image could not be read.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * A local image `src` of a document in `dir`, for its export to `target`: embedded as a data URI when it is in the
+ * document's folder (as the extension embeds those of the folders its preview shows), else linked.
+ */
+async function exportedImage(dir: string, src: string, target: string): Promise<string> {
+  const path = resourcePath(dir, src);
+  // Not the case: renderForExport keeps the URLs as they are.
+  if (path === undefined) {
+    return src;
+  }
+  const type = imageType(path);
+  if (type) {
+    try {
+      // Only from the folder of the window's document.
+      const bytes = await invoke<ArrayBuffer>('read_image', { path });
+      return await dataUri(new Blob([bytes], { type }));
+    } catch {
+      // Linked instead, see below.
+    }
+  }
+  // An image of an unknown type, outside the folder or that cannot be read is linked instead, which works as long
+  // as the files stay where they are.
+  return relativeLink(target, path);
+}
+
+const assets = new Map<string, Promise<string>>();
+
+/** A file of the app (desktop/dist/): the styles and script of an exported file, the same as those of the extension. */
+function readAsset(name: string): Promise<string> {
+  let asset = assets.get(name);
+  if (!asset) {
+    asset = fetch(name).then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`${name}: ${response.status} ${response.statusText}`);
+      }
+      return stripSourceMap(await response.text());
+    });
+    // Read again by the next export if it failed.
+    asset.catch(() => assets.delete(name));
+    assets.set(name, asset);
+  }
+  return asset;
+}
+
+/** Asks where to export the document, and writes its HTML file there. Returns that file, or undefined when canceled. */
+async function writeExport(doc: OpenedDocument): Promise<string | undefined> {
+  // Chosen in a dialog of the app (not of the webview), which writes only to that file (write_export, open_export).
+  const target = await invoke<string | null>('choose_export_target', { dir: doc.dir, name: exportFileName(doc.name), title: t('Export Design Doc as HTML') });
+  if (!target) {
+    return undefined;
+  }
+  const html = await renderForExport(md, doc.text, { t, ...RENDER_SETTINGS }, (src) => exportedImage(doc.dir, src, target));
+  const [body, style, exportStyle, script] = await Promise.all([renderInWebview(html), readAsset('webview.css'), readAsset('export.css'), readAsset('export.js')]);
+  const page = exportPage({ lang, title: documentTitle(md, doc.text, doc.name), body, styles: [style, exportStyle], script, settings: SETTINGS });
+  await invoke('write_export', { html: page });
+  return target;
+}
+
+/**
+ * Exports the document of the window to a single HTML file: the diagrams as rendered by the webview (light theme),
+ * the images embedded, and a small script for the side-by-side layout and the arrow ⇔ step highlighting.
+ */
+async function exportHtml(): Promise<void> {
+  const doc = current;
+  if (!doc || !canExport()) {
+    return;
+  }
+  exporting = true;
+  updateExportItem();
+  let target: string | undefined;
+  try {
+    target = await writeExport(doc);
+  } catch (error) {
+    await message(t('Could not export the design doc: {0}', reason(error)), { title: APP_NAME, kind: 'error' });
+  } finally {
+    exporting = false;
+    updateExportItem();
+  }
+  if (!target) {
+    return;
+  }
+  const open = t('Open in Browser');
+  const answer = await message(t('Exported to {0}.', target.split(/[\\/]/).pop() ?? ''), { title: APP_NAME, buttons: { ok: open, cancel: t('Close') } });
+  // The label of the button chosen (as `confirm` of the dialog plugin compares it).
+  if (answer === open) {
+    await invoke('open_export').catch((error: unknown) => showError(t('Could not open {0}.', target), error));
   }
 }
 
@@ -264,12 +420,15 @@ async function setUpMenu(): Promise<void> {
     themeItems.push(await CheckMenuItem.new({ text: t(text), checked: value === theme, action: () => setTheme(value) }));
   }
   const separator = () => PredefinedMenuItem.new({ item: 'Separator' });
+  exportItem = await MenuItem.new({ text: label('&Export as HTML...'), enabled: canExport(), action: () => void exportHtml() });
 
   const file = await Submenu.new({
     text: label('&File'),
     items: [
       await MenuItem.new({ text: label('&Open...'), accelerator: 'CmdOrCtrl+O', action: () => void chooseDocument() }),
       await MenuItem.new({ text: label('&Reload'), accelerator: 'CmdOrCtrl+R', action: () => void reload(true) }),
+      await separator(),
+      exportItem,
       await separator(),
       // This window: the others stay open (the app ends with its last window).
       await MenuItem.new({ text: label('&Close'), accelerator: 'CmdOrCtrl+W', action: () => void appWindow.close() }),
