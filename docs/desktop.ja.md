@@ -8,7 +8,7 @@
 
 ## インストール
 
-[デスクトップアプリのリリース](https://github.com/playree/markdown-design-doc-viewer/releases?q=desktop-v&expanded=true)（タグ `desktop-vX.Y.Z`。Pre-release と付いたものはリリース候補です）の最新のものから、お使いの OS のインストーラをダウンロードします。
+[デスクトップアプリのリリース](https://github.com/playree/markdown-design-doc-viewer/releases?q=desktop&expanded=true)（タグ `desktop-vX.Y.Z`。Pre-release と付いたものはリリース候補です）の最新のものから、お使いの OS のインストーラをダウンロードします。
 
 | OS | ファイル |
 | --- | --- |
