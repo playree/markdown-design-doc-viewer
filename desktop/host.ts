@@ -2,6 +2,8 @@
  * The desktop app's side of the preview, in place of the extension host (Preview in src/previewPanel.ts): opens a
  * Markdown file through the Rust commands (src-tauri/src/lib.rs), renders it with `renderDocument` and sends it to
  * the webview, and follows its changes. Also the menu, the dropped files and the theme.
+ *
+ * Each window of the app runs its own copy: the app opens a window for each file given to it while it runs.
  */
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu } from '@tauri-apps/api/menu';
@@ -204,6 +206,12 @@ async function openLink(href: string): Promise<void> {
 
 const systemDark = matchMedia('(prefers-color-scheme: dark)');
 
+const THEMES: [PreviewTheme, string][] = [
+  ['auto', 'Follow the System'],
+  ['light', 'Light'],
+  ['dark', 'Dark'],
+];
+
 function savedTheme(): PreviewTheme {
   try {
     const saved = localStorage.getItem(THEME_KEY);
@@ -214,40 +222,43 @@ function savedTheme(): PreviewTheme {
 }
 
 let theme = savedTheme();
+/** The items of the menu View > Theme, in the order of `THEMES`. */
+const themeItems: CheckMenuItem[] = [];
 
 function applyTheme(): void {
   const dark = theme === 'auto' ? systemDark.matches : theme === 'dark';
   document.body.classList.toggle('vscode-dark', dark);
   document.body.classList.toggle('vscode-light', !dark);
+  // A check item checks itself when clicked.
+  themeItems.forEach((item, i) => void item.setChecked(THEMES[i][0] === theme));
 }
 
 applyTheme();
 systemDark.addEventListener('change', applyTheme);
+// Chosen in another window.
+window.addEventListener('storage', (event) => {
+  if (event.key === THEME_KEY) {
+    theme = savedTheme();
+    applyTheme();
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Menu
-
-const THEMES: [PreviewTheme, string][] = [
-  ['auto', 'Follow the System'],
-  ['light', 'Light'],
-  ['dark', 'Dark'],
-];
 
 async function setUpMenu(): Promise<void> {
   const mac = navigator.userAgent.includes('Mac');
   // The access keys (`&File`, `ファイル(&F)`) are for Windows and Linux: macOS menus have none.
   const label = (text: string) => (mac ? t(text).replace(/\(&\w\)/, '').replace(/&/g, '') : t(text));
-  const themeItems: CheckMenuItem[] = [];
   const setTheme = (value: PreviewTheme) => {
     theme = value;
     try {
+      // Also for the other windows (`storage` event).
       localStorage.setItem(THEME_KEY, value);
     } catch {
       // Not kept for the next launch.
     }
     applyTheme();
-    // A check item checks itself when clicked.
-    themeItems.forEach((item, i) => void item.setChecked(THEMES[i][0] === value));
   };
   for (const [value, text] of THEMES) {
     themeItems.push(await CheckMenuItem.new({ text: t(text), checked: value === theme, action: () => setTheme(value) }));
@@ -259,8 +270,11 @@ async function setUpMenu(): Promise<void> {
     items: [
       await MenuItem.new({ text: label('&Open...'), accelerator: 'CmdOrCtrl+O', action: () => void chooseDocument() }),
       await MenuItem.new({ text: label('&Reload'), accelerator: 'CmdOrCtrl+R', action: () => void reload(true) }),
-      // On macOS in the app menu.
-      ...(mac ? [] : [await separator(), await MenuItem.new({ text: label('E&xit'), action: () => void appWindow.close() })]),
+      await separator(),
+      // This window: the others stay open (the app ends with its last window).
+      await MenuItem.new({ text: label('&Close'), accelerator: 'CmdOrCtrl+W', action: () => void appWindow.close() }),
+      // All the windows. On macOS in the app menu (Quit).
+      ...(mac ? [] : [await MenuItem.new({ text: label('E&xit'), action: () => void invoke('exit') })]),
     ],
   });
   const view = await Submenu.new({
@@ -289,7 +303,18 @@ async function setUpMenu(): Promise<void> {
     items.splice(0, 0, app);
     items.splice(2, 0, edit);
   }
-  await (await Menu.new({ items })).setAsAppMenu();
+  const menu = await Menu.new({ items });
+  if (mac) {
+    // One menu bar for the app: that of the window in front, whose items act on it.
+    await menu.setAsAppMenu();
+    await appWindow.onFocusChanged(({ payload: focused }) => {
+      if (focused) {
+        void menu.setAsAppMenu();
+      }
+    });
+  } else {
+    await menu.setAsWindowMenu(appWindow);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -317,6 +342,8 @@ openButton.addEventListener('click', () => void chooseDocument());
 
 async function start(): Promise<void> {
   await setUpMenu().catch((error: unknown) => console.error(error));
+  // Before asking for the first file: a file given to the running app opens here when this window shows nothing.
+  await appWindow.listen<string>('open-document', (event) => void openDocument(event.payload));
   let path: string | null = null;
   try {
     path = sessionStorage.getItem(DOCUMENT_KEY);
