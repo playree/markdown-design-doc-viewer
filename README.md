@@ -5,14 +5,14 @@
 [![Visual Studio Marketplace Installs](https://vsmarketplacebadges.dev/installs/playree.markdown-design-doc-viewer.svg)](https://marketplace.visualstudio.com/items?itemName=playree.markdown-design-doc-viewer)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-English | [日本語](README.ja.md)
+English | [日本語](README.ja.md) | [Website](https://playree.github.io/markdown-design-doc-viewer/)
 
 A viewer for design documents written in Markdown. Its main feature shows **mermaid sequence diagrams and flowcharts side by side with their step descriptions**.
 Each arrow (or flowchart node) in the diagram is linked to a heading in the description, so you can jump back and forth between them.
 
 ![Sequence diagram on the left, linked step descriptions on the right](images/screenshot.png)
 
-**[Live sample](https://playree.github.io/markdown-design-doc-viewer/)**: a design document exported to HTML ([examples/screenshot.md](examples/screenshot.md)). Hover the arrows and headings to try the highlighting in your browser.
+**[Live sample](https://playree.github.io/markdown-design-doc-viewer/sample/)**: a design document exported to HTML ([examples/screenshot.md](examples/screenshot.md)). Hover the arrows and headings to try the highlighting in your browser.
 
 ## Features
 

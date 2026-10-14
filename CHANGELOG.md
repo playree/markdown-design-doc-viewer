@@ -4,6 +4,7 @@ This changelog covers the extension and the command line. The desktop app has it
 
 ## Unreleased
 
+- The [website](https://playree.github.io/markdown-design-doc-viewer/) ([日本語](https://playree.github.io/markdown-design-doc-viewer/ja/)) on GitHub Pages introduces the extension, the desktop app, the command line and the Agent Skill. The sample design document exported to HTML has moved to [/sample/](https://playree.github.io/markdown-design-doc-viewer/sample/) ([日本語](https://playree.github.io/markdown-design-doc-viewer/ja/sample/)).
 - ThirdPartyNotices.txt, in the extension and the npm package, includes the licenses and copyright notices of the npm packages bundled into them (mermaid, markdown-it, DOMPurify, highlight.js and the packages they use).
 
 ## 1.0.0

@@ -234,6 +234,7 @@
     "package": "vsce package --no-dependencies",
     "npm:package": "node esbuild.mjs --production && node scripts/npm-package.mjs",
     "skill:package": "node scripts/skill-package.mjs",
+    "pages": "node scripts/pages.mjs",
     "desktop:build": "node esbuild.mjs --desktop --production",
     "desktop:dev": "tauri dev",
     "desktop:bundle": "tauri build",

@@ -1,7 +1,8 @@
 name: Pages
 
-# GitHub Release（タグ vX.Y.Z）を公開したら、examples/screenshot.md と screenshot.ja.md を CLI で HTML にエクスポートし、
-# GitHub Pages にサンプルとして公開する（英語版を /、日本語版を /ja/ に）。npm に出したバージョンと見た目を揃えるため、リリースのタグから作る。
+# GitHub Release（タグ vX.Y.Z）を公開したら、GitHub Pages にサイトを公開する（scripts/pages.mjs で .work/site に作る）。
+# / と /ja/ は紹介用のランディングページ（site/）、/sample/ と /ja/sample/ は examples/screenshot.md と screenshot.ja.md を
+# CLI で HTML にエクスポートしたサンプル。npm に出したバージョンと見た目を揃えるため、リリースのタグから作る。
 # プレリリース（npm の dist-tag next）とデスクトップアプリの Release（タグ desktop-vX.Y.Z）では更新しない。手動実行（main から）でも更新できる。
 # リポジトリの Settings → Pages の Source を「GitHub Actions」にし、環境 github-pages に main とタグ v* からのデプロイを許可しておくこと。
 
@@ -62,12 +63,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
 
       # 図はランナーにインストール済みの Google Chrome で描く
-      - run: |
-          node dist/cli.js export examples/screenshot.md --root examples -o .work/pages --strict
-          node dist/cli.js export examples/screenshot.ja.md --root examples -o .work/pages --lang ja --strict
-          mkdir -p .work/site/ja
-          mv .work/pages/screenshot.html .work/site/index.html
-          mv .work/pages/screenshot.ja.html .work/site/ja/index.html
+      - run: pnpm pages
 
       - uses: actions/upload-pages-artifact@v5
         with:
