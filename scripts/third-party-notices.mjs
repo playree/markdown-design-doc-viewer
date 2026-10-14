@@ -23,7 +23,7 @@ const EXTRA = 'scripts/third-party-notices.extra.txt';
 const ARTIFACTS = [
   { name: 'the extension', outputs: ['dist/extension.js', 'dist/webview.js', 'dist/webview.css', 'dist/export.js', 'dist/export.css'] },
   { name: 'the command line', outputs: ['dist/cli.js', 'dist/webview.js', 'dist/webview.css', 'dist/export.js', 'dist/export.css'] },
-  { name: 'the desktop app', outputs: ['desktop/dist/app.js', 'desktop/dist/app.css'] },
+  { name: 'the desktop app', outputs: ['desktop/dist/app.js', 'desktop/dist/app.css', 'desktop/dist/export.js', 'desktop/dist/webview.css', 'desktop/dist/export.css'] },
 ];
 
 /** Packages with no license text in their npm package: the package to take it from (same project and copyright). */

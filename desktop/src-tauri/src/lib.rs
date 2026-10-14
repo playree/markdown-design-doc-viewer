@@ -1,5 +1,6 @@
 //! The Rust side of the desktop app: reads the Markdown files, follows their changes, lets the webview load
-//! their images, and opens the links. The documents are rendered in the webview (desktop/host.ts).
+//! their images, opens the links, and saves the HTML exports. The documents are rendered in the webview
+//! (desktop/host.ts).
 //!
 //! One process shows the documents, each in its window: the files given to another launch (Windows and Linux) or
 //! by the Finder (macOS, `RunEvent::Opened`) open in a new window (`open_paths`).
@@ -15,7 +16,9 @@ use std::time::Duration;
 use notify::{EventKind, RecommendedWatcher, RecursiveMode};
 use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, RecommendedCache};
 use serde::Serialize;
+use tauri::ipc::Response;
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WebviewWindow, WebviewWindowBuilder, Window, WindowEvent};
+use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 
 /// How long the changes of a file are gathered before the document is read again.
@@ -56,6 +59,11 @@ struct WindowsState {
 /// The images already allowed by `allow_images`.
 #[derive(Default)]
 struct AllowedImages(Mutex<HashSet<PathBuf>>);
+
+/// The file each window exports to, by window label: chosen by the user in `choose_export_target`, it is the only
+/// file `write_export` writes and `open_export` opens, so that the webview cannot write elsewhere.
+#[derive(Default)]
+struct ExportTargets(Mutex<HashMap<String, PathBuf>>);
 
 /// A document read by `open_document` or `read_document`.
 #[derive(Serialize)]
@@ -305,6 +313,70 @@ async fn open_path(app: AppHandle, path: String) -> Result<(), String> {
     .map_err(|e| e.to_string())
 }
 
+/// Asks where to save the HTML export of the window's document, starting from `name` in `dir`. None when canceled.
+#[tauri::command]
+async fn choose_export_target(
+    window: Window,
+    targets: State<'_, ExportTargets>,
+    dir: String,
+    name: String,
+    title: String,
+) -> Result<Option<String>, String> {
+    // Blocking is fine here: an async command does not run on the main thread, where the dialog is shown.
+    let chosen = window
+        .dialog()
+        .file()
+        .set_parent(&window)
+        .set_title(title)
+        .set_directory(dir)
+        .set_file_name(name)
+        .add_filter("HTML", &["html", "htm"])
+        .blocking_save_file();
+    let Some(chosen) = chosen else {
+        return Ok(None);
+    };
+    let path = chosen.into_path().map_err(|e| e.to_string())?;
+    let result = to_string(&path);
+    targets.0.lock().unwrap_or_else(PoisonError::into_inner).insert(window.label().to_string(), path);
+    Ok(Some(result))
+}
+
+/// The file chosen to export to in the window, if it is `path`.
+fn export_target(window: &Window, targets: &ExportTargets, path: &str) -> Result<PathBuf, String> {
+    let targets = targets.0.lock().unwrap_or_else(PoisonError::into_inner);
+    match targets.get(window.label()) {
+        Some(target) if target == Path::new(path) => Ok(target.clone()),
+        _ => Err("Not the file chosen to export to.".to_string()),
+    }
+}
+
+/// Saves the HTML export of the window's document, to the file chosen for it (`choose_export_target`).
+#[tauri::command]
+async fn write_export(window: Window, targets: State<'_, ExportTargets>, path: String, html: String) -> Result<(), String> {
+    let target = export_target(&window, &targets, &path)?;
+    std::fs::write(target, html).map_err(|e| e.to_string())
+}
+
+/// Opens the HTML export of the window's document in the default browser.
+#[tauri::command]
+async fn open_export(app: AppHandle, window: Window, targets: State<'_, ExportTargets>, path: String) -> Result<(), String> {
+    let target = export_target(&window, &targets, &path)?;
+    app.opener().open_path(to_string(&target), None::<&str>).map_err(|e| e.to_string())
+}
+
+/// Reads a local image of a document in `folder` for its HTML export, as raw bytes. Only an image file in that
+/// folder (or below it), also when its symbolic links are followed: the export links the others instead of embedding
+/// them, as the extension does with the images outside the folders its preview shows.
+#[tauri::command]
+async fn read_image(path: String, folder: String) -> Result<Response, String> {
+    let path = dunce::canonicalize(&path).map_err(|e| e.to_string())?;
+    let folder = dunce::canonicalize(&folder).map_err(|e| e.to_string())?;
+    if !path.is_file() || !has_extension(&path, IMAGE_EXTENSIONS) || !path.starts_with(&folder) {
+        return Err("Not an image in the folder of the document.".to_string());
+    }
+    std::fs::read(&path).map(Response::new).map_err(|e| e.to_string())
+}
+
 /// Runs the app (src/main.rs).
 pub fn run() {
     tauri::Builder::default()
@@ -326,6 +398,7 @@ pub fn run() {
         .manage(Watches::default())
         .manage(AllowedImages::default())
         .manage(Windows::default())
+        .manage(ExportTargets::default())
         .setup(|app| {
             let cwd = std::env::current_dir().unwrap_or_default();
             open_paths(app.handle(), arg_paths(std::env::args_os().skip(1), &cwd));
@@ -338,12 +411,17 @@ pub fn run() {
             read_document,
             allow_images,
             open_url,
-            open_path
+            open_path,
+            choose_export_target,
+            write_export,
+            open_export,
+            read_image
         ])
         .on_window_event(|window, event| {
             if let WindowEvent::Destroyed = event {
                 let label = window.label();
                 window.state::<Watches>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
+                window.state::<ExportTargets>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
                 let windows = window.state::<Windows>();
                 let mut state = windows.0.lock().unwrap_or_else(PoisonError::into_inner);
                 state.started.remove(label);
