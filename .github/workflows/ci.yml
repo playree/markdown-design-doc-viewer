@@ -56,6 +56,15 @@ jobs:
       # --index で文書の一覧（.work/export/index.html）も作る
       - run: node dist/cli.js export $(ls examples/*.md | grep -v link-checks) -o .work/export --strict --index
 
+      # GitHub Pages のサイト（ランディングページとサンプル、.work/site）を作れること（公開は Release のときに pages.yml で行う）
+      - run: pnpm pages
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: site
+          path: .work/site
+          if-no-files-found: error
+
       # npm パッケージ（.work/npm）を作れること（ファイルの漏れや package.nls.json にない文言をここで見つける）
       - run: pnpm npm:package && npm pack ./.work/npm --dry-run
 

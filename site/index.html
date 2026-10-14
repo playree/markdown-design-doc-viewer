@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Markdown Design Doc Viewer</title>
+  <meta name="description" content="A viewer for design documents written in Markdown: mermaid sequence diagrams and flowcharts side by side with their step descriptions, linked arrow by arrow. For VS Code, the desktop and the command line.">
+  <link rel="canonical" href="https://playree.github.io/markdown-design-doc-viewer/">
+  <link rel="alternate" hreflang="en" href="https://playree.github.io/markdown-design-doc-viewer/">
+  <link rel="alternate" hreflang="ja" href="https://playree.github.io/markdown-design-doc-viewer/ja/">
+  <link rel="alternate" hreflang="x-default" href="https://playree.github.io/markdown-design-doc-viewer/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Markdown Design Doc Viewer">
+  <meta property="og:description" content="Read mermaid diagrams side by side with their step descriptions, linked arrow by arrow.">
+  <meta property="og:url" content="https://playree.github.io/markdown-design-doc-viewer/">
+  <meta property="og:image" content="https://playree.github.io/markdown-design-doc-viewer/images/screenshot.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="images/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="images/icon.png" type="image/png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <a class="brand" href="./"><img src="images/icon.png" alt="" width="32" height="32"><span>Markdown Design Doc Viewer</span></a>
+      <nav class="site-nav" aria-label="Site">
+        <a class="section-link" href="#features">Features</a>
+        <a class="section-link" href="#get-started">Get started</a>
+        <a class="section-link" href="https://github.com/playree/markdown-design-doc-viewer">GitHub</a>
+        <a class="lang" href="ja/" hreflang="ja" lang="ja">日本語</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="hero">
+      <div class="container">
+        <h1>Read design docs with <em>diagrams and steps side by side</em></h1>
+        <p class="lead">A viewer for design documents written in Markdown. mermaid sequence diagrams and flowcharts are shown beside their step descriptions, and each arrow (or node) is linked to its heading.</p>
+        <div class="actions">
+          <a class="button button-primary" href="https://marketplace.visualstudio.com/items?itemName=playree.markdown-design-doc-viewer">Install for VS Code</a>
+          <a class="button button-secondary" href="sample/">Try the live sample</a>
+        </div>
+        <p class="note">The sample is a design document exported to HTML. Hover the arrows and headings to try the highlighting.</p>
+        <div class="hero-shot">
+          <div class="frame">
+            <img src="images/screenshot.png" width="1570" height="790" alt="Sequence diagram on the left, linked step descriptions on the right">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section id="how">
+      <div class="container">
+        <h2 class="section-title">Still plain Markdown</h2>
+        <p class="section-lead">The links are written with mermaid comments and HTML comments, so the same file still renders correctly on GitHub and in other Markdown previews.</p>
+        <div class="how">
+<pre class="code"><code>```mermaid
+<span class="c">%% @link-headings</span>
+<span class="k">sequenceDiagram</span>
+    Auth->>DB: Fetch user
+    <span class="c">%% @ref Issue token</span>
+    Auth-->>API: Return access token
+```
+
+<span class="h">### Fetch user</span>
+
+Look up the user by id.
+
+<span class="h">### Issue token</span>
+
+Issue a JWT valid for one hour.</code></pre>
+          <ol class="steps">
+            <li>
+              <h3>Mark the diagram</h3>
+              <p>Write <code>%% @link-headings</code> in a sequence diagram or a flowchart. It is shown side by side with the headings after it.</p>
+            </li>
+            <li>
+              <h3>Write the steps as headings</h3>
+              <p>An arrow or node is linked to the heading with the same text. Numbered headings like <code>### 3. Fetch user</code> match too.</p>
+            </li>
+            <li>
+              <h3>Use <code>@ref</code> when they differ</h3>
+              <p><code>%% @ref &lt;heading&gt;</code> links the next arrow to a heading with other words. Missing links are reported as warnings.</p>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="alt">
+      <div class="container">
+        <h2 class="section-title">Made for design documents</h2>
+        <p class="section-lead">Hover or click an arrow to highlight its step, or click a heading to find it in the diagram. The diagram stays in view while the steps scroll.</p>
+
+        <div class="feature">
+          <div class="feature-text">
+            <h3>Flowcharts too</h3>
+            <p>Flowcharts are linked the same way, with their nodes in place of arrows. Horizontal flowcharts are shown above their steps.</p>
+          </div>
+          <div class="frame"><img src="images/screenshot-flowchart.png" width="1570" height="1178" loading="lazy" alt="Flowchart on the left, linked step descriptions on the right"></div>
+        </div>
+
+        <div class="feature">
+          <div class="feature-text">
+            <h3>Find missing steps</h3>
+            <p>Arrows without a heading are faded, and headings without an arrow are marked. In VS Code they are also reported in the Problems panel, with quick fixes.</p>
+          </div>
+          <div class="frame"><img src="images/screenshot-link-checks.png" width="1570" height="503" loading="lazy" alt="An arrow without a heading is faded, and a heading without an arrow gets a &quot;no arrow&quot; mark"></div>
+        </div>
+
+        <div class="feature">
+          <div class="feature-text">
+            <h3>A header from the front matter</h3>
+            <p>With <code>type: design_doc</code> in the YAML front matter, the title, version, product, status and updated date are shown as the document's header.</p>
+          </div>
+          <div class="frame"><img src="images/screenshot-header.png" width="1570" height="169" loading="lazy" alt="The title, version, product, status and updated date in the header"></div>
+        </div>
+
+        <div class="feature">
+          <div class="feature-text">
+            <h3>The notation of design documents</h3>
+            <p>GitHub alerts, task lists, footnotes, collapsible sections and syntax-highlighted code blocks are rendered. Long tables keep their header row in view.</p>
+          </div>
+          <div class="frame"><img src="images/screenshot-markdown.png" width="1570" height="404" loading="lazy" alt="Task lists, GitHub alerts and a collapsible section in the preview"></div>
+        </div>
+
+        <ul class="more">
+          <li><strong>Editor sync</strong><span>The preview follows the editor's scroll and cursor. Double-click to jump to the source line.</span></li>
+          <li><strong>HTML export</strong><span>One HTML file with the diagrams rendered and images embedded. Print it to PDF from the browser.</span></li>
+          <li><strong>Table of contents</strong><span>Hover the right edge to open the headings and jump to one.</span></li>
+          <li><strong>Diagram and image zoom</strong><span>Show a diagram full screen, then zoom with the wheel and pan by dragging.</span></li>
+          <li><strong>Light / dark theme</strong><span>Follows VS Code's theme, or switch the preview alone with one button.</span></li>
+          <li><strong>Write with AI</strong><span>An authoring guide and an Agent Skill let AI assistants write documents in this format.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="get-started">
+      <div class="container">
+        <h2 class="section-title">Get started</h2>
+        <p class="section-lead">Free and open source under the MIT License.</p>
+        <div class="cards">
+          <div class="card">
+            <h3>VS Code extension</h3>
+            <p>Preview the documents while writing them, with the editor and the preview in sync.</p>
+            <div class="links">
+              <a href="https://marketplace.visualstudio.com/items?itemName=playree.markdown-design-doc-viewer">Marketplace</a>
+              <a href="https://github.com/playree/markdown-design-doc-viewer#readme">Documentation</a>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Desktop app</h3>
+            <p>Read design documents without VS Code, on Windows, macOS and Linux. The view updates when the file is saved.</p>
+            <div class="links">
+              <a href="https://github.com/playree/markdown-design-doc-viewer/releases?q=desktop&amp;expanded=true">Download</a>
+              <a href="https://github.com/playree/markdown-design-doc-viewer/blob/main/docs/desktop.md">Guide</a>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Command line</h3>
+            <p>Export the documents to HTML in CI or in a batch. Needs Node.js 22 or later and Chrome.</p>
+            <pre class="cmd"><code>npx markdown-design-doc-viewer export docs -o site</code></pre>
+            <div class="links">
+              <a href="https://www.npmjs.com/package/markdown-design-doc-viewer">npm</a>
+              <a href="https://github.com/playree/markdown-design-doc-viewer/blob/main/docs/cli.md">Usage</a>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Agent Skill for AI</h3>
+            <p>Have Claude and other AI assistants write design documents in this format, in your language.</p>
+            <div class="links">
+              <a href="https://github.com/playree/markdown-design-doc-viewer/releases/latest/download/markdown-design-doc-skill.zip">Download the skill</a>
+              <a href="https://github.com/playree/markdown-design-doc-viewer/blob/main/docs/ai-authoring-guide.md">Authoring guide</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <span>Markdown Design Doc Viewer · MIT License</span>
+      <nav aria-label="Links">
+        <a href="https://github.com/playree/markdown-design-doc-viewer">GitHub</a>
+        <a href="https://github.com/playree/markdown-design-doc-viewer/blob/main/CHANGELOG.md">Changelog</a>
+        <a href="https://github.com/playree/markdown-design-doc-viewer/issues">Issues</a>
+        <a href="ja/" hreflang="ja" lang="ja">日本語</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

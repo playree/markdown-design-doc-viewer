@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Markdown 設計書ビューア（Markdown Design Doc Viewer）</title>
+  <meta name="description" content="Markdown で書いた設計書のビューア。mermaid のシーケンス図・フローチャートと処理概要を横並びにして、矢印ごとに見出しと紐付けます。VS Code 拡張・デスクトップアプリ・コマンドラインで使えます。">
+  <link rel="canonical" href="https://playree.github.io/markdown-design-doc-viewer/ja/">
+  <link rel="alternate" hreflang="en" href="https://playree.github.io/markdown-design-doc-viewer/">
+  <link rel="alternate" hreflang="ja" href="https://playree.github.io/markdown-design-doc-viewer/ja/">
+  <link rel="alternate" hreflang="x-default" href="https://playree.github.io/markdown-design-doc-viewer/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Markdown 設計書ビューア">
+  <meta property="og:description" content="mermaid の図と処理概要を横並びにして、矢印ごとに見出しと紐付けて読む。">
+  <meta property="og:url" content="https://playree.github.io/markdown-design-doc-viewer/ja/">
+  <meta property="og:image" content="https://playree.github.io/markdown-design-doc-viewer/images/screenshot.ja.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="../images/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="../images/icon.png" type="image/png">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <a class="brand" href="./"><img src="../images/icon.png" alt="" width="32" height="32"><span>Markdown 設計書ビューア</span></a>
+      <nav class="site-nav" aria-label="サイト">
+        <a class="section-link" href="#features">機能</a>
+        <a class="section-link" href="#get-started">はじめる</a>
+        <a class="section-link" href="https://github.com/playree/markdown-design-doc-viewer">GitHub</a>
+        <a class="lang" href="../" hreflang="en" lang="en">English</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="hero">
+      <div class="container">
+        <h1>設計書を、<em>図と処理概要を並べて</em>読む</h1>
+        <p class="lead">Markdown で書いた設計書のビューアです。mermaid のシーケンス図やフローチャートを処理概要と横並びにし、図の矢印（フローチャートではノード）と見出しを紐付けます。</p>
+        <div class="actions">
+          <a class="button button-primary" href="https://marketplace.visualstudio.com/items?itemName=playree.markdown-design-doc-viewer">VS Code に入れる</a>
+          <a class="button button-secondary" href="sample/">ブラウザで試す</a>
+        </div>
+        <p class="note">サンプルは設計書を HTML にエクスポートしたものです。矢印や見出しにマウスを載せて、ハイライトを試せます。</p>
+        <div class="hero-shot">
+          <div class="frame">
+            <img src="../images/screenshot.ja.png" width="1570" height="790" alt="左にシーケンス図、右に紐付いた処理概要">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section id="how">
+      <div class="container">
+        <h2 class="section-title">標準の Markdown のまま</h2>
+        <p class="section-lead">紐付けの記法は mermaid のコメントと HTML コメントだけなので、同じファイルが GitHub やほかの Markdown プレビューでもそのまま正しく表示されます。</p>
+        <div class="how">
+<pre class="code"><code>```mermaid
+<span class="c">%% @link-headings</span>
+<span class="k">sequenceDiagram</span>
+    Auth->>DB: ユーザー情報を取得
+    <span class="c">%% @ref トークン発行</span>
+    Auth-->>API: アクセストークンを返却
+```
+
+<span class="h">### ユーザー情報を取得</span>
+
+ID をキーにユーザーを 1 件取得する。
+
+<span class="h">### トークン発行</span>
+
+有効期限 1 時間の JWT を発行する。</code></pre>
+          <ol class="steps">
+            <li>
+              <h3>図に印を付ける</h3>
+              <p>シーケンス図かフローチャートに <code>%% @link-headings</code> と書くと、その後ろの見出しと横並びで表示されます。</p>
+            </li>
+            <li>
+              <h3>処理概要を見出しで書く</h3>
+              <p>矢印やノードは、同じ文言の見出しと紐付きます。<code>### 3. ユーザー情報を取得</code> のような番号付きの見出しにも紐付きます。</p>
+            </li>
+            <li>
+              <h3>文言が違うときは <code>@ref</code></h3>
+              <p><code>%% @ref 見出し</code> で、次の矢印を別の文言の見出しに紐付けます。紐付かないものは警告で知らせます。</p>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="alt">
+      <div class="container">
+        <h2 class="section-title">設計書のための機能</h2>
+        <p class="section-lead">矢印にマウスを載せる・クリックすると対応する処理概要がハイライトされ、見出しをクリックすると図の該当箇所へスクロールします。処理概要をスクロールしても図は固定されます。</p>
+
+        <div class="feature">
+          <div class="feature-text">
+            <h3>フローチャートも</h3>
+            <p>フローチャートも、矢印の代わりにノードを使って同じように紐付けます。横向きのフローチャートは処理概要の上に表示します。</p>
+          </div>
+          <div class="frame"><img src="../images/screenshot-flowchart.ja.png" width="1570" height="1156" loading="lazy" alt="左にフローチャート、右に紐付いた処理概要"></div>
+        </div>
+
+        <div class="feature">
+          <div class="feature-text">
+            <h3>書き漏れが分かる</h3>
+            <p>見出しのない矢印は薄く表示し、矢印のない見出しには印を付けます。VS Code では問題パネルにも表示し、クイックフィックスで直せます。</p>
+          </div>
+          <div class="frame"><img src="../images/screenshot-link-checks.ja.png" width="1570" height="503" loading="lazy" alt="見出しのない矢印は薄く表示され、矢印のない見出しには「矢印なし」の印が付く"></div>
+        </div>
+
+        <div class="feature">
+          <div class="feature-text">
+            <h3>front matter から設計書のヘッダ</h3>
+            <p>YAML front matter に <code>type: design_doc</code> を書くと、タイトル・版数・製品・ステータス・更新日を設計書のヘッダとして表示します。</p>
+          </div>
+          <div class="frame"><img src="../images/screenshot-header.ja.png" width="1570" height="169" loading="lazy" alt="ヘッダに表示したタイトル・版数・製品・ステータス・更新日"></div>
+        </div>
+
+        <div class="feature">
+          <div class="feature-text">
+            <h3>設計書でよく使う記法</h3>
+            <p>GitHub のアラート、タスクリスト、脚注、折りたたみ、シンタックスハイライトしたコードブロックを表示します。長い表はヘッダ行を固定します。</p>
+          </div>
+          <div class="frame"><img src="../images/screenshot-markdown.ja.png" width="1570" height="403" loading="lazy" alt="プレビューに表示したタスクリスト、GitHub のアラート、折りたたみ"></div>
+        </div>
+
+        <ul class="more">
+          <li><strong>エディタとの同期</strong><span>エディタのスクロールとカーソルにプレビューが追従します。ダブルクリックでエディタの該当行へ。</span></li>
+          <li><strong>HTML エクスポート</strong><span>図を描画し画像を埋め込んだ 1 つの HTML に。ブラウザの印刷で PDF にもできます。</span></li>
+          <li><strong>目次</strong><span>右端にマウスを載せると見出しの一覧が開き、クリックで移動します。</span></li>
+          <li><strong>図・画像の拡大</strong><span>図を全画面で表示し、ホイールで拡大縮小、ドラッグで移動できます。</span></li>
+          <li><strong>ライト・ダーク</strong><span>VS Code の配色に従うほか、ボタン 1 つでプレビューだけ切り替えられます。</span></li>
+          <li><strong>AI で書く</strong><span>記法ガイドと Agent Skill で、AI アシスタントにこの形式の設計書を書かせられます。</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="get-started">
+      <div class="container">
+        <h2 class="section-title">はじめる</h2>
+        <p class="section-lead">MIT ライセンスのオープンソースで、無料で使えます。</p>
+        <div class="cards">
+          <div class="card">
+            <h3>VS Code 拡張機能</h3>
+            <p>エディタとプレビューを同期させながら、設計書を書いて確かめられます。</p>
+            <div class="links">
+              <a href="https://marketplace.visualstudio.com/items?itemName=playree.markdown-design-doc-viewer">Marketplace</a>
+              <a href="https://github.com/playree/markdown-design-doc-viewer/blob/main/README.ja.md">ドキュメント</a>
+            </div>
+          </div>
+          <div class="card">
+            <h3>デスクトップアプリ</h3>
+            <p>VS Code がなくても、Windows・macOS・Linux で設計書を読めます。ファイルを保存すると表示を更新します。</p>
+            <div class="links">
+              <a href="https://github.com/playree/markdown-design-doc-viewer/releases?q=desktop&amp;expanded=true">ダウンロード</a>
+              <a href="https://github.com/playree/markdown-design-doc-viewer/blob/main/docs/desktop.ja.md">説明</a>
+            </div>
+          </div>
+          <div class="card">
+            <h3>コマンドライン</h3>
+            <p>CI やバッチ処理で設計書を HTML に変換します。Node.js 22 以降と Chrome が必要です。</p>
+            <pre class="cmd"><code>npx markdown-design-doc-viewer export docs -o site</code></pre>
+            <div class="links">
+              <a href="https://www.npmjs.com/package/markdown-design-doc-viewer">npm</a>
+              <a href="https://github.com/playree/markdown-design-doc-viewer/blob/main/docs/cli.ja.md">使い方</a>
+            </div>
+          </div>
+          <div class="card">
+            <h3>AI 向けの Agent Skill</h3>
+            <p>Claude などの AI アシスタントに、この形式の設計書を依頼の言語で書かせられます。</p>
+            <div class="links">
+              <a href="https://github.com/playree/markdown-design-doc-viewer/releases/latest/download/markdown-design-doc-skill.zip">Skill をダウンロード</a>
+              <a href="https://github.com/playree/markdown-design-doc-viewer/blob/main/docs/ai-authoring-guide.ja.md">記法ガイド</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <span>Markdown 設計書ビューア · MIT ライセンス</span>
+      <nav aria-label="リンク">
+        <a href="https://github.com/playree/markdown-design-doc-viewer">GitHub</a>
+        <a href="https://github.com/playree/markdown-design-doc-viewer/blob/main/CHANGELOG.md">変更履歴</a>
+        <a href="https://github.com/playree/markdown-design-doc-viewer/issues">Issues</a>
+        <a href="../" hreflang="en" lang="en">English</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

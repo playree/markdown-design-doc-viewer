@@ -5,14 +5,14 @@
 [![Visual Studio Marketplace Installs](https://vsmarketplacebadges.dev/installs/playree.markdown-design-doc-viewer.svg)](https://marketplace.visualstudio.com/items?itemName=playree.markdown-design-doc-viewer)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-[English](README.md) | 日本語
+[English](README.md) | 日本語 | [Web サイト](https://playree.github.io/markdown-design-doc-viewer/ja/)
 
 設計書としてのMarkdownをプレビューする拡張機能（Markdown 設計書ビューア）です。主な機能として、**mermaidのシーケンス図やフローチャートと処理概要を横並びにして**表示します。
 図の矢印（フローチャートではノード）と処理概要の見出しが紐付き、相互にハイライト・スクロールできます。
 
 ![左にシーケンス図、右に紐付いた処理概要](images/screenshot.ja.png)
 
-**[サンプル](https://playree.github.io/markdown-design-doc-viewer/ja/)**: 設計書（[examples/screenshot.ja.md](examples/screenshot.ja.md)）を HTML にエクスポートしたものです。矢印や見出しにマウスを載せて、ブラウザでハイライトを試せます。
+**[サンプル](https://playree.github.io/markdown-design-doc-viewer/ja/sample/)**: 設計書（[examples/screenshot.ja.md](examples/screenshot.ja.md)）を HTML にエクスポートしたものです。矢印や見出しにマウスを載せて、ブラウザでハイライトを試せます。
 
 ## 機能
 
