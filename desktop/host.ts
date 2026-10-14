@@ -344,13 +344,13 @@ async function start(): Promise<void> {
   await setUpMenu().catch((error: unknown) => console.error(error));
   // Before asking for the first file: a file given to the running app opens here when this window shows nothing.
   await appWindow.listen<string>('open-document', (event) => void openDocument(event.payload));
-  let path: string | null = null;
+  // Also after a reload of the page (F5): a file given to the window just before it is still to be opened.
+  let path = await invoke<string | null>('initial_path');
   try {
-    path = sessionStorage.getItem(DOCUMENT_KEY);
+    path ||= sessionStorage.getItem(DOCUMENT_KEY);
   } catch {
-    // The path of the command line only.
+    // The file given to the window only.
   }
-  path ||= await invoke<string | null>('initial_path');
   if (path) {
     await openDocument(path);
   }

@@ -93,6 +93,7 @@ fn arg_paths(args: impl IntoIterator<Item = impl Into<PathBuf>>, cwd: &Path) -> 
         .collect()
 }
 
+/// Shows the window in front of the others, also when it is minimized.
 fn bring_to_front(window: &WebviewWindow) {
     let _ = window.unminimize();
     let _ = window.set_focus();
@@ -304,6 +305,7 @@ async fn open_path(app: AppHandle, path: String) -> Result<(), String> {
     .map_err(|e| e.to_string())
 }
 
+/// Runs the app (src/main.rs).
 pub fn run() {
     tauri::Builder::default()
         // First, so that another launch ends before setting up the rest. Its files open in this process.
@@ -363,5 +365,6 @@ fn on_run_event(app: &AppHandle, event: RunEvent) {
     }
 }
 
+/// Nothing elsewhere: the files come on the command line (`setup` and the single instance).
 #[cfg(not(target_os = "macos"))]
 fn on_run_event(_app: &AppHandle, _event: RunEvent) {}
