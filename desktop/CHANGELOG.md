@@ -8,6 +8,7 @@ The desktop app has its own version, apart from the extension and the command li
 - A file opened while the app is running opens in a new window, or brings to the front the window that shows it already. **File** > **Close** (Ctrl+W, ⌘W) closes the window, and **File** > **Exit** all the windows.
 - **File** > **Export as HTML...** saves the document to a single HTML file, the same as the extension's **Export Design Doc as HTML**: the diagrams, the images of the document's folder embedded, and the side-by-side layout and highlighting in the browser.
 - **View** > **Sidebar** (Ctrl+B, ⌘B) shows the Markdown files of the document's folder and of its subfolders as a tree, to switch between the documents. It follows the files added, deleted or renamed, and **File** > **Open Folder...** lists another folder. Whether it is shown, and its width, are kept for the next launch.
+- The top of the preview has a small margin, so that the first element (such as the box of the document header) does not touch the top edge.
 
 ## 0.1.0
 

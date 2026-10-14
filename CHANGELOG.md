@@ -7,6 +7,7 @@ This changelog covers the extension and the command line. The desktop app has it
 - `Compare Design Doc with Git Revision...` (the history button in the preview's title bar, also in its context menu) lists the commits of the document and shows its differences from the one chosen in the preview: the blocks added, changed and deleted are marked with green, blue and red bands, the words changed are highlighted in the changed blocks, and the old version of a changed diagram is shown folded below it. The bar at the bottom goes from one change to the next, and closes the comparison. The differences follow the edits of the document, saved or not. It needs Git.
 - The [website](https://playree.github.io/markdown-design-doc-viewer/) ([日本語](https://playree.github.io/markdown-design-doc-viewer/ja/)) on GitHub Pages introduces the extension, the app for Windows, macOS and Linux, the command line and the Agent Skill. The sample design document exported to HTML has moved to [/sample/](https://playree.github.io/markdown-design-doc-viewer/sample/) ([日本語](https://playree.github.io/markdown-design-doc-viewer/ja/sample/)).
 - ThirdPartyNotices.txt, in the extension and the npm package, includes the licenses and copyright notices of the npm packages bundled into them (mermaid, markdown-it, DOMPurify, highlight.js and the packages they use).
+- The top of the preview has a small margin, so that the first element (such as the box of the document header) does not touch the top edge.
 
 ## 1.0.0
 

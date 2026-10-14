@@ -116,7 +116,7 @@ html:has(> body[data-seqnotes-theme="dark"]:is(.vscode-light, .vscode-high-contr
 }
 
 body {
-  padding: 0 26px 40vh;
+  padding: 2px 26px 40vh;
   font-family: var(--vscode-markdown-font-family, var(--vscode-font-family));
   font-size: var(--vscode-markdown-font-size, 14px);
   line-height: var(--vscode-markdown-line-height, 1.6);
