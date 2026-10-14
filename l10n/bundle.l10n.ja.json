@@ -76,5 +76,5 @@
   "The file is not UTF-8 text.": "ファイルが UTF-8 のテキストではありません。",
   "The file has no folder.": "ファイルのフォルダがありません。",
   "Not a web or mail link.": "Web やメールのリンクではありません。",
-  "Not the file chosen to export to.": "エクスポート先に選んだファイルではありません。"
+  "No file was chosen to export to.": "エクスポート先のファイルが選ばれていません。"
 }

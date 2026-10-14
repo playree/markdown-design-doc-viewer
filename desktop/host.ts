@@ -10,11 +10,11 @@ import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu } from '@tau
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { message, open } from '@tauri-apps/plugin-dialog';
-import { documentTitle, exportFileName, exportPage, imagePath, imageType, renderForExport, stripSourceMap } from '../src/exportPage';
+import { documentTitle, exportFileName, exportPage, imageType, renderForExport, stripSourceMap } from '../src/exportPage';
 import type { FromWebview, PreviewTheme, ToWebview } from '../src/protocol';
 import { createMarkdown, renderDocument } from '../src/render';
 import { lang, t } from './l10n';
-import { isMarkdownPath, linkTarget, relativeLink, resolveDocumentPath, resourcePath } from './paths';
+import { isMarkdownPath, linkTarget, relativeLink, resourcePath } from './paths';
 
 const APP_NAME = 'Markdown Design Doc Viewer';
 
@@ -62,6 +62,7 @@ export function onWebviewMessage(message: FromWebview): void {
   switch (message.type) {
     case 'ready':
       ready = true;
+      updateExportItem();
       render();
       break;
     case 'openLink':
@@ -229,11 +230,15 @@ let exportId = 0;
 /** The documents being rendered by the webview for an export, by id. */
 const pendingExports = new Map<number, { resolve: (body: string) => void; reject: (error: Error) => void }>();
 let exporting = false;
-/** File > Export as HTML..., enabled when the window shows a document. */
+/** File > Export as HTML..., enabled when the window shows a document (rendered by the webview, once it is ready). */
 let exportItem: MenuItem | undefined;
 
+function canExport(): boolean {
+  return ready && current !== undefined && !exporting;
+}
+
 function updateExportItem(): void {
-  void exportItem?.setEnabled(current !== undefined && !exporting);
+  void exportItem?.setEnabled(canExport());
 }
 
 /** Has the webview render `html` (from `renderForExport`) for an exported file, and returns the rendered body. */
@@ -268,11 +273,16 @@ function dataUri(blob: Blob): Promise<string> {
  * document's folder (as the extension embeds those of the folders its preview shows), else linked.
  */
 async function exportedImage(dir: string, src: string, target: string): Promise<string> {
-  const path = resolveDocumentPath(dir, imagePath(src));
+  const path = resourcePath(dir, src);
+  // Not the case: renderForExport keeps the URLs as they are.
+  if (path === undefined) {
+    return src;
+  }
   const type = imageType(path);
   if (type) {
     try {
-      const bytes = await invoke<ArrayBuffer>('read_image', { path, folder: dir });
+      // Only from the folder of the window's document.
+      const bytes = await invoke<ArrayBuffer>('read_image', { path });
       return await dataUri(new Blob([bytes], { type }));
     } catch {
       // Linked instead, see below.
@@ -283,18 +293,28 @@ async function exportedImage(dir: string, src: string, target: string): Promise<
   return relativeLink(target, path);
 }
 
+const assets = new Map<string, Promise<string>>();
+
 /** A file of the app (desktop/dist/): the styles and script of an exported file, the same as those of the extension. */
-async function readAsset(name: string): Promise<string> {
-  const response = await fetch(name);
-  if (!response.ok) {
-    throw new Error(`${name}: ${response.status} ${response.statusText}`);
+function readAsset(name: string): Promise<string> {
+  let asset = assets.get(name);
+  if (!asset) {
+    asset = fetch(name).then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`${name}: ${response.status} ${response.statusText}`);
+      }
+      return stripSourceMap(await response.text());
+    });
+    // Read again by the next export if it failed.
+    asset.catch(() => assets.delete(name));
+    assets.set(name, asset);
   }
-  return stripSourceMap(await response.text());
+  return asset;
 }
 
 /** Asks where to export the document, and writes its HTML file there. Returns that file, or undefined when canceled. */
 async function writeExport(doc: OpenedDocument): Promise<string | undefined> {
-  // Chosen in a dialog of the app (not of the webview), which writes only to that file.
+  // Chosen in a dialog of the app (not of the webview), which writes only to that file (write_export, open_export).
   const target = await invoke<string | null>('choose_export_target', { dir: doc.dir, name: exportFileName(doc.name), title: t('Export Design Doc as HTML') });
   if (!target) {
     return undefined;
@@ -302,7 +322,7 @@ async function writeExport(doc: OpenedDocument): Promise<string | undefined> {
   const html = await renderForExport(md, doc.text, { t, ...RENDER_SETTINGS }, (src) => exportedImage(doc.dir, src, target));
   const [body, style, exportStyle, script] = await Promise.all([renderInWebview(html), readAsset('webview.css'), readAsset('export.css'), readAsset('export.js')]);
   const page = exportPage({ lang, title: documentTitle(md, doc.text, doc.name), body, styles: [style, exportStyle], script, settings: SETTINGS });
-  await invoke('write_export', { path: target, html: page });
+  await invoke('write_export', { html: page });
   return target;
 }
 
@@ -312,7 +332,7 @@ async function writeExport(doc: OpenedDocument): Promise<string | undefined> {
  */
 async function exportHtml(): Promise<void> {
   const doc = current;
-  if (!doc || !ready || exporting) {
+  if (!doc || !canExport()) {
     return;
   }
   exporting = true;
@@ -331,9 +351,9 @@ async function exportHtml(): Promise<void> {
   }
   const open = t('Open in Browser');
   const answer = await message(t('Exported to {0}.', target.split(/[\\/]/).pop() ?? ''), { title: APP_NAME, buttons: { ok: open, cancel: t('Close') } });
-  // The label of the button, or Ok on some systems.
-  if (answer === open || answer === 'Ok') {
-    await invoke('open_export', { path: target }).catch((error: unknown) => showError(t('Could not open {0}.', target), error));
+  // The label of the button chosen (as `confirm` of the dialog plugin compares it).
+  if (answer === open) {
+    await invoke('open_export').catch((error: unknown) => showError(t('Could not open {0}.', target), error));
   }
 }
 
@@ -400,7 +420,7 @@ async function setUpMenu(): Promise<void> {
     themeItems.push(await CheckMenuItem.new({ text: t(text), checked: value === theme, action: () => setTheme(value) }));
   }
   const separator = () => PredefinedMenuItem.new({ item: 'Separator' });
-  exportItem = await MenuItem.new({ text: label('&Export as HTML...'), enabled: current !== undefined, action: () => void exportHtml() });
+  exportItem = await MenuItem.new({ text: label('&Export as HTML...'), enabled: canExport(), action: () => void exportHtml() });
 
   const file = await Submenu.new({
     text: label('&File'),

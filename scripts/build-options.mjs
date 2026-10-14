@@ -14,8 +14,7 @@ export function buildOptions({ production, desktop }) {
     return [
       {
         ...common,
-        // export.js: the script of an exported HTML file (File > Export as HTML...), as in dist/.
-        entryPoints: { app: 'desktop/main.ts', export: 'webview/export.ts' },
+        entryPoints: { app: 'desktop/main.ts' },
         outdir: 'desktop/dist',
         platform: 'browser',
         format: 'iife',
@@ -24,10 +23,24 @@ export function buildOptions({ production, desktop }) {
       },
       {
         ...common,
-        // webview.css and export.css: the styles of an exported HTML file, as in dist/ (app.css has the theme of the app).
-        entryPoints: { app: 'desktop/app.css', webview: 'webview/preview.css', export: 'webview/export.css' },
+        entryPoints: { app: 'desktop/app.css' },
         outdir: 'desktop/dist',
         target: ['chrome120', 'safari16'],
+      },
+      // The script and styles of an exported HTML file (File > Export as HTML...), built as in dist/ so that the file
+      // is the same as the extension's (app.css has the theme of the app).
+      {
+        ...common,
+        entryPoints: { export: 'webview/export.ts' },
+        outdir: 'desktop/dist',
+        platform: 'browser',
+        format: 'iife',
+        target: 'chrome120',
+      },
+      {
+        ...common,
+        entryPoints: { webview: 'webview/preview.css', export: 'webview/export.css' },
+        outdir: 'desktop/dist',
       },
     ];
   }

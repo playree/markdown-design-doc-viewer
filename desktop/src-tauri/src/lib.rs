@@ -335,43 +335,48 @@ async fn choose_export_target(
     let Some(chosen) = chosen else {
         return Ok(None);
     };
-    let path = chosen.into_path().map_err(|e| e.to_string())?;
+    let mut path = chosen.into_path().map_err(|e| e.to_string())?;
+    // Always an HTML file, also when the dialog does not add the extension of its filter (GTK), so that
+    // `open_export` opens it in the browser rather than in another app.
+    if !has_extension(&path, &["html", "htm"]) {
+        let mut name = path.file_name().unwrap_or_default().to_owned();
+        name.push(".html");
+        path.set_file_name(name);
+    }
     let result = to_string(&path);
     targets.0.lock().unwrap_or_else(PoisonError::into_inner).insert(window.label().to_string(), path);
     Ok(Some(result))
 }
 
-/// The file chosen to export to in the window, if it is `path`.
-fn export_target(window: &Window, targets: &ExportTargets, path: &str) -> Result<PathBuf, String> {
+/// The file chosen to export to in the window.
+fn export_target(window: &Window, targets: &ExportTargets) -> Result<PathBuf, String> {
     let targets = targets.0.lock().unwrap_or_else(PoisonError::into_inner);
-    match targets.get(window.label()) {
-        Some(target) if target == Path::new(path) => Ok(target.clone()),
-        _ => Err("Not the file chosen to export to.".to_string()),
-    }
+    targets.get(window.label()).cloned().ok_or_else(|| "No file was chosen to export to.".to_string())
 }
 
 /// Saves the HTML export of the window's document, to the file chosen for it (`choose_export_target`).
 #[tauri::command]
-async fn write_export(window: Window, targets: State<'_, ExportTargets>, path: String, html: String) -> Result<(), String> {
-    let target = export_target(&window, &targets, &path)?;
+async fn write_export(window: Window, targets: State<'_, ExportTargets>, html: String) -> Result<(), String> {
+    let target = export_target(&window, &targets)?;
     std::fs::write(target, html).map_err(|e| e.to_string())
 }
 
 /// Opens the HTML export of the window's document in the default browser.
 #[tauri::command]
-async fn open_export(app: AppHandle, window: Window, targets: State<'_, ExportTargets>, path: String) -> Result<(), String> {
-    let target = export_target(&window, &targets, &path)?;
+async fn open_export(app: AppHandle, window: Window, targets: State<'_, ExportTargets>) -> Result<(), String> {
+    let target = export_target(&window, &targets)?;
     app.opener().open_path(to_string(&target), None::<&str>).map_err(|e| e.to_string())
 }
 
-/// Reads a local image of a document in `folder` for its HTML export, as raw bytes. Only an image file in that
-/// folder (or below it), also when its symbolic links are followed: the export links the others instead of embedding
-/// them, as the extension does with the images outside the folders its preview shows.
+/// Reads a local image of the window's document for its HTML export, as raw bytes. Only an image file in the folder of
+/// the document (or below it), also when its symbolic links are followed: the export links the others instead of
+/// embedding them, as the extension does with the images outside the folders its preview shows.
 #[tauri::command]
-async fn read_image(path: String, folder: String) -> Result<Response, String> {
+async fn read_image(window: Window, windows: State<'_, Windows>, path: String) -> Result<Response, String> {
+    let document = windows.0.lock().unwrap_or_else(PoisonError::into_inner).shown.get(window.label()).cloned();
+    let folder = document.as_deref().map(Path::new).and_then(Path::parent).ok_or("The window shows no document.")?;
     let path = dunce::canonicalize(&path).map_err(|e| e.to_string())?;
-    let folder = dunce::canonicalize(&folder).map_err(|e| e.to_string())?;
-    if !path.is_file() || !has_extension(&path, IMAGE_EXTENSIONS) || !path.starts_with(&folder) {
+    if !path.is_file() || !has_extension(&path, IMAGE_EXTENSIONS) || !path.starts_with(folder) {
         return Err("Not an image in the folder of the document.".to_string());
     }
     std::fs::read(&path).map(Response::new).map_err(|e| e.to_string())
