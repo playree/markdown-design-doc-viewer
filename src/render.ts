@@ -105,6 +105,13 @@ function mermaidFence(md: MarkdownIt): void {
     // Set by `sourceLines`, which leaves it out where the document order would break.
     const line = token.attrGet('data-line');
     let attrs = line === null ? '' : ` data-line="${line}"`;
+    // Set by `renderDiff`: the other blocks have it rendered with their attributes.
+    for (const name of ['data-seqnotes-diff', 'data-seqnotes-diff-old']) {
+      const value = token.attrGet(name);
+      if (value !== null) {
+        attrs += ` ${name}="${escapeHtml(String(value))}"`;
+      }
+    }
     if (diagram) {
       const meta: DiagramMeta = {
         id: diagram.id,
@@ -146,7 +153,11 @@ export function createMarkdown(): MarkdownIt {
 }
 
 export function renderDocument(md: MarkdownIt, source: string, env: RenderEnv = {}): string {
-  const tokens = md.parse(source, env);
+  return renderTokens(md, md.parse(source, env), env);
+}
+
+/** Renders the tokens of a document parsed with `env` (`renderDocument`, or `renderDiff` with the blocks of the revision added). */
+export function renderTokens(md: MarkdownIt, tokens: Token[], env: RenderEnv): string {
   const t = env.t ?? formatMessage;
   const { diagrams, warnings } = linkDiagrams(tokens, t);
   for (const diagram of diagrams) {

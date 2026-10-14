@@ -8,6 +8,7 @@
   "mdDesignDoc.useFullContentWidth.title": "本文を全幅で表示",
   "mdDesignDoc.limitContentWidth.title": "本文の幅を制限",
   "mdDesignDoc.toggleTheme.title": "プレビューのライト/ダークを切り替え",
+  "mdDesignDoc.compareWithRevision.title": "設計書を Git の履歴と比較...",
   "mdDesignDoc.editor.displayName": "設計書プレビュー",
   "mdDesignDoc.splitMinWidth.description": "シーケンス図・フローチャートと処理概要を横並びで表示する最小のプレビュー幅 (px)。横向き（LR / RL）のフローチャートは常に処理概要を下に表示します。",
   "mdDesignDoc.limitContentWidth.description": "プレビューの幅が広いとき、本文を最大 1280px の中央のカラムに収めます。処理概要と横並びにした図は全幅で表示します。HTML エクスポートにも適用されます。プレビューのタイトルバーのボタンでも切り替えられます。",

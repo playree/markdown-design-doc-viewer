@@ -1,8 +1,9 @@
 import DOMPurify from 'dompurify';
 import mermaid, { type MermaidConfig } from 'mermaid';
-import type { DiagramLook, FromWebview, PreviewTheme, ToWebview, WebviewState } from '../src/protocol';
+import type { DiagramLook, DiffView, FromWebview, PreviewTheme, ToWebview, WebviewState } from '../src/protocol';
 import type { DiagramMeta } from '../src/render';
 import { normalizeLabel } from '../src/sequence';
+import { markChanges, setupDiffBar } from './diff';
 import { setupFootnotePopup } from './footnotePopup';
 import { activeFor, isSideBySide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, type Active } from './linking';
 
@@ -20,6 +21,8 @@ const CURRENT = 'seqnotes-current';
 const HEADING_RE = /^H([1-6])$/;
 
 let lastHtml: string | undefined;
+/** The differences shown with `lastHtml`, if any. */
+let lastDiff: DiffView | undefined;
 let splitMinWidth = 1000;
 let syncEditor = true;
 let tocEnabled = true;
@@ -191,11 +194,16 @@ async function renderDiagrams(container: HTMLElement, idPrefix: string, dark: bo
   return cache;
 }
 
+/** Raw HTML in Markdown is allowed, so sanitize like the built-in preview does. */
+const sanitize = (html: string): DocumentFragment => DOMPurify.sanitize(html, { RETURN_DOM_FRAGMENT: true });
+
 /** Sanitizes the HTML from the extension host and renders its diagrams into a new element. */
-async function buildContent(html: string, idPrefix: string, dark: boolean, look: DiagramLook): Promise<{ content: HTMLElement; cache: Map<string, string> }> {
+async function buildContent(html: string, idPrefix: string, dark: boolean, look: DiagramLook, diff?: DiffView): Promise<{ content: HTMLElement; cache: Map<string, string> }> {
   const content = document.createElement('div');
-  // Raw HTML in Markdown is allowed, so sanitize like the built-in preview does.
-  content.append(DOMPurify.sanitize(html, { RETURN_DOM_FRAGMENT: true }));
+  content.append(sanitize(html));
+  if (diff) {
+    markChanges(content, diff, sanitize);
+  }
   const cache = await queueRender(() => renderDiagrams(content, idPrefix, dark, look));
   return { content, cache };
 }
@@ -369,12 +377,13 @@ function headingLevel(el: Element): number | undefined {
   return m ? Number(m[1]) : undefined;
 }
 
-async function update(html: string): Promise<void> {
+async function update(html: string, diff: DiffView | undefined): Promise<void> {
   lastHtml = html;
+  lastDiff = diff;
   const seq = ++renderSeq;
   // Set before rendering, so that other class changes of the body do not start another update meanwhile.
   const dark = (renderedDark = isDarkTheme());
-  const { content: next, cache } = await buildContent(html, `seqnotes-svg-${seq}`, dark, diagramLook);
+  const { content: next, cache } = await buildContent(html, `seqnotes-svg-${seq}`, dark, diagramLook, diff);
   // Kept even when a newer update is waiting: it renders next and can reuse these.
   svgCache = cache;
   if (seq !== renderSeq) {
@@ -412,6 +421,7 @@ async function update(html: string): Promise<void> {
     }
   });
   setUpWarnings();
+  diffBar.show(diff);
   addZoomButtons();
   markZoomableImages();
   if (zoom) {
@@ -460,7 +470,7 @@ let tocCurrent = -1;
 /** The heading text without the `autonumber` badge added by `addStepBadge`, nor the footnote references. */
 function headingText(heading: Element): string {
   const clone = heading.cloneNode(true) as Element;
-  clone.querySelectorAll('.seqnotes-step, .footnote-ref').forEach((badge) => badge.remove());
+  clone.querySelectorAll('.seqnotes-step, .footnote-ref, .seqnotes-diff-del').forEach((badge) => badge.remove());
   return (clone.textContent ?? '').trim();
 }
 
@@ -468,6 +478,8 @@ function headingText(heading: Element): string {
 function buildToc(): void {
   const entries = tocEnabled
     ? Array.from(root.querySelectorAll('h1, h2, h3'))
+        // Not those of the revision, gone from the document.
+        .filter((heading) => !heading.closest('[data-seqnotes-diff="deleted"]'))
         .map((heading) => ({ heading, level: headingLevel(heading)!, text: headingText(heading) }))
         .filter((entry) => entry.text)
     : [];
@@ -646,6 +658,8 @@ const footnotePopup = setupFootnotePopup(root, (href) => {
   openLink(href);
   return true;
 });
+
+const diffBar = setupDiffBar(root, () => vscode.postMessage({ type: 'closeDiff' }));
 
 function openLink(href: string): void {
   if (href.startsWith('#')) {
@@ -1153,7 +1167,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       }
       currentUri = message.uri;
       applyLayout();
-      void update(message.html);
+      void update(message.html, message.diff);
       break;
     case 'scrollToLine':
       scrollToLine(message.line);
@@ -1173,7 +1187,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
 // VS Code switches the body class when the color theme changes.
 new MutationObserver(() => {
   if (lastHtml !== undefined && isDarkTheme() !== renderedDark) {
-    void update(lastHtml);
+    void update(lastHtml, lastDiff);
   }
 }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 

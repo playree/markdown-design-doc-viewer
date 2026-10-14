@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { registerAuthoringProviders } from './authoringProviders';
 import { DiagnosticsManager } from './diagnostics';
 import { exportHtml } from './exportHtml';
+import { compareWithRevision } from './history';
 import { PreviewManager, readSettings } from './previewPanel';
 
 function targetUri(arg: unknown): vscode.Uri | undefined {
@@ -41,6 +42,15 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
       return exportHtml(manager, context.extensionUri, uri);
+    }),
+    vscode.commands.registerCommand('mdDesignDoc.compareWithRevision', (arg: unknown) => {
+      // From the preview's title bar or context menu, the preview has the focus.
+      const uri = arg instanceof vscode.Uri ? arg : (manager.activeUri() ?? targetUri(undefined));
+      if (!uri) {
+        void vscode.window.showWarningMessage(vscode.l10n.t('Open a Markdown file to compare it with its Git history.'));
+        return;
+      }
+      return compareWithRevision(manager, uri);
     }),
     vscode.commands.registerCommand('mdDesignDoc.useFullContentWidth', () => updateSetting('limitContentWidth', false)),
     vscode.commands.registerCommand('mdDesignDoc.limitContentWidth', () => updateSetting('limitContentWidth', true)),

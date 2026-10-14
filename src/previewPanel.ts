@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import { WEBVIEW_TITLES, type DiagramLook, type FromWebview, type PreviewTheme, type ToWebview, type WebviewState } from './protocol';
 import { isExternalUrl, safeDecode, SCHEME_RE } from './exportPage';
-import { createMarkdown, escapeHtml, renderDocument } from './render';
+import { renderDiff } from './diffRender';
+import { createMarkdown, escapeHtml, renderDocument, type RenderEnv } from './render';
 
 const VIEW_TYPE = 'mdDesignDoc.preview';
 /** Custom editor shown in "Reopen Editor With..." for Markdown files. */
@@ -126,10 +127,15 @@ export class PreviewManager implements vscode.Disposable {
 
   /** The document of the preview (panel or custom editor) that has the focus. */
   activeUri(): vscode.Uri | undefined {
+    return this.activePreview()?.uri;
+  }
+
+  /** The preview (panel or custom editor) that has the focus. */
+  activePreview(): Preview | undefined {
     for (const set of this.previews.values()) {
       for (const preview of set) {
         if (preview.panel.active) {
-          return preview.uri;
+          return preview;
         }
       }
     }
@@ -197,6 +203,14 @@ export class PreviewManager implements vscode.Disposable {
   }
 }
 
+/** A revision the preview compares its document with. */
+export interface Comparison {
+  /** What it is compared with, for the preview (translated). */
+  label: string;
+  /** The content of the document in the revision. */
+  source: string;
+}
+
 interface PreviewHost {
   settings(): Settings;
   revealLine(line: number): void;
@@ -215,6 +229,8 @@ export class Preview {
     this.setClosed = reject;
   });
   private exportId = 0;
+  /** The revision whose differences are shown, if any. */
+  private comparison: Comparison | undefined;
   private readonly exports = new Map<number, { resolve: (body: string) => void; reject: (error: Error) => void }>();
 
   constructor(
@@ -282,6 +298,12 @@ export class Preview {
     }
   }
 
+  /** Shows the differences of the document from a revision, or the document alone without. */
+  compare(comparison: Comparison | undefined): Promise<void> {
+    this.comparison = comparison;
+    return this.update();
+  }
+
   scheduleUpdate(): void {
     clearTimeout(this.timer);
     this.timer = setTimeout(() => this.update(), UPDATE_DELAY_MS);
@@ -294,8 +316,13 @@ export class Preview {
       return;
     }
     const { frontMatter, headingNumbers, ...settings } = this.host.settings();
-    const html = renderDocument(this.md, document.getText(), { resolveResource: (src) => this.resolveResource(src), t: vscode.l10n.t, frontMatter, headingNumbers });
-    this.post({ type: 'update', uri: this.uri.toString(), html, ...settings });
+    const env: RenderEnv = { resolveResource: (src) => this.resolveResource(src), t: vscode.l10n.t, frontMatter, headingNumbers };
+    if (this.comparison) {
+      const { html, old, stats } = renderDiff(this.md, this.comparison.source, document.getText(), env);
+      this.post({ type: 'update', uri: this.uri.toString(), html, ...settings, diff: { label: this.comparison.label, old, stats } });
+    } else {
+      this.post({ type: 'update', uri: this.uri.toString(), html: renderDocument(this.md, document.getText(), env), ...settings });
+    }
   }
 
   private async onMessage(message: FromWebview): Promise<void> {
@@ -315,6 +342,9 @@ export class Preview {
         break;
       case 'openLink':
         await this.openLink(message.href);
+        break;
+      case 'closeDiff':
+        await this.compare(undefined);
         break;
       case 'exported': {
         const pending = this.exports.get(message.id);

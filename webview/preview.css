@@ -42,6 +42,11 @@ body[data-seqnotes-theme="light"]:not(.vscode-light, .vscode-high-contrast-light
   --vscode-charts-purple: #652d90;
   --vscode-charts-red: #e51400;
   --vscode-charts-yellow: #bf8803;
+  --vscode-editorGutter-addedBackground: #2ea043;
+  --vscode-editorGutter-modifiedBackground: #005fb8;
+  --vscode-editorGutter-deletedBackground: #f85149;
+  --vscode-diffEditor-insertedTextBackground: rgba(156, 204, 44, 0.25);
+  --vscode-diffEditor-removedTextBackground: rgba(255, 0, 0, 0.2);
   /* Used by the default styles of VS Code's webviews (code, blockquote, kbd, scrollbars). */
   --vscode-textPreformat-foreground: #3b3b3b;
   --vscode-textBlockQuote-background: #f8f8f8;
@@ -82,6 +87,11 @@ body[data-seqnotes-theme="dark"]:is(.vscode-light, .vscode-high-contrast-light) 
   --vscode-charts-purple: #b180d7;
   --vscode-charts-red: #f14c4c;
   --vscode-charts-yellow: #cca700;
+  --vscode-editorGutter-addedBackground: #2ea043;
+  --vscode-editorGutter-modifiedBackground: #0078d4;
+  --vscode-editorGutter-deletedBackground: #f85149;
+  --vscode-diffEditor-insertedTextBackground: rgba(156, 204, 44, 0.2);
+  --vscode-diffEditor-removedTextBackground: rgba(255, 0, 0, 0.2);
   /* Used by the default styles of VS Code's webviews (code, blockquote, kbd, scrollbars). */
   --vscode-textPreformat-foreground: #d0d0d0;
   --vscode-textBlockQuote-background: #2b2b2b;
@@ -743,3 +753,107 @@ body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-overvi
   color: var(--seqnotes-accent);
 }
 .seqnotes-toc button:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
+
+/* ---------------------------------------------------------------- Differences from a revision (diff.ts) */
+
+[data-seqnotes-diff] { --seqnotes-diff-color: var(--vscode-editorGutter-addedBackground, #2ea043); }
+[data-seqnotes-diff="changed"] { --seqnotes-diff-color: var(--vscode-editorGutter-modifiedBackground, #005fb8); }
+[data-seqnotes-diff="deleted"] { --seqnotes-diff-color: var(--vscode-editorGutter-deletedBackground, #f85149); }
+
+/* A band at the left of the block, apart from it, over a light tint of its color. */
+[data-seqnotes-diff]:not(tr) {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--seqnotes-diff-color) 8%, transparent);
+  box-shadow: -4px 0 0 0 var(--vscode-editor-background, transparent), -8px 0 0 0 var(--seqnotes-diff-color);
+}
+tr[data-seqnotes-diff] > :is(td, th) { background: color-mix(in srgb, var(--seqnotes-diff-color) 10%, transparent); }
+tr[data-seqnotes-diff] > :first-child { box-shadow: inset 4px 0 0 0 var(--seqnotes-diff-color); }
+/* Read as gone, while still readable. */
+[data-seqnotes-diff="deleted"] { opacity: 0.75; }
+:is(h1, h2, h3, h4, h5, h6)[data-seqnotes-diff] { padding-left: 4px; }
+
+ins.seqnotes-diff-ins {
+  text-decoration: none;
+  border-radius: 2px;
+  background: var(--vscode-diffEditor-insertedTextBackground, rgba(156, 204, 44, 0.25));
+  box-shadow: 0 1.5px 0 0 var(--vscode-editorGutter-addedBackground, #2ea043);
+}
+del.seqnotes-diff-del {
+  border-radius: 2px;
+  background: var(--vscode-diffEditor-removedTextBackground, rgba(255, 0, 0, 0.2));
+  text-decoration: line-through;
+  text-decoration-color: var(--vscode-editorGutter-deletedBackground, #f85149);
+}
+
+/* The diagram of the revision, under a changed diagram. */
+.seqnotes-diff-old-diagram { margin: 0.5em 0 1em; }
+.seqnotes-diff-old-diagram > summary { color: var(--seqnotes-muted); font-size: 0.9em; }
+.seqnotes-diff-old-diagram > .seqnotes-mermaid {
+  opacity: 0.75;
+  background: color-mix(in srgb, var(--vscode-editorGutter-deletedBackground, #f85149) 8%, transparent);
+}
+
+/* Jumped to with the bar's buttons. */
+.seqnotes-diff-focus { outline: 2px solid var(--vscode-focusBorder, #005fb8); outline-offset: 2px; }
+[data-seqnotes-diff] { scroll-margin: 25vh 0; }
+
+/* Floats at the bottom, where it covers neither the sticky table headers nor the contents (top right). */
+.seqnotes-diff-bar {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+  padding: 3px 3px 3px 12px;
+  border: 1px solid var(--vscode-editorWidget-border, var(--seqnotes-border));
+  border-radius: 6px;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.36));
+  font-size: 12px;
+  transform: translateX(-50%);
+}
+.seqnotes-diff-bar[hidden] { display: none; }
+.seqnotes-diff-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.seqnotes-diff-counts { display: flex; gap: 8px; color: var(--seqnotes-muted); white-space: nowrap; }
+.seqnotes-diff-count::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+  border-radius: 2px;
+  background: var(--seqnotes-diff-color);
+}
+.seqnotes-diff-count[data-kind="added"] { --seqnotes-diff-color: var(--vscode-editorGutter-addedBackground, #2ea043); }
+.seqnotes-diff-count[data-kind="changed"] { --seqnotes-diff-color: var(--vscode-editorGutter-modifiedBackground, #005fb8); }
+.seqnotes-diff-count[data-kind="deleted"] { --seqnotes-diff-color: var(--vscode-editorGutter-deletedBackground, #f85149); }
+.seqnotes-diff-buttons { display: flex; gap: 2px; }
+.seqnotes-diff-buttons button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vscode-icon-foreground, currentColor);
+  cursor: pointer;
+}
+.seqnotes-diff-buttons button:hover { background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2)); }
+.seqnotes-diff-buttons button:focus-visible { outline: 1px solid var(--vscode-focusBorder); }
+.seqnotes-diff-buttons button:disabled { opacity: 0.4; cursor: default; background: transparent; }
+
+@media print {
+  .seqnotes-diff-bar { display: none; }
+}

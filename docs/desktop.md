@@ -74,7 +74,7 @@ Images are looked up from the folder of the document, also with a leading `/` (t
 
 **View** > **Theme** shows the preview in the colors of the system (light or dark, following its changes), or always light or dark. The menus and texts are in Japanese when the language of the system is Japanese, else in English.
 
-Compared with the extension, the app does not follow an editor (no scroll sync or double-click to jump to a line), and uses the default settings of the extension. To export many documents at once, use the [command line](cli.md).
+Compared with the extension, the app does not follow an editor (no scroll sync or double-click to jump to a line), cannot compare a document with its Git history yet, and uses the default settings of the extension. To export many documents at once, use the [command line](cli.md).
 
 ## Development
 
