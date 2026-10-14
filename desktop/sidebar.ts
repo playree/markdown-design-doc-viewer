@@ -230,10 +230,10 @@ export function createSidebar({ t, lang, onOpenFile, onChooseFolder }: SidebarOp
       button.textContent = t('Open Folder...');
       button.addEventListener('click', onChooseFolder);
       content.append(message(t('No folder is open.')), button);
-    } else if (tree.root.folders.length === 0 && tree.root.files.length === 0) {
-      content.append(message(t('There are no Markdown files in this folder.')));
     } else {
-      content.append(list(tree.root, 0));
+      const empty = tree.root.folders.length === 0 && tree.root.files.length === 0;
+      content.append(empty ? message(t('There are no Markdown files in this folder.')) : list(tree.root, 0));
+      // Also below an empty list: the files added may be in the part not listed, or not shown.
       if (tree.truncated) {
         content.append(message(t('The folder has too many files: some of them are not listed.')));
       }
