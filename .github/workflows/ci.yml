@@ -59,6 +59,12 @@ jobs:
       # GitHub Pages のサイト（ランディングページとサンプル、.work/site）を作れること（公開は Release のときに pages.yml で行う）
       - run: pnpm pages
 
+      - uses: actions/upload-artifact@v7
+        with:
+          name: site
+          path: .work/site
+          if-no-files-found: error
+
       # npm パッケージ（.work/npm）を作れること（ファイルの漏れや package.nls.json にない文言をここで見つける）
       - run: pnpm npm:package && npm pack ./.work/npm --dry-run
 

@@ -9,7 +9,6 @@
   --accent: #1e3a5f;
   --accent-fg: #ffffff;
   --link: #1f5fa8;
-  --amber: #c77800;
   --hero-bg: #1e3a5f;
   --hero-fg: #ffffff;
   --hero-muted: #c9dcf2;
@@ -33,8 +32,7 @@
     --accent: #ffb454;
     --accent-fg: #1b1f24;
     --link: #8fc0f4;
-    --amber: #ffb454;
-    --hero-bg: #142a45;
+      --hero-bg: #142a45;
     --hero-fg: #ffffff;
     --hero-muted: #b3cbe6;
     --code-bg: #0b1016;
@@ -148,8 +146,7 @@ code {
   white-space: nowrap;
 }
 
-.site-nav a:hover,
-.site-nav a[aria-current='true'] {
+.site-nav a:hover {
   color: var(--hero-fg);
 }
 
