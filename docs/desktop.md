@@ -38,7 +38,12 @@ Open a Markdown file (`.md`, `.markdown`):
 
 - with **File** > **Open...** (Ctrl+O, ⌘O on macOS), or the button shown when no file is open
 - by dropping it on the window
+- from the file manager: **Open with** > **Markdown Design Doc Viewer** in the context menu of the file in the Explorer (Windows) or the Finder (macOS), or **Open With Other Application** in the file managers of Linux
 - from the command line: `markdown-design-doc-viewer docs/login.md` (on Windows, the `markdown-design-doc-viewer.exe` in the installation folder)
+
+The installers add the app to the apps that open `.md` and `.markdown` files, without making it their default app. To open them with the app by a double-click, make it the default: **Open with** > **Choose another app** with **Always** (Windows), **Get Info** > **Open with** > **Change All...** (macOS), or the properties of the file (Linux). The AppImage is not added (it is not installed).
+
+When the app is running, a file opened from the file manager or the command line opens in a new window. If a window shows that file already, it comes to the front instead; if a window shows no file, the file opens in it. **File** > **Open...**, dropping a file and the links open the file in their window. **File** > **Close** (Ctrl+W, ⌘W) closes the window, and the app ends with its last window. **File** > **Exit** (on macOS, **Quit** in the app menu) closes all the windows.
 
 When the file is saved, the preview is updated, keeping its scroll position. **File** > **Reload** (Ctrl+R, ⌘R) reads it again.
 

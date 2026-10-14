@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The app in "Open with" of .md and .markdown files, for the MSI (tauri.conf.json: bundle > windows > wix).
+  Not with bundle > fileAssociations, whose ProgId makes the app the default one of the extension: it is only added
+  to the extension's OpenWithProgids. The same as hooks.nsh for the NSIS installer.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <DirectoryRef Id="INSTALLDIR">
+      <Component Id="FileAssociations" Guid="FF867B71-E6D3-43E4-BA30-85AF0DF61E1C">
+        <RegistryKey Root="HKLM" Key="Software\Classes\MarkdownDesignDocViewer.Markdown">
+          <RegistryValue Type="string" Value="Markdown" KeyPath="yes" />
+          <RegistryValue Key="DefaultIcon" Type="string" Value="[INSTALLDIR]markdown-design-doc-viewer.exe,0" />
+          <RegistryValue Key="shell\open\command" Type="string" Value="&quot;[INSTALLDIR]markdown-design-doc-viewer.exe&quot; &quot;%1&quot;" />
+        </RegistryKey>
+        <RegistryValue Root="HKLM" Key="Software\Classes\.md\OpenWithProgids" Name="MarkdownDesignDocViewer.Markdown" Type="string" Value="" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\.markdown\OpenWithProgids" Name="MarkdownDesignDocViewer.Markdown" Type="string" Value="" />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+</Wix>

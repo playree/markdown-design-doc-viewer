@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The main window. The files are read and opened by the Rust commands (src/lib.rs), so the webview has no fs or opener permission.",
-  "windows": ["main"],
+  "description": "The windows of the documents (main, and doc-N opened for the files given to the running app). The files are read and opened by the Rust commands (src/lib.rs), so the webview has no fs or opener permission.",
+  "windows": ["main", "doc-*"],
   "permissions": [
     "core:default",
     "core:menu:default",
