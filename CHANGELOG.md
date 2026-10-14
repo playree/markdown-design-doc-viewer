@@ -4,6 +4,8 @@ This changelog covers the extension and the command line. The desktop app has it
 
 ## Unreleased
 
+- ThirdPartyNotices.txt, in the extension and the npm package, includes the licenses and copyright notices of the npm packages bundled into them (mermaid, markdown-it, DOMPurify, highlight.js and the packages they use).
+
 ## 1.0.0
 
 - The [authoring guide for AI assistants](docs/ai-authoring-guide.md) and the usage of the command line are packaged as an Agent Skill, attached to each release: [markdown-design-doc-skill.zip](https://github.com/playree/markdown-design-doc-viewer/releases/latest/download/markdown-design-doc-skill.zip). Upload it to Claude, or unzip it into the skills folder of Claude Code or another assistant, and it is used when the assistant is asked to write a design document, in English or in Japanese.
