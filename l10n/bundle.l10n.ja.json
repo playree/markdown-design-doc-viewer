@@ -76,5 +76,14 @@
   "The file is not UTF-8 text.": "ファイルが UTF-8 のテキストではありません。",
   "The file has no folder.": "ファイルのフォルダがありません。",
   "Not a web or mail link.": "Web やメールのリンクではありません。",
-  "No file was chosen to export to.": "エクスポート先のファイルが選ばれていません。"
+  "No file was chosen to export to.": "エクスポート先のファイルが選ばれていません。",
+  "Open &Folder...": "フォルダを開く(&F)...",
+  "&Sidebar": "サイドバー(&S)",
+  "Files": "ファイル一覧",
+  "Open Folder...": "フォルダを開く...",
+  "No Folder": "フォルダなし",
+  "No folder is open.": "フォルダが開かれていません。",
+  "There are no Markdown files in this folder.": "このフォルダには Markdown ファイルがありません。",
+  "The folder has too many files: some of them are not listed.": "フォルダのファイルが多すぎるため、一部を表示していません。",
+  "Not a folder.": "フォルダではありません。"
 }

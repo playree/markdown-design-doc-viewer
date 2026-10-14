@@ -1,0 +1,137 @@
+/*
+ * The sidebar of the files of a folder (sidebar.ts), fixed at the left of the window. The body makes room for it,
+ * so that the preview, its table of contents (at the right) and its sticky diagrams stay as they are. Below the
+ * table of contents (z-index 10), the footnotes (15) and the zoom of diagrams and images (20), which covers it.
+ */
+
+.desktop-sidebar {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: var(--desktop-sidebar-width, 260px);
+  border-right: 1px solid var(--seqnotes-border);
+  background: var(--vscode-sideBar-background);
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: 13px;
+  line-height: 1.4;
+  user-select: none;
+}
+.desktop-sidebar[hidden] { display: none; }
+
+body.desktop-sidebar-shown { padding-left: calc(var(--desktop-sidebar-width) + 26px); }
+
+.desktop-sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 6px 6px 12px;
+  border-bottom: 1px solid var(--seqnotes-border);
+}
+.desktop-sidebar-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.desktop-sidebar-choose {
+  display: flex;
+  padding: 3px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--vscode-icon-foreground);
+  cursor: pointer;
+}
+.desktop-sidebar-choose:hover { background: var(--vscode-toolbar-hoverBackground); }
+
+.desktop-sidebar-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 0;
+}
+.desktop-sidebar-content ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.desktop-sidebar-content ul[hidden] { display: none; }
+
+.desktop-sidebar-message {
+  margin: 8px 12px;
+  color: var(--seqnotes-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* Colored as the button shown without a document (theme.css). */
+.desktop-sidebar-button {
+  margin: 0 12px;
+  padding: 4px 10px;
+}
+
+.desktop-tree-folder,
+.desktop-tree-file {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 2px 8px 2px calc(12px + var(--desktop-tree-depth, 0) * 12px);
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.desktop-tree-folder:hover,
+.desktop-tree-file:hover { background: var(--vscode-list-hoverBackground); }
+.desktop-tree-folder:focus-visible,
+.desktop-tree-file:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
+.desktop-tree-file[aria-current] {
+  background: var(--seqnotes-accent-bg);
+  color: var(--seqnotes-accent);
+}
+
+/* A chevron, pointing down when the folder is open. */
+.desktop-tree-folder::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin: 0 7px 2px -1px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  vertical-align: middle;
+}
+.desktop-tree-folder[aria-expanded="true"]::before { transform: rotate(45deg); margin-bottom: 4px; }
+/* The files line up with the names of the folders, after their chevron. */
+.desktop-tree-file { padding-left: calc(26px + var(--desktop-tree-depth, 0) * 12px); }
+
+/* Dragged to change the width of the sidebar. */
+.desktop-sidebar-sash {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.desktop-sidebar-sash:hover,
+.desktop-sidebar-resizing .desktop-sidebar-sash { background: var(--vscode-sash-hoverBorder); }
+
+@media print {
+  .desktop-sidebar { display: none; }
+  body.desktop-sidebar-shown { padding-left: 26px; }
+}

@@ -1,3 +1,4 @@
-/* The styles of the desktop app (desktop/dist/app.css): those of the preview, and the variables VS Code would give it. */
+/* The styles of the desktop app (desktop/dist/app.css): those of the preview, the variables VS Code would give it, and the sidebar. */
 @import "../webview/preview.css";
 @import "./theme.css";
+@import "./sidebar.css";

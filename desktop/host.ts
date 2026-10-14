@@ -1,7 +1,8 @@
 /**
  * The desktop app's side of the preview, in place of the extension host (Preview in src/previewPanel.ts): opens a
  * Markdown file through the Rust commands (src-tauri/src/lib.rs), renders it with `renderDocument` and sends it to
- * the webview, and follows its changes. Also the menu, the dropped files, the theme and the HTML export.
+ * the webview, and follows its changes. Also the sidebar of the files of its folder (sidebar.ts), the menu, the
+ * dropped files, the theme and the HTML export.
  *
  * Each window of the app runs its own copy: the app opens a window for each file given to it while it runs.
  */
@@ -13,8 +14,10 @@ import { message, open } from '@tauri-apps/plugin-dialog';
 import { documentTitle, exportFileName, exportPage, imageType, renderForExport, stripSourceMap } from '../src/exportPage';
 import type { FromWebview, PreviewTheme, ToWebview } from '../src/protocol';
 import { createMarkdown, renderDocument } from '../src/render';
+import type { FolderTree } from './folderTree';
 import { lang, t } from './l10n';
-import { isMarkdownPath, linkTarget, relativeLink, resourcePath } from './paths';
+import { isInside, isMarkdownPath, linkTarget, relativeLink, resourcePath } from './paths';
+import { createSidebar } from './sidebar';
 
 const APP_NAME = 'Markdown Design Doc Viewer';
 
@@ -45,7 +48,11 @@ const RENDER_SETTINGS = { frontMatter: true, headingNumbers: true } as const;
 
 /** The document of the window, kept across reloads of the page (F5) in the session. */
 const DOCUMENT_KEY = 'mdDesignDoc.document';
+/** The folder of the window's sidebar, kept across reloads of the page (F5) in the session. */
+const FOLDER_KEY = 'mdDesignDoc.folder';
 const THEME_KEY = 'mdDesignDoc.theme';
+/** Whether the sidebar is shown, kept for the next launch. */
+const SIDEBAR_KEY = 'mdDesignDoc.sidebar';
 
 const md = createMarkdown();
 const appWindow = getCurrentWindow();
@@ -134,13 +141,16 @@ let readSeq = 0;
 /** The number of the read shown. */
 let shownSeq = 0;
 
-/** Opens a document in the window, at the heading `fragment` when given. */
-function openDocument(path: string, fragment?: string): Promise<void> {
-  opening = opening.then(() => openNow(path, fragment)).catch((error: unknown) => console.error(error));
+/**
+ * Opens a document in the window, at the heading `fragment` when given. The sidebar then lists its folder, unless it
+ * lists a folder the document is in, or `keepFolder` (a file chosen in the sidebar).
+ */
+function openDocument(path: string, fragment?: string, keepFolder = false): Promise<void> {
+  opening = opening.then(() => openNow(path, fragment, keepFolder)).catch((error: unknown) => console.error(error));
   return opening;
 }
 
-async function openNow(path: string, fragment?: string): Promise<void> {
+async function openNow(path: string, fragment: string | undefined, keepFolder: boolean): Promise<void> {
   const seq = ++readSeq;
   let doc: OpenedDocument;
   try {
@@ -163,6 +173,10 @@ async function openNow(path: string, fragment?: string): Promise<void> {
   empty.hidden = true;
   updateExportItem();
   void appWindow.setTitle(`${doc.name} — ${APP_NAME}`);
+  if (!keepFolder && !(folder && isInside(folder, doc.path))) {
+    setFolder(doc.dir);
+  }
+  sidebar.setCurrent(doc.path);
   render();
 }
 
@@ -198,6 +212,133 @@ async function chooseDocument(): Promise<void> {
   });
   if (typeof path === 'string') {
     await openDocument(path);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sidebar: the Markdown files of the folder of the document, or of a folder chosen (File > Open Folder...).
+
+function savedSidebarShown(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+let sidebarShown = savedSidebarShown();
+/** View > Sidebar. */
+let sidebarItem: CheckMenuItem | undefined;
+/** The folder the sidebar lists. */
+let folder: string | undefined;
+/** The folder last asked to be listed (`listFolder`). */
+let listedFolder: string | undefined;
+/** Lists one folder at a time, so that the Rust side watches the last one listed. */
+let listing: Promise<void> = Promise.resolve();
+/** The list shown, to keep it as it is when the folder changes without changing it. */
+let shownList: string | undefined;
+
+const sidebar = createSidebar({
+  t,
+  lang,
+  onOpenFile: (path) => void openDocument(path, undefined, true),
+  onChooseFolder: () => void chooseFolder(),
+});
+sidebar.setShown(sidebarShown);
+
+function setSidebarShown(shown: boolean): void {
+  sidebarShown = shown;
+  try {
+    localStorage.setItem(SIDEBAR_KEY, String(shown));
+  } catch {
+    // Not kept for the next launch.
+  }
+  // A check item checks itself when clicked.
+  void sidebarItem?.setChecked(shown);
+  sidebar.setShown(shown);
+  if (shown) {
+    // Listed again: its changes are not followed while it is hidden.
+    listFolder(true);
+  } else {
+    // After the listing under way, which would watch the folder again.
+    listing = listing
+      .then(async () => {
+        if (!sidebarShown) {
+          await invoke('close_folder');
+        }
+      })
+      .catch((error: unknown) => console.error(error));
+  }
+}
+
+function saveFolder(): void {
+  try {
+    if (folder) {
+      sessionStorage.setItem(FOLDER_KEY, folder);
+    }
+  } catch {
+    // Not listed again by a reload of the page.
+  }
+}
+
+/** Lists `path` in the sidebar, and shows the sidebar if `show`. */
+function setFolder(path: string, show = false): void {
+  folder = path;
+  saveFolder();
+  if (show && !sidebarShown) {
+    setSidebarShown(true);
+  } else {
+    listFolder();
+  }
+}
+
+/** Lists the folder in the sidebar while it is shown: again when `force` (it changed), else unless it was listed. */
+function listFolder(force = false): void {
+  if (!sidebarShown || !folder || (!force && listedFolder === folder)) {
+    return;
+  }
+  listedFolder = folder;
+  listing = listing.then(listNow).catch((error: unknown) => console.error(error));
+}
+
+async function listNow(): Promise<void> {
+  const path = folder;
+  if (!sidebarShown || !path) {
+    return;
+  }
+  try {
+    const tree = await invoke<FolderTree>('open_folder', { path });
+    // Unless another folder was chosen meanwhile: it is listed next.
+    if (path !== folder) {
+      return;
+    }
+    // Without symbolic links, as the paths of the documents (open_document).
+    folder = listedFolder = tree.root.path;
+    saveFolder();
+    const list = JSON.stringify(tree);
+    if (list !== shownList) {
+      shownList = list;
+      sidebar.setTree(tree);
+    }
+  } catch (error) {
+    if (path === folder) {
+      shownList = undefined;
+      sidebar.setError(path, `${t('Could not open {0}.', path)}\n${reason(error)}`);
+    }
+  }
+}
+
+async function chooseFolder(): Promise<void> {
+  const path = await open({ multiple: false, directory: true, defaultPath: folder ?? current?.dir });
+  if (typeof path === 'string') {
+    setFolder(path, true);
+  }
+}
+
+/** Lists a folder dropped on the window. Another file (not Markdown) is ignored. */
+async function dropFolder(path: string): Promise<void> {
+  if (await invoke<boolean>('is_folder', { path })) {
+    setFolder(path, true);
   }
 }
 
@@ -426,6 +567,7 @@ async function setUpMenu(): Promise<void> {
     text: label('&File'),
     items: [
       await MenuItem.new({ text: label('&Open...'), accelerator: 'CmdOrCtrl+O', action: () => void chooseDocument() }),
+      await MenuItem.new({ text: label('Open &Folder...'), action: () => void chooseFolder() }),
       await MenuItem.new({ text: label('&Reload'), accelerator: 'CmdOrCtrl+R', action: () => void reload(true) }),
       await separator(),
       exportItem,
@@ -436,9 +578,15 @@ async function setUpMenu(): Promise<void> {
       ...(mac ? [] : [await MenuItem.new({ text: label('E&xit'), action: () => void invoke('exit') })]),
     ],
   });
+  sidebarItem = await CheckMenuItem.new({
+    text: label('&Sidebar'),
+    accelerator: 'CmdOrCtrl+B',
+    checked: sidebarShown,
+    action: () => setSidebarShown(!sidebarShown),
+  });
   const view = await Submenu.new({
     text: label('&View'),
-    items: [await Submenu.new({ text: label('&Theme'), items: themeItems })],
+    items: [sidebarItem, await Submenu.new({ text: label('&Theme'), items: themeItems })],
   });
   const items = [file, view];
   if (mac) {
@@ -485,11 +633,16 @@ void appWindow.listen<string>('document-changed', (event) => {
   }
 });
 
+void appWindow.listen<string>('folder-changed', () => listFolder(true));
+
 void getCurrentWebview().onDragDropEvent((event) => {
   if (event.payload.type === 'drop') {
-    const path = event.payload.paths.find(isMarkdownPath);
+    const { paths } = event.payload;
+    const path = paths.find(isMarkdownPath);
     if (path) {
       void openDocument(path);
+    } else if (paths.length === 1) {
+      void dropFolder(paths[0]);
     }
   }
 });
@@ -506,6 +659,8 @@ async function start(): Promise<void> {
   // Also after a reload of the page (F5): a file given to the window just before it is still to be opened.
   let path = await invoke<string | null>('initial_path');
   try {
+    // The sidebar keeps its folder if the document is in it.
+    folder = sessionStorage.getItem(FOLDER_KEY) ?? undefined;
     path ||= sessionStorage.getItem(DOCUMENT_KEY);
   } catch {
     // The file given to the window only.
@@ -516,6 +671,7 @@ async function start(): Promise<void> {
   if (!current) {
     empty.hidden = false;
   }
+  listFolder();
 }
 
 void start();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fileUrl, linkTarget, relativeLink, resolveDocumentPath, resourcePath } from '../desktop/paths';
+import { fileUrl, isInside, linkTarget, relativeLink, resolveDocumentPath, resourcePath } from '../desktop/paths';
 
 describe('resolveDocumentPath', () => {
   it('resolves a path relative to the folder of the document', () => {
@@ -89,5 +89,27 @@ describe('fileUrl', () => {
     expect(fileUrl('/home/me/a b.png')).toBe('file:///home/me/a%20b.png');
     expect(fileUrl('C:\\docs\\a.png')).toBe('file:///C:/docs/a.png');
     expect(fileUrl('\\\\server\\share\\a.png')).toBe('file://server/share/a.png');
+  });
+});
+
+describe('isInside', () => {
+  it('is true for the folder and the files below it', () => {
+    expect(isInside('/home/me/docs', '/home/me/docs/a.md')).toBe(true);
+    expect(isInside('/home/me/docs', '/home/me/docs/api/a.md')).toBe(true);
+    expect(isInside('/home/me/docs', '/home/me/docs')).toBe(true);
+    expect(isInside('/', '/home/a.md')).toBe(true);
+  });
+
+  it('is false elsewhere, also for a folder whose name starts the same', () => {
+    expect(isInside('/home/me/docs', '/home/me/a.md')).toBe(false);
+    expect(isInside('/home/me/docs', '/home/me/docs2/a.md')).toBe(false);
+    expect(isInside('/home/me/Docs', '/home/me/docs/a.md')).toBe(false);
+  });
+
+  it('compares the names of Windows without case', () => {
+    expect(isInside('C:\\Work\\Docs', 'c:\\work\\docs\\api\\a.md')).toBe(true);
+    expect(isInside('C:\\work', 'D:\\work\\a.md')).toBe(false);
+    expect(isInside('\\\\server\\share\\docs', '\\\\server\\share\\docs\\a.md')).toBe(true);
+    expect(isInside('\\\\server\\one', '\\\\server\\two\\a.md')).toBe(false);
   });
 });
