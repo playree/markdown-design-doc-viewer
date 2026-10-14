@@ -40,8 +40,17 @@ let pendingScroll: { newDocument: boolean; fragment?: string } | undefined;
 // ---------------------------------------------------------------------------
 // Layout
 
+/**
+ * The width of the preview: that of the window, less what the host puts at the left of it in the window
+ * (`data-seqnotes-inset-left` on the body, in px: the sidebar of the desktop app).
+ */
+function previewWidth(): number {
+  return window.innerWidth - (Number(document.body.dataset.seqnotesInsetLeft) || 0);
+}
+
+/** Shows the diagrams and their steps side by side when the preview is wide enough (`mdDesignDoc.splitMinWidth`). */
 function applyLayout(): void {
-  document.body.classList.toggle('seqnotes-wide', window.innerWidth >= splitMinWidth);
+  document.body.classList.toggle('seqnotes-wide', previewWidth() >= splitMinWidth);
 }
 
 window.addEventListener('resize', applyLayout);
@@ -1167,5 +1176,8 @@ new MutationObserver(() => {
     void update(lastHtml);
   }
 }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
+// The desktop app shows or resizes its sidebar.
+new MutationObserver(applyLayout).observe(document.body, { attributes: true, attributeFilter: ['data-seqnotes-inset-left'] });
 
 vscode.postMessage({ type: 'ready' });

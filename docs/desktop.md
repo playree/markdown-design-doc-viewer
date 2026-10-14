@@ -47,6 +47,20 @@ When the app is running, a file opened from the file manager or the command line
 
 When the file is saved, the preview is updated, keeping its scroll position. **File** > **Reload** (Ctrl+R, ⌘R) reads it again.
 
+**View** > **Sidebar** (Ctrl+B, ⌘B) shows or hides a sidebar that lists the Markdown files of a folder and of its subfolders as a tree.
+
+- Whether it is shown, and its width (drag its right edge), are kept for the next launch.
+- The folder it lists:
+  - It is the folder of the document opened. While the documents opened are in that folder, the folder stays the same.
+  - To list another folder, use **File** > **Open Folder...** or the folder button of the sidebar, or drop the folder on the window.
+- Choosing a file opens it in the window.
+- When files or folders are added, deleted or renamed, the sidebar shows the change right away.
+- The sidebar does not list:
+  - hidden files and folders (whose name starts with `.`, such as `.git`)
+  - `node_modules`
+  - folders without Markdown files
+- While the sidebar is shown, the diagrams and their step descriptions are shown side by side according to the width of the window less that of the sidebar.
+
 Links:
 
 - `#heading` scrolls to the heading.

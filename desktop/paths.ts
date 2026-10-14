@@ -93,6 +93,20 @@ export function relativeLink(from: string, to: string): string {
   return [...dir.slice(common).map(() => '..'), ...target.parts.slice(common).map(encodeURIComponent)].join('/');
 }
 
+/** true when `path` is the folder `folder` or is below it. */
+export function isInside(folder: string, path: string): boolean {
+  const outer = parsePath(folder);
+  const inner = parsePath(path);
+  // Windows does not tell apart the case of the names.
+  const same = (a: string, b: string) => (outer.windows ? a.toLowerCase() === b.toLowerCase() : a === b);
+  return (
+    outer.windows === inner.windows &&
+    same(outer.root, inner.root) &&
+    outer.parts.length <= inner.parts.length &&
+    outer.parts.every((part, i) => same(part, inner.parts[i]))
+  );
+}
+
 /** true for a Markdown file, which the app opens itself instead of passing it to the system. */
 export function isMarkdownPath(path: string): boolean {
   return /\.(?:md|markdown)$/i.test(path);

@@ -1,5 +1,5 @@
-//! The Rust side of the desktop app: reads the Markdown files, follows their changes, lets the webview load
-//! their images, opens the links, and saves the HTML exports. The documents are rendered in the webview
+//! The Rust side of the desktop app: reads the Markdown files, follows their changes, lists the Markdown files of a
+//! folder for the sidebar, lets the webview load their images, opens the links, and saves the HTML exports. The documents are rendered in the webview
 //! (desktop/host.ts).
 //!
 //! One process shows the documents, each in its window: the files given to another launch (Windows and Linux) or
@@ -9,12 +9,14 @@
 //! are English texts, which the webview translates.
 
 use std::collections::{HashMap, HashSet};
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
+use notify::event::ModifyKind;
 use notify::{EventKind, RecommendedWatcher, RecursiveMode};
-use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, RecommendedCache};
+use notify_debouncer_full::{new_debouncer, new_debouncer_opt, DebounceEventResult, Debouncer, NoCache, RecommendedCache};
 use serde::Serialize;
 use tauri::ipc::Response;
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WebviewWindow, WebviewWindowBuilder, Window, WindowEvent};
@@ -23,6 +25,17 @@ use tauri_plugin_opener::OpenerExt;
 
 /// How long the changes of a file are gathered before the document is read again.
 const DEBOUNCE: Duration = Duration::from_millis(300);
+
+/// The files the app opens itself, and the sidebar lists.
+const MARKDOWN_EXTENSIONS: &[&str] = &["md", "markdown"];
+
+/// The folders the sidebar does not look into, besides the hidden ones (`.git`…).
+const SKIPPED_FOLDERS: &[&str] = &["node_modules"];
+
+/// How deep the sidebar looks into the subfolders of its folder, and how many files and folders it looks at: a folder
+/// such as the home folder is listed in part rather than taking long.
+const MAX_DEPTH: usize = 12;
+const MAX_ENTRIES: usize = 20_000;
 
 /// The images the webview may load from the disk (`allow_images`).
 const IMAGE_EXTENSIONS: &[&str] = &["apng", "avif", "bmp", "gif", "ico", "jpeg", "jpg", "png", "svg", "webp"];
@@ -38,6 +51,13 @@ const OPENED_EXTENSIONS: &[&str] = &[
 /// window opens another file or is closed.
 #[derive(Default)]
 struct Watches(Mutex<HashMap<String, Debouncer<RecommendedWatcher, RecommendedCache>>>);
+
+/// The watcher of the folders the sidebar of a window lists, by window label. It stops when it is dropped: when the
+/// window lists them again, lists another folder or is closed.
+#[derive(Default)]
+struct FolderWatches(Mutex<HashMap<String, FolderWatcher>>);
+
+type FolderWatcher = Debouncer<RecommendedWatcher, NoCache>;
 
 /// The documents of the windows.
 #[derive(Default)]
@@ -74,6 +94,33 @@ struct Document {
     dir: String,
     name: String,
     text: String,
+}
+
+/// The Markdown files of a folder and of its subfolders, for the sidebar (`open_folder`). Only the subfolders that
+/// have Markdown files, in no particular order (the webview sorts them).
+#[derive(Serialize)]
+struct Folder {
+    path: String,
+    name: String,
+    folders: Vec<Folder>,
+    files: Vec<FileEntry>,
+}
+
+/// A Markdown file of a `Folder`.
+#[derive(Serialize)]
+struct FileEntry {
+    path: String,
+    name: String,
+}
+
+/// What `open_folder` returns.
+#[derive(Serialize)]
+struct FolderTree {
+    root: Folder,
+    /// true when the folder has more files or subfolders than `MAX_ENTRIES` or `MAX_DEPTH` let the sidebar list.
+    truncated: bool,
+    /// false when the changes of the list are not followed: the folder could not be watched.
+    watching: bool,
 }
 
 fn to_string(path: &Path) -> String {
@@ -267,6 +314,183 @@ fn watch(window: &Window, path: &Path) -> Result<Debouncer<RecommendedWatcher, R
     Ok(debouncer)
 }
 
+/// Lists the Markdown files of a folder and of its subfolders for the sidebar of the window, and follows the
+/// changes of their list (`folder-changed`) in place of those of the folder it listed before.
+#[tauri::command]
+async fn open_folder(window: Window, watches: State<'_, FolderWatches>, path: String) -> Result<FolderTree, String> {
+    let root = dunce::canonicalize(&path).map_err(|e| e.to_string())?;
+    if !root.is_dir() {
+        return Err("Not a folder.".to_string());
+    }
+    let mut scan = Scan::default();
+    let tree = scan_folder(&root, 0, &mut scan);
+    // Before taking the lock, which the other windows (and their closing, on the main thread) wait for.
+    let watcher = watch_folders(&window, &root, scan.folders);
+    let watching = match &watcher {
+        Ok(_) => true,
+        // Listed without following its changes, which the sidebar tells.
+        Err(error) => {
+            eprintln!("Could not watch {}: {error}", root.display());
+            false
+        }
+    };
+    // The changes of the previous list are no longer followed, even if the new watch failed. The previous watcher
+    // stops once the lock is released.
+    let _previous = {
+        let mut watches = watches.0.lock().unwrap_or_else(PoisonError::into_inner);
+        match watcher {
+            Ok(watcher) => watches.insert(window.label().to_string(), watcher),
+            Err(_) => watches.remove(window.label()),
+        }
+    };
+    Ok(FolderTree { root: tree, truncated: scan.truncated, watching })
+}
+
+/// Stops following the changes of the folder the sidebar of the window listed: the sidebar is hidden. On Windows, the
+/// watch would keep the folder (and those above it) from being renamed or deleted.
+#[tauri::command]
+fn close_folder(window: Window, watches: State<'_, FolderWatches>) {
+    let _previous = watches.0.lock().unwrap_or_else(PoisonError::into_inner).remove(window.label());
+}
+
+/// Whether the path is a folder: for a folder dropped on the window.
+#[tauri::command]
+async fn is_folder(path: String) -> bool {
+    Path::new(&path).is_dir()
+}
+
+/// What `scan_folder` has looked at.
+#[derive(Default)]
+struct Scan {
+    /// The number of files and folders looked at.
+    entries: usize,
+    truncated: bool,
+    /// The folders listed, from the top, to watch: also those without Markdown files, in which some may be added.
+    folders: Vec<PathBuf>,
+}
+
+/// A file or folder the sidebar does not list: a hidden one (`.git`), or a folder of `SKIPPED_FOLDERS`.
+fn is_skipped(name: &OsStr) -> bool {
+    name.to_string_lossy().starts_with('.') || SKIPPED_FOLDERS.iter().any(|skipped| name == *skipped)
+}
+
+/// The Markdown files of `dir` and of its subfolders, `depth` folders below the one of the sidebar. The symbolic links
+/// to folders are not followed, so that a link to a folder above does not list it again and again.
+fn scan_folder(dir: &Path, depth: usize, scan: &mut Scan) -> Folder {
+    scan.folders.push(dir.to_path_buf());
+    let mut folder = Folder {
+        path: to_string(dir),
+        // A root (`C:\`, `/`) has no name.
+        name: dir.file_name().map_or_else(|| to_string(dir), |name| name.to_string_lossy().into_owned()),
+        folders: Vec::new(),
+        files: Vec::new(),
+    };
+    // A folder that cannot be read is listed without its files.
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return folder;
+    };
+    for entry in entries.flatten() {
+        if scan.entries >= MAX_ENTRIES {
+            scan.truncated = true;
+            break;
+        }
+        scan.entries += 1;
+        let name = entry.file_name();
+        if is_skipped(&name) {
+            continue;
+        }
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        let path = entry.path();
+        if file_type.is_dir() {
+            if depth >= MAX_DEPTH {
+                scan.truncated = true;
+                continue;
+            }
+            let sub = scan_folder(&path, depth + 1, scan);
+            if !sub.folders.is_empty() || !sub.files.is_empty() {
+                folder.folders.push(sub);
+            }
+        } else if has_extension(&path, MARKDOWN_EXTENSIONS) && (file_type.is_file() || path.is_file()) {
+            folder.files.push(FileEntry {
+                // A symbolic link to a file as `open_document` gives it, so that the sidebar finds the document shown.
+                path: if file_type.is_symlink() { canonical(path) } else { to_string(&path) },
+                name: name.to_string_lossy().into_owned(),
+            });
+        }
+    }
+    folder
+}
+
+/// Whether a change of `path` may change the list of the sidebar, whose `folders` were listed: a Markdown file or a
+/// folder added, removed or renamed in them, or one of them removed or renamed. Not the files of other types, nor
+/// the folders it skips or did not look into (`MAX_DEPTH`, `MAX_ENTRIES`), whose changes may be many.
+fn changes_list(folders: &HashSet<PathBuf>, path: &Path) -> bool {
+    if folders.contains(path) {
+        return true;
+    }
+    path.file_name().is_some_and(|name| !is_skipped(name))
+        && path.parent().is_some_and(|parent| folders.contains(parent))
+        && (has_extension(path, MARKDOWN_EXTENSIONS) || path.is_dir())
+}
+
+/// Watches the folders the sidebar lists, and tells the window when a Markdown file or a folder is added, removed or
+/// renamed in them. Without the cache of file ids of the debouncer, which would read all the folders below `root`
+/// (the renames are not followed: the folder is listed again).
+fn watch_folders(window: &Window, root: &Path, folders: Vec<PathBuf>) -> Result<FolderWatcher, String> {
+    let app = window.app_handle().clone();
+    let label = window.label().to_string();
+    let target = to_string(root);
+    let listed: HashSet<PathBuf> = folders.iter().cloned().collect();
+    let handler = move |result: DebounceEventResult| {
+        let Ok(events) = result else {
+            return;
+        };
+        let changed = events.iter().any(|event| {
+            matches!(
+                event.kind,
+                EventKind::Any | EventKind::Create(_) | EventKind::Remove(_) | EventKind::Modify(ModifyKind::Name(_))
+            ) && event.paths.iter().any(|path| changes_list(&listed, path))
+        });
+        if changed {
+            let _ = app.emit_to(label.as_str(), "folder-changed", &target);
+        }
+    };
+    let mut debouncer = new_debouncer_opt(DEBOUNCE, None, handler, NoCache, notify::Config::default())
+        .map_err(|e| e.to_string())?;
+    watch_listed(&mut debouncer, root, &folders)?;
+    Ok(debouncer)
+}
+
+/// How many folders the sidebar of a window watches on Linux, where each one takes an inotify watch of the user's
+/// limited number (`fs.inotify.max_user_watches`), shared with the other apps. The changes in the others are not
+/// followed.
+#[cfg(target_os = "linux")]
+const MAX_WATCHED_FOLDERS: usize = 1_000;
+
+/// Linux: each folder listed on its own, rather than all those below `root`, which inotify would watch one by one,
+/// also those the sidebar skips (`.git`, `node_modules`).
+#[cfg(target_os = "linux")]
+fn watch_listed(debouncer: &mut FolderWatcher, root: &Path, folders: &[PathBuf]) -> Result<(), String> {
+    for folder in folders.iter().take(MAX_WATCHED_FOLDERS) {
+        match debouncer.watch(folder, RecursiveMode::NonRecursive) {
+            Ok(()) => {}
+            // The others are still watched (e.g. no more inotify watches for this one).
+            Err(error) if folder != root => eprintln!("Could not watch {}: {error}", folder.display()),
+            Err(error) => return Err(error.to_string()),
+        }
+    }
+    Ok(())
+}
+
+/// Windows and macOS: the whole folder at once. On Windows, a watch of each subfolder would keep the folders above it
+/// from being renamed or deleted.
+#[cfg(not(target_os = "linux"))]
+fn watch_listed(debouncer: &mut FolderWatcher, root: &Path, _folders: &[PathBuf]) -> Result<(), String> {
+    debouncer.watch(root, RecursiveMode::Recursive).map_err(|e| e.to_string())
+}
+
 /// Lets the webview load these images (local images of the document) with the asset protocol.
 #[tauri::command]
 async fn allow_images(app: AppHandle, allowed: State<'_, AllowedImages>, paths: Vec<String>) -> Result<(), String> {
@@ -401,6 +625,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(Watches::default())
+        .manage(FolderWatches::default())
         .manage(AllowedImages::default())
         .manage(Windows::default())
         .manage(ExportTargets::default())
@@ -414,6 +639,9 @@ pub fn run() {
             exit,
             open_document,
             read_document,
+            open_folder,
+            close_folder,
+            is_folder,
             allow_images,
             open_url,
             open_path,
@@ -426,6 +654,7 @@ pub fn run() {
             if let WindowEvent::Destroyed = event {
                 let label = window.label();
                 window.state::<Watches>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
+                window.state::<FolderWatches>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
                 window.state::<ExportTargets>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
                 let windows = window.state::<Windows>();
                 let mut state = windows.0.lock().unwrap_or_else(PoisonError::into_inner);
