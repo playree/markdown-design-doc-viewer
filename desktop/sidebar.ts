@@ -31,6 +31,7 @@ export interface Sidebar {
   setCurrent(path: string | undefined): void;
 }
 
+/** The width chosen for the sidebar, or the default one. */
 function savedWidth(): number {
   try {
     return Number(localStorage.getItem(WIDTH_KEY)) || DEFAULT_WIDTH;
@@ -62,6 +63,7 @@ function folderIcon(): SVGSVGElement {
   return svg;
 }
 
+/** Adds the sidebar to the page, hidden until `setShown(true)`. */
 export function createSidebar({ t, lang, onOpenFile, onChooseFolder }: SidebarOptions): Sidebar {
   const body = document.body;
   const nav = document.createElement('nav');
@@ -131,6 +133,7 @@ export function createSidebar({ t, lang, onOpenFile, onChooseFolder }: SidebarOp
       applyWidth();
     }
   });
+  /** Keeps the width dragged to for the next launch. */
   const endResize = () => {
     if (!nav.classList.contains('desktop-sidebar-resizing')) {
       return;
@@ -145,6 +148,7 @@ export function createSidebar({ t, lang, onOpenFile, onChooseFolder }: SidebarOp
   sash.addEventListener('pointerup', endResize);
   sash.addEventListener('lostpointercapture', endResize);
 
+  /** A text in place of the list, or below it. */
   function message(text: string): HTMLElement {
     const p = document.createElement('p');
     p.className = 'desktop-sidebar-message';
@@ -152,6 +156,7 @@ export function createSidebar({ t, lang, onOpenFile, onChooseFolder }: SidebarOp
     return p;
   }
 
+  /** A file of the list, `depth` folders below the one listed: opens it when chosen. */
   function fileItem(file: { path: string; name: string }, depth: number): HTMLLIElement {
     const item = document.createElement('li');
     const button = document.createElement('button');
@@ -168,6 +173,7 @@ export function createSidebar({ t, lang, onOpenFile, onChooseFolder }: SidebarOp
     return item;
   }
 
+  /** A subfolder of the list, `depth` folders below the one listed, with its files: opens or closes when chosen. */
   function folderItem(folder: FolderNode, depth: number): HTMLLIElement {
     const item = document.createElement('li');
     const button = document.createElement('button');
@@ -195,12 +201,14 @@ export function createSidebar({ t, lang, onOpenFile, onChooseFolder }: SidebarOp
     return item;
   }
 
+  /** The subfolders and files of `folder`, `depth` folders below the one listed. */
   function list(folder: FolderNode, depth: number): HTMLUListElement {
     const ul = document.createElement('ul');
     ul.append(...folder.folders.map((sub) => folderItem(sub, depth)), ...folder.files.map((file) => fileItem(file, depth)));
     return ul;
   }
 
+  /** Shows the folder: its list, or why there is none. Keeps the scroll position of the list. */
   function render(): void {
     title.textContent = tree?.root.name ?? (error ? baseName(error.folder) : t('No Folder'));
     title.title = tree?.root.path ?? error?.folder ?? '';
@@ -228,6 +236,9 @@ export function createSidebar({ t, lang, onOpenFile, onChooseFolder }: SidebarOp
       content.append(list(tree.root, 0));
       if (tree.truncated) {
         content.append(message(t('The folder has too many files: some of them are not listed.')));
+      }
+      if (!tree.watching) {
+        content.append(message(t('The changes of the folder are not shown. Hide and show the sidebar to list it again.')));
       }
     }
     content.scrollTop = scrollTop;

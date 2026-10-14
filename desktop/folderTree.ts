@@ -22,6 +22,8 @@ export interface FolderTree {
   root: FolderNode;
   /** true when the folder has too many files or subfolders to list them all. */
   truncated: boolean;
+  /** false when the changes of the folder are not followed: it could not be watched. */
+  watching: boolean;
 }
 
 /**

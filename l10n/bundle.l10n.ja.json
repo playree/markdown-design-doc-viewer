@@ -85,5 +85,6 @@
   "No folder is open.": "フォルダが開かれていません。",
   "There are no Markdown files in this folder.": "このフォルダには Markdown ファイルがありません。",
   "The folder has too many files: some of them are not listed.": "フォルダのファイルが多すぎるため、一部を表示していません。",
-  "Not a folder.": "フォルダではありません。"
+  "Not a folder.": "フォルダではありません。",
+  "The changes of the folder are not shown. Hide and show the sidebar to list it again.": "フォルダの変更を反映できません。サイドバーを非表示にしてから表示すると、一覧を取り直します。"
 }

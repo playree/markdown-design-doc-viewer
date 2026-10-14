@@ -150,6 +150,7 @@ function openDocument(path: string, fragment?: string, keepFolder = false): Prom
   return opening;
 }
 
+/** `openDocument`, once the documents opened before are. */
 async function openNow(path: string, fragment: string | undefined, keepFolder: boolean): Promise<void> {
   const seq = ++readSeq;
   let doc: OpenedDocument;
@@ -218,6 +219,7 @@ async function chooseDocument(): Promise<void> {
 // ---------------------------------------------------------------------------
 // Sidebar: the Markdown files of the folder of the document, or of a folder chosen (File > Open Folder...).
 
+/** Whether the sidebar was shown at the end of the last launch: hidden on the first one. */
 function savedSidebarShown(): boolean {
   try {
     return localStorage.getItem(SIDEBAR_KEY) === 'true';
@@ -246,6 +248,7 @@ const sidebar = createSidebar({
 });
 sidebar.setShown(sidebarShown);
 
+/** Shows or hides the sidebar (View > Sidebar), for the next launch too. */
 function setSidebarShown(shown: boolean): void {
   sidebarShown = shown;
   try {
@@ -271,6 +274,7 @@ function setSidebarShown(shown: boolean): void {
   }
 }
 
+/** Keeps the folder of the sidebar for a reload of the page (F5). */
 function saveFolder(): void {
   try {
     if (folder) {
@@ -301,6 +305,7 @@ function listFolder(force = false): void {
   listing = listing.then(listNow).catch((error: unknown) => console.error(error));
 }
 
+/** `listFolder`, once the folders listed before are: shows the list, or why the folder cannot be listed. */
 async function listNow(): Promise<void> {
   const path = folder;
   if (!sidebarShown || !path) {
@@ -322,12 +327,15 @@ async function listNow(): Promise<void> {
     }
   } catch (error) {
     if (path === folder) {
+      // Listed again when chosen again, also without a change of the folder.
+      listedFolder = undefined;
       shownList = undefined;
       sidebar.setError(path, `${t('Could not open {0}.', path)}\n${reason(error)}`);
     }
   }
 }
 
+/** Asks for a folder to list in the sidebar (File > Open Folder...), and shows the sidebar. */
 async function chooseFolder(): Promise<void> {
   const path = await open({ multiple: false, directory: true, defaultPath: folder ?? current?.dir });
   if (typeof path === 'string') {
@@ -543,6 +551,7 @@ window.addEventListener('storage', (event) => {
 // ---------------------------------------------------------------------------
 // Menu
 
+/** The menu of the window (of the app on macOS): File, View, and on macOS the app and Edit menus. */
 async function setUpMenu(): Promise<void> {
   const mac = navigator.userAgent.includes('Mac');
   // The access keys (`&File`, `ファイル(&F)`) are for Windows and Linux: macOS menus have none.
@@ -652,6 +661,7 @@ const openButton = empty.querySelector('button')!;
 openButton.textContent = t('Open File...');
 openButton.addEventListener('click', () => void chooseDocument());
 
+/** Sets up the menu, and opens the file given to the window (or shown before a reload) with its folder. */
 async function start(): Promise<void> {
   await setUpMenu().catch((error: unknown) => console.error(error));
   // Before asking for the first file: a file given to the running app opens here when this window shows nothing.

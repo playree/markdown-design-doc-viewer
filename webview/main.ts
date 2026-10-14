@@ -48,6 +48,7 @@ function previewWidth(): number {
   return window.innerWidth - (Number(document.body.dataset.seqnotesInsetLeft) || 0);
 }
 
+/** Shows the diagrams and their steps side by side when the preview is wide enough (`mdDesignDoc.splitMinWidth`). */
 function applyLayout(): void {
   document.body.classList.toggle('seqnotes-wide', previewWidth() >= splitMinWidth);
 }

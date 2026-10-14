@@ -119,6 +119,8 @@ struct FolderTree {
     root: Folder,
     /// true when the folder has more files or subfolders than `MAX_ENTRIES` or `MAX_DEPTH` let the sidebar list.
     truncated: bool,
+    /// false when the changes of the list are not followed: the folder could not be watched.
+    watching: bool,
 }
 
 fn to_string(path: &Path) -> String {
@@ -323,20 +325,25 @@ async fn open_folder(window: Window, watches: State<'_, FolderWatches>, path: St
     let mut scan = Scan::default();
     let tree = scan_folder(&root, 0, &mut scan);
     // Before taking the lock, which the other windows (and their closing, on the main thread) wait for.
-    let watcher = watch_folders(&window, &root, scan.folders)
-        // Listed without following its changes.
-        .inspect_err(|error| eprintln!("Could not watch {}: {error}", root.display()))
-        .ok();
+    let watcher = watch_folders(&window, &root, scan.folders);
+    let watching = match &watcher {
+        Ok(_) => true,
+        // Listed without following its changes, which the sidebar tells.
+        Err(error) => {
+            eprintln!("Could not watch {}: {error}", root.display());
+            false
+        }
+    };
     // The changes of the previous list are no longer followed, even if the new watch failed. The previous watcher
     // stops once the lock is released.
     let _previous = {
         let mut watches = watches.0.lock().unwrap_or_else(PoisonError::into_inner);
         match watcher {
-            Some(watcher) => watches.insert(window.label().to_string(), watcher),
-            None => watches.remove(window.label()),
+            Ok(watcher) => watches.insert(window.label().to_string(), watcher),
+            Err(_) => watches.remove(window.label()),
         }
     };
-    Ok(FolderTree { root: tree, truncated: scan.truncated })
+    Ok(FolderTree { root: tree, truncated: scan.truncated, watching })
 }
 
 /// Stops following the changes of the folder the sidebar of the window listed: the sidebar is hidden. On Windows, the
