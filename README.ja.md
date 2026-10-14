@@ -167,7 +167,7 @@ AI アシスタント（Claude Code、GitHub Copilot、Cursor など）にこの
 
 ## デスクトップアプリ
 
-プレビューは Windows・macOS・Linux のデスクトップアプリとしても使え、VS Code がなくても設計書を読めます。表示は拡張機能のプレビューと同じで、ファイルを保存すると表示を更新します。アプリは拡張機能とは別のバージョンでリリースしています。インストーラは[デスクトップアプリのリリース](https://github.com/playree/markdown-design-doc-viewer/releases?q=desktop-v&expanded=true)からダウンロードしてください。
+プレビューは Windows・macOS・Linux のデスクトップアプリとしても使え、VS Code がなくても設計書を読めます。表示は拡張機能のプレビューと同じで、ファイルを保存すると表示を更新します。アプリは拡張機能とは別のバージョンでリリースしています。インストーラは[デスクトップアプリのリリース](https://github.com/playree/markdown-design-doc-viewer/releases?q=desktop&expanded=true)からダウンロードしてください。
 
 インストーラにはまだ署名がありません。初回起動時の OS の警告への対処と使い方は [デスクトップアプリの説明](docs/desktop.ja.md) を参照してください。
 

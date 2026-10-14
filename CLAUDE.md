@@ -86,7 +86,7 @@ npm の Trusted Publisher は npmjs.com のパッケージ設定に登録する�
    - その Release が Latest になっていたら、拡張の Release（タグ `vX.Y.Z`、プレリリースを除く）のうちバージョンが最も大きいものを Latest に戻す（上の確認が失敗しても行う）。
    - インストーラ（Windows の .msi と NSIS の .exe、macOS の Apple シリコン用と Intel 用の .dmg、Linux の .deb・.rpm・.AppImage）を各 OS でビルドし、Release に添付する。署名はまだしていない。ビルド（desktop-build.yml を `release: true` で呼ぶ。ほかのワークフローが書いたキャッシュを使わない）は依存のコードを実行するので読み取りの権限だけで行い、成果物を受け取った別のジョブ（`upload`、checkout も依存のインストールもしない）が書き込みの権限で添付する。MSI は英字を含むプレリリースのバージョン（`-rc.1` など）を作れないので、そのときの Windows は NSIS だけにする（desktop-build.yml で判定するので desktop.yml も同じ）。
 
-README・docs/desktop.md はデスクトップの Release の一覧（`releases?q=desktop-v`）にリンクしている。タグの形を変えるならリンクも直す。
+README・docs/desktop.md はデスクトップの Release の一覧（`releases?q=desktop`）にリンクしている。`q=desktop-v` では Release の検索に何も出ない（`desktop-` や `desktop-v0` なら出る）ので使わない。ノートも検索するので、拡張の Release のノートに desktop という語があるとそれも一覧に出る。タグの形を変えるならリンクも直す。
 
 ## アーキテクチャ
 
