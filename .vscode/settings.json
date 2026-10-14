@@ -1,0 +1,10 @@
+{
+  // Live Server（ritwickdey.LiveServer）で GitHub Pages のランディングページ（site/）を表示する。site/index.html を開いて Open with Live Server。
+  // 画像は images/ から、サンプルは pnpm pages で作った .work/site から配信する（サンプルを見るときだけ先に pnpm build && pnpm pages）
+  "liveServer.settings.root": "/site",
+  "liveServer.settings.mount": [
+    ["/images", "./images"],
+    ["/sample", "./.work/site/sample"],
+    ["/ja/sample", "./.work/site/ja/sample"]
+  ]
+}
