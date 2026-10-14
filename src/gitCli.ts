@@ -18,9 +18,10 @@ export class GitError extends Error {
 /** A document of several MB is read in full, and so is its history. */
 const MAX_BUFFER = 64 * 1024 * 1024;
 
-function run(git: string, args: string[], cwd: string): Promise<string> {
+function run(git: string, args: string[], cwd: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    execFile(git, args, { cwd, maxBuffer: MAX_BUFFER, windowsHide: true, encoding: 'utf8' }, (error, stdout, stderr) => {
+    execFile(git, args, { cwd, maxBuffer: MAX_BUFFER, windowsHide: true, encoding: 'buffer' }, (error, stdout, buffer) => {
+      const stderr = buffer.toString();
       if (!error) {
         resolve(stdout);
       } else if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
@@ -36,12 +37,10 @@ function run(git: string, args: string[], cwd: string): Promise<string> {
 
 /** The commits that changed the file, the latest first; empty when it has none (e.g. not committed yet). */
 export async function gitLog(git: string, file: string): Promise<Revision[]> {
-  return parseGitLog(await run(git, gitLogArgs(path.basename(file)), path.dirname(file)));
+  return parseGitLog((await run(git, gitLogArgs(path.basename(file)), path.dirname(file))).toString());
 }
 
-/** The content of the file in the commit, at its path in that commit. */
-export async function gitShow(git: string, file: string, revision: Revision): Promise<string> {
-  const content = await run(git, gitShowArgs(revision.hash, revision.path), path.dirname(file));
-  // Like the text of an open document.
-  return content.replace(/^\uFEFF/, '');
+/** The content of the file in the commit, at its path in that commit: bytes, to be decoded like the document. */
+export function gitShow(git: string, file: string, revision: Revision): Promise<Uint8Array> {
+  return run(git, gitShowArgs(revision.hash, revision.path), path.dirname(file));
 }

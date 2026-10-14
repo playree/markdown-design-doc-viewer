@@ -73,3 +73,33 @@ describe('renderDiff', () => {
     expect(html).not.toContain('seqnotes-unlinked');
   });
 });
+
+describe('renderDiff around the blocks that show nothing', () => {
+  it('keeps a deleted block after the end of the steps out of them', () => {
+    const before = doc('```mermaid', '%% @link-headings', 'sequenceDiagram', '  A->>B: x', '```', '', '## x', '', '<!-- link-headings:end -->', '', 'Tail paragraph.');
+    const after = doc('```mermaid', '%% @link-headings', 'sequenceDiagram', '  A->>B: x', '```', '', '## x', '', '<!-- link-headings:end -->');
+    const { html } = renderDiff(md, before, after);
+    expect(html).toMatch(/<\/div><\/div>\n<!-- link-headings:end -->\n?<p data-seqnotes-diff="deleted">Tail paragraph.<\/p>/);
+  });
+
+  it('does not show the changes of a hidden front matter', () => {
+    const { html, stats } = renderDiff(md, doc('---', 'title: a', '---', '', 'Text.'), doc('---', 'title: b', '---', '', 'Text.'), { frontMatter: false });
+    expect(stats).toEqual({ added: 0, changed: 0, deleted: 0 });
+    expect(html).not.toContain('data-seqnotes-diff');
+  });
+
+  it('does not take lines wrapped again as a change', () => {
+    const { stats } = renderDiff(md, doc('A long sentence', 'that wraps.'), doc('A long sentence that', 'wraps.'));
+    expect(stats).toEqual({ added: 0, changed: 0, deleted: 0 });
+  });
+
+  it('keeps the numbers of an ordered list with a deleted item', () => {
+    const { html } = renderDiff(md, doc('1. A', '2. B', '3. C'), doc('1. B', '2. C'));
+    expect(html).toMatch(/<li value="1" data-seqnotes-diff="deleted">A<\/li>\n<li[^>]* value="1">B<\/li>\n<li[^>]* value="2">C<\/li>/);
+  });
+
+  it('gives the footnotes of the revision ids of their own', () => {
+    const { html } = renderDiff(md, doc('Old text here[^1].', '', '[^1]: old note'), doc('Different words entirely[^1].', '', '[^1]: new note'));
+    expect(html.match(/id="fnref1"/g)).toHaveLength(1);
+  });
+});

@@ -211,6 +211,8 @@ export function setupDiffBar(root: HTMLElement, onClose: () => void): DiffBar {
   document.body.append(bar);
 
   let current: HTMLElement | undefined;
+  /** Where the page was scrolled to by going to `current`. */
+  let currentScroll: number | undefined;
   let focusTimer: ReturnType<typeof setTimeout> | undefined;
 
   /** The changed blocks displayed, in document order. */
@@ -225,8 +227,9 @@ export function setupDiffBar(root: HTMLElement, onClose: () => void): DiffBar {
     const line = window.innerHeight * FOCUS_RATIO;
     const index = current ? list.indexOf(current) : -1;
     let target: HTMLElement | undefined;
-    // From the one gone to last while it is still where it was put; else from what is on the screen.
-    if (index >= 0 && Math.abs(current!.getBoundingClientRect().top - line) < 4) {
+    // From the one gone to last while the page stays where it went (which may not be at `line` near the end of the
+    // page); else from what is on the screen.
+    if (index >= 0 && currentScroll !== undefined && Math.abs(window.scrollY - currentScroll) < 2) {
       target = list[(index + direction + list.length) % list.length];
     } else if (direction > 0) {
       target = list.find((el) => el.getBoundingClientRect().top > line + 1) ?? list[0];
@@ -237,6 +240,7 @@ export function setupDiffBar(root: HTMLElement, onClose: () => void): DiffBar {
     current = target;
     target.classList.add('seqnotes-diff-focus');
     target.scrollIntoView({ block: 'start' });
+    currentScroll = window.scrollY;
     clearTimeout(focusTimer);
     focusTimer = setTimeout(() => target.classList.remove('seqnotes-diff-focus'), FOCUS_MS);
   }
@@ -245,6 +249,7 @@ export function setupDiffBar(root: HTMLElement, onClose: () => void): DiffBar {
     show(diff) {
       bar.hidden = !diff;
       current = undefined;
+      currentScroll = undefined;
       if (!diff) {
         return;
       }

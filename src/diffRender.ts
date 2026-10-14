@@ -36,11 +36,20 @@ const WRAPPED = new Set(['fence', 'html_block', 'front_matter']);
 /** A mermaid block has the attributes (`mermaidFence` in render.ts), and must stay a block of its own to be laid out with its steps. */
 const isWrapped = (token: Token): boolean => WRAPPED.has(token.type) && !isMermaidFence(token);
 
-/** An HTML block of comments only (such as `<!-- link-headings:end -->`) shows nothing, so its changes are not shown. */
+/** An HTML block of comments only (such as `<!-- link-headings:end -->`) shows nothing. */
 const COMMENTS_RE = /^\s*(?:<!--[^]*?-->\s*)+$/;
 
 /** A list item's marker, left out of the comparison so that numbering the items again does not change them. */
 const LIST_MARKER_RE = /^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]?/;
+
+/** Blocks whose spaces are part of their content. In the others, wrapping the lines again is not a change. */
+const SPACED = new Set(['fence', 'mermaid', 'code_block', 'html_block']);
+
+/**
+ * Beyond this many pairs of removed and added blocks in one place, they are not compared word by word (only
+ * lists, tables and diagrams of a kind are taken as changed), so that a document rewritten does not take long.
+ */
+const MAX_COMPARED_PAIRS = 2500;
 
 /** A block of a document: its tokens `[start, end)`. */
 interface Unit {
@@ -49,6 +58,11 @@ interface Unit {
   /** Its source, compared with the other document's blocks. */
   key: string;
   kind: string;
+  /**
+   * A block that shows nothing (comments, or the front matter when hidden): it keeps the place of the blocks around
+   * it (e.g. the end of the steps of a diagram), but its changes are not shown.
+   */
+  hidden: boolean;
 }
 
 type Op =
@@ -68,7 +82,7 @@ function kindOf(token: Token): string {
 }
 
 /** The blocks at `level` among `tokens[start, end)`: the top-level ones, or the items of a list or the rows of a table. */
-function unitsOf(tokens: Token[], lines: string[], start: number, end: number, level: number): Unit[] {
+function unitsOf(tokens: Token[], lines: string[], start: number, end: number, level: number, env: RenderEnv): Unit[] {
   const units: Unit[] = [];
   for (let i = start; i < end; ) {
     const token = tokens[i];
@@ -82,12 +96,15 @@ function unitsOf(tokens: Token[], lines: string[], start: number, end: number, l
         close++;
       }
     }
-    if (token.map && !(token.type === 'html_block' && COMMENTS_RE.test(token.content))) {
+    if (token.map) {
+      const kind = kindOf(token);
       let key = lines.slice(token.map[0], token.map[1]).join('\n');
       if (token.type === 'list_item_open') {
         key = key.replace(LIST_MARKER_RE, '');
       }
-      units.push({ start: i, end: close + 1, key: key.trimEnd(), kind: kindOf(token) });
+      key = SPACED.has(kind) ? key.trimEnd() : key.replace(/\s+/g, ' ').trim();
+      const hidden = (token.type === 'html_block' && COMMENTS_RE.test(token.content)) || (token.type === 'front_matter' && env.frontMatter === false);
+      units.push({ start: i, end: close + 1, key, kind, hidden });
     }
     i = close + 1;
   }
@@ -95,16 +112,17 @@ function unitsOf(tokens: Token[], lines: string[], start: number, end: number, l
 }
 
 /** The blocks of both documents in the order of the new one, each deleted block before the block that followed it. */
-function align(before: Unit[], after: Unit[], alike: (a: Unit, b: Unit) => boolean): Op[] {
+function align(before: Unit[], after: Unit[], alike: (a: Unit, b: Unit, compareText: boolean) => boolean): Op[] {
   const ops: Op[] = [];
   let removed: Unit[] = [];
   let added: Unit[] = [];
   const flush = (): void => {
     // Pairs the removed and added blocks that are the same block changed, keeping their order.
     const pairs: [number, number][] = [];
+    const compareText = removed.length * added.length <= MAX_COMPARED_PAIRS;
     let next = 0;
     added.forEach((b, j) => {
-      const i = removed.findIndex((a, k) => k >= next && alike(a, b));
+      const i = removed.findIndex((a, k) => k >= next && alike(a, b, compareText));
       if (i >= 0) {
         pairs.push([i, j]);
         next = i + 1;
@@ -151,8 +169,9 @@ function align(before: Unit[], after: Unit[], alike: (a: Unit, b: Unit) => boole
 
 export function renderDiff(md: MarkdownIt, beforeSource: string, afterSource: string, env: RenderEnv = {}): DiffRender {
   const segmenter = wordSegmenter();
-  const beforeEnv: RenderEnv = { resolveResource: env.resolveResource, t: env.t, frontMatter: env.frontMatter, headingNumbers: env.headingNumbers, forExport: true };
-  // Without source lines (`forExport`), so that the revision's blocks do not take part in the editor sync.
+  // Without source lines (`forExport`), so that the revision's blocks do not take part in the editor sync, and with
+  // other ids for its footnotes (`docId`), which would be taken for those of the document.
+  const beforeEnv: RenderEnv = { resolveResource: env.resolveResource, t: env.t, frontMatter: env.frontMatter, headingNumbers: env.headingNumbers, forExport: true, docId: 'seqnotes-old' };
   const beforeTokens = md.parse(beforeSource, beforeEnv);
   const afterTokens = md.parse(afterSource, env);
   for (const token of beforeTokens) {
@@ -195,8 +214,14 @@ export function renderDiff(md: MarkdownIt, beforeSource: string, afterSource: st
     }
   };
 
-  const alike = (a: Unit, b: Unit): boolean =>
-    a.kind === b.kind && (CONTAINERS.has(a.kind) || a.kind === 'mermaid' || similarity(a.key, b.key, segmenter) >= SIMILAR);
+  const alike = (a: Unit, b: Unit, compareText: boolean): boolean =>
+    a.kind === b.kind && (CONTAINERS.has(a.kind) || a.kind === 'mermaid' || (compareText && similarity(a.key, b.key, segmenter) >= SIMILAR));
+
+  /** Numbers the items of an ordered list, so that a deleted item put among them does not number them again. */
+  const numberItems = (tokens: Token[], list: Unit, items: Unit[]): void => {
+    const start = Number(tokens[list.start].attrGet('start') ?? 1);
+    items.forEach((item, i) => tokens[item.start].attrSet('value', String(start + i)));
+  };
 
   /** Marks the blocks of `after` against those of `before`, which are at `level` of their tokens. */
   const compare = (before: Unit[], after: Unit[], level: number): void => {
@@ -220,10 +245,15 @@ export function renderDiff(md: MarkdownIt, beforeSource: string, afterSource: st
     };
     for (const op of ops) {
       if (op.type === 'deleted') {
-        deleted.push(op.before);
+        if (!op.before.hidden) {
+          deleted.push(op.before);
+        }
         continue;
       }
       flushDeleted(op.after.start);
+      if (op.after.hidden) {
+        continue;
+      }
       if (op.type === 'added') {
         mark(op.after, 'added');
         stats.added++;
@@ -232,11 +262,13 @@ export function renderDiff(md: MarkdownIt, beforeSource: string, afterSource: st
         if (CONTAINERS.has(kind)) {
           // The items of a list, or the rows of a table (in its head and body).
           const depth = kind === 'table_open' ? 2 : 1;
-          compare(
-            unitsOf(beforeTokens, beforeLines, op.before.start + 1, op.before.end - 1, level + depth),
-            unitsOf(afterTokens, afterLines, op.after.start + 1, op.after.end - 1, level + depth),
-            level + depth,
-          );
+          const beforeItems = unitsOf(beforeTokens, beforeLines, op.before.start + 1, op.before.end - 1, level + depth, beforeEnv);
+          const afterItems = unitsOf(afterTokens, afterLines, op.after.start + 1, op.after.end - 1, level + depth, env);
+          if (kind === 'ordered_list_open') {
+            numberItems(beforeTokens, op.before, beforeItems);
+            numberItems(afterTokens, op.after, afterItems);
+          }
+          compare(beforeItems, afterItems, level + depth);
         } else {
           old.push(renderBefore(op.before));
           mark(op.after, 'changed', old.length - 1);
@@ -247,7 +279,7 @@ export function renderDiff(md: MarkdownIt, beforeSource: string, afterSource: st
     flushDeleted(after.length > 0 ? after[after.length - 1].end : 0);
   };
 
-  compare(unitsOf(beforeTokens, beforeLines, 0, beforeTokens.length, 0), unitsOf(afterTokens, afterLines, 0, afterTokens.length, 0), 0);
+  compare(unitsOf(beforeTokens, beforeLines, 0, beforeTokens.length, 0, beforeEnv), unitsOf(afterTokens, afterLines, 0, afterTokens.length, 0, env), 0);
 
   const tokens: Token[] = [];
   for (let i = 0; i <= afterTokens.length; i++) {

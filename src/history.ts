@@ -64,12 +64,20 @@ export async function compareWithRevision(manager: PreviewManager, uri: vscode.U
   const { revision } = picked;
   let source: string;
   try {
-    source = await gitShow(git, uri.fsPath, revision);
+    const content = await gitShow(git, uri.fsPath, revision);
+    // In the encoding of the document (`files.encoding`, or the one it was reopened with).
+    const { encoding } = await vscode.workspace.openTextDocument(uri);
+    source = (await vscode.workspace.decode(content, { encoding })).replace(/^\uFEFF/, '');
   } catch (error) {
     showGitError(error, uri);
     return;
   }
-  const preview = active?.uri.toString() === uri.toString() ? active : await manager.readyPreview(uri);
+  let preview = active?.uri.toString() === uri.toString() ? active : undefined;
+  if (!preview) {
+    preview = await manager.readyPreview(uri);
+    // Run from the editor, the preview may be in a tab behind.
+    preview.panel.reveal(undefined, true);
+  }
   await preview.compare({
     label: vscode.l10n.t('Compared with {0}: {1} ({2})', revision.shortHash, revision.subject, formatDate(revision.date)),
     source,

@@ -23,17 +23,19 @@ export const MAX_REVISIONS = 200;
 
 const RECORD = '\x1e';
 const FIELD = '\x1f';
+const END = '\0';
 
 /**
  * The arguments of `git log` listing the commits that changed `fileName` (in the working folder), following its
- * renames, each with the file's path in it (`--name-only`).
+ * renames, each with the file's path in it (`--name-only`, ended by a NUL with `-z`: never quoted). Not those that
+ * deleted it, where it has no content.
  */
 export function gitLogArgs(fileName: string): string[] {
   return [
-    '-c',
-    'core.quotepath=false',
     'log',
     '--follow',
+    '-z',
+    '--diff-filter=d',
     `-n${MAX_REVISIONS}`,
     '--format=%x1e%H%x1f%h%x1f%an%x1f%aI%x1f%s',
     '--name-only',
@@ -51,12 +53,13 @@ export function gitShowArgs(hash: string, path: string): string[] {
 export function parseGitLog(output: string): Revision[] {
   const revisions: Revision[] = [];
   for (const record of output.split(RECORD).slice(1)) {
-    const [header, ...rest] = record.split('\n');
+    // `<header>\0`, then `\n<path>\0` for the file (none for a merge).
+    const [header, ...rest] = record.split(END);
     const [hash, shortHash, author, date, subject] = header.split(FIELD);
     if (!hash || subject === undefined) {
       continue;
     }
-    const path = rest.find((line) => line.trim() !== '')?.trim() ?? '';
+    const path = rest.map((part) => part.replace(/^\n/, '')).find((part) => part !== '') ?? '';
     revisions.push({ hash, shortHash, author, date, subject, path });
   }
   // A merge lists no file: it has the path of the commit before it (older), or else after it.
