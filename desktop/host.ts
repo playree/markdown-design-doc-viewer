@@ -422,6 +422,9 @@ async function openLink(href: string): Promise<void> {
 // The list of the design documents of the folder (View > Design Docs), the same as the extension's "Show Design Docs"
 // (src/designDocsPanel.ts): in place of the document, until one is opened.
 
+/** `uri` of the updates of the list, for the webview (which tells it from a document): the same for any folder. */
+const DESIGN_DOCS_URI = 'mdDesignDoc:designDocs';
+
 /** Shows the list of the design documents of the sidebar's folder, after asking for a folder when there is none. */
 async function showDesignDocs(): Promise<void> {
   if (!folder) {
@@ -471,7 +474,7 @@ async function renderDesignDocs(): Promise<void> {
   }
   // Unless the list was left meanwhile. Another folder chosen meanwhile is rendered next (`setFolder`).
   if (listShown) {
-    post({ type: 'update', uri: `design-docs:${path}`, html, ...SETTINGS });
+    post({ type: 'update', uri: DESIGN_DOCS_URI, html, ...SETTINGS });
   }
 }
 

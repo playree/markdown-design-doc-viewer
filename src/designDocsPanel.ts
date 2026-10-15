@@ -21,6 +21,8 @@ export class DesignDocsPanel implements vscode.Disposable {
   private readonly disposables: vscode.Disposable[] = [];
   /** Numbers the updates, so that an older list does not replace a newer one. */
   private updateSeq = 0;
+  /** The last update sent to the webview of the panel. */
+  private sent: string | undefined;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -58,6 +60,7 @@ export class DesignDocsPanel implements vscode.Disposable {
     this.panel?.dispose();
     this.panel = panel;
     this.ready = false;
+    this.sent = undefined;
     panel.title = vscode.l10n.t('Design Docs');
     panel.iconPath = vscode.Uri.joinPath(this.extensionUri, 'images', 'design-docs.svg');
     panel.webview.options = { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'dist')] };
@@ -75,6 +78,7 @@ export class DesignDocsPanel implements vscode.Disposable {
     switch (message.type) {
       case 'ready':
         this.ready = true;
+        this.sent = undefined;
         await this.update();
         break;
       case 'openLink': {
@@ -92,23 +96,34 @@ export class DesignDocsPanel implements vscode.Disposable {
     if (!this.panel || !this.ready) {
       return;
     }
-    const docs = await this.index.designDocs();
+    const t = vscode.l10n.t;
+    let docs: DesignDoc[] | undefined;
+    let failure = '';
+    try {
+      docs = await this.index.designDocs();
+    } catch (error) {
+      failure = t('Could not list the design docs: {0}', error instanceof Error ? error.message : String(error));
+    }
     const panel = this.panel;
     if (seq !== this.updateSeq || !panel || !this.ready) {
       return;
     }
     const href = (doc: DesignDoc): string => encodeURI(doc.path);
-    this.links = new Map(docs.map((doc) => [href(doc), doc.uri]));
-    const t = vscode.l10n.t;
+    this.links = new Map((docs ?? []).map((doc) => [href(doc), doc.uri]));
     const html = indexBody(
       t('Design Docs'),
-      docs.map((doc) => ({ title: doc.title, meta: doc.meta, href: href(doc), folder: doc.folder, file: doc.file })),
+      (docs ?? []).map((doc) => ({ title: doc.title, meta: doc.meta, href: href(doc), folder: doc.folder, file: doc.file })),
       t,
-      t(NO_DESIGN_DOCS),
+      docs ? t(NO_DESIGN_DOCS) : failure,
     );
     const { splitMinWidth, toc, diagramLook, theme, limitContentWidth, stickyTableHeader, tableTreeHighlight } = readSettings();
     const message: ToWebview = { type: 'update', uri: LIST_URI, html, splitMinWidth, syncEditor: false, toc, diagramLook, theme, limitContentWidth, stickyTableHeader, tableTreeHighlight };
-    void panel.webview.postMessage(message);
+    // Not rendered again when a file changed without changing the list.
+    const sent = JSON.stringify(message);
+    if (sent !== this.sent) {
+      this.sent = sent;
+      void panel.webview.postMessage(message);
+    }
   }
 
   dispose(): void {

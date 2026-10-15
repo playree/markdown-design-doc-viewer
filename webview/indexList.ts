@@ -13,12 +13,13 @@ function words(query: string): string[] {
 
 /**
  * Adds the search box under the title of the list `index` (`.seqnotes-index`), and makes its column headers sort
- * the rows of each table. Starts from `state`, and gives the new one to `onChange`.
+ * the rows of each table. Starts from `state`, and gives the new one to `onChange`. Returns the search box (none
+ * without documents).
  */
-export function setUpIndexList(index: HTMLElement, state: IndexListState = { query: '' }, onChange?: (state: IndexListState) => void): void {
+export function setUpIndexList(index: HTMLElement, state: IndexListState = { query: '' }, onChange?: (state: IndexListState) => void): HTMLInputElement | undefined {
   const tables = Array.from(index.querySelectorAll<HTMLTableElement>(':scope > table'));
   if (tables.length === 0) {
-    return;
+    return undefined;
   }
   const text = (key: string): string => index.getAttribute(`data-seqnotes-${key}`) ?? '';
   let current: IndexListState = { ...state };
@@ -44,7 +45,8 @@ export function setUpIndexList(index: HTMLElement, state: IndexListState = { que
   tables[tables.length - 1].after(noMatch);
 
   const buttons: HTMLButtonElement[][] = tables.map((table) =>
-    Array.from(table.tHead?.rows[0]?.cells ?? [], (th, column) => {
+    Array.from(table.tHead?.rows[0]?.cells ?? [], (th) => {
+      const column = th.dataset.seqnotesColumn ?? '';
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'seqnotes-index-sort';
@@ -77,8 +79,10 @@ export function setUpIndexList(index: HTMLElement, state: IndexListState = { que
     let shown = 0;
     tables.forEach((table, i) => {
       const rows = [...original.get(table)!];
-      if (sort) {
-        const key = (row: HTMLTableRowElement): string => row.cells[sort.column]?.textContent?.trim() ?? '';
+      // The columns of all the tables are the same. A column gone (no document has that entry any longer) sorts nothing.
+      const column = sort ? buttons[i].findIndex((button) => button.parentElement!.dataset.seqnotesColumn === sort.column) : -1;
+      if (sort && column >= 0) {
+        const key = (row: HTMLTableRowElement): string => row.cells[column]?.textContent?.trim() ?? '';
         rows.sort((a, b) => {
           const [x, y] = [key(a), key(b)];
           // The rows without the value last, in both orders.
@@ -98,9 +102,9 @@ export function setUpIndexList(index: HTMLElement, state: IndexListState = { que
       if (heading?.tagName === 'H2') {
         (heading as HTMLElement).hidden = visible === 0;
       }
-      buttons[i].forEach((button, column) => {
+      buttons[i].forEach((button) => {
         const th = button.parentElement!;
-        if (sort?.column === column) {
+        if (sort && sort.column === th.dataset.seqnotesColumn) {
           th.setAttribute('aria-sort', sort.descending ? 'descending' : 'ascending');
         } else {
           th.removeAttribute('aria-sort');
@@ -113,4 +117,5 @@ export function setUpIndexList(index: HTMLElement, state: IndexListState = { que
   }
 
   apply();
+  return input;
 }

@@ -78,9 +78,12 @@ export function groupByFolder<T extends { folder: string; file: string }>(entrie
  */
 export function indexBody(title: string, entries: IndexEntry[], t: Translate, empty = ''): string {
   const columns = DESIGN_DOC_META.filter(({ key }) => entries.some((entry) => key in entry.meta));
+  // Named for the script, which keeps the column sorted by while the columns change.
   const head =
     '<thead><tr>' +
-    [t('Title'), t('File'), ...columns.map(({ label }) => t(label))].map((label) => `<th>${escapeHtml(label)}</th>`).join('') +
+    [{ key: 'title', label: 'Title' }, { key: 'file', label: 'File' }, ...columns]
+      .map(({ key, label }) => `<th data-seqnotes-column="${key}">${escapeHtml(t(label))}</th>`)
+      .join('') +
     '</tr></thead>\n';
   const row = (entry: IndexEntry): string =>
     '<tr>' +

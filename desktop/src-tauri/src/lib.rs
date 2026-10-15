@@ -423,13 +423,17 @@ fn collect_heads(folder: &Folder, root: &Path, files: &mut Vec<FileHead>) {
 }
 
 /// The beginning of a UTF-8 file that starts with `---` (after a BOM), cut at the end of its last whole character.
+/// Only its first bytes are read from the other files.
 fn read_head(path: &Path) -> Option<String> {
+    const BOM: &[u8] = b"\xEF\xBB\xBF";
+    let mut file = std::fs::File::open(path).ok()?;
     let mut bytes = Vec::new();
-    std::fs::File::open(path).ok()?.take(HEAD_BYTES).read_to_end(&mut bytes).ok()?;
-    let bytes = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(&bytes);
-    if !bytes.starts_with(b"---") {
+    file.by_ref().take(6).read_to_end(&mut bytes).ok()?;
+    if !bytes.strip_prefix(BOM).unwrap_or(&bytes).starts_with(b"---") {
         return None;
     }
+    file.take(HEAD_BYTES - 6).read_to_end(&mut bytes).ok()?;
+    let bytes = bytes.strip_prefix(BOM).unwrap_or(&bytes);
     match std::str::from_utf8(bytes) {
         Ok(text) => Some(text.to_string()),
         // Cut in the middle of a character.
@@ -974,5 +978,27 @@ mod tests {
         let (a, b, c) = ("a".repeat(40), "b".repeat(40), "c".repeat(40));
         let output = record(&a, None) + &record(&b, Some("old.md")) + &record(&c, None);
         assert_eq!(logged_revisions(&output), HashSet::from([pair(&a, "old.md"), pair(&b, "old.md"), pair(&c, "old.md")]));
+    }
+
+    #[test]
+    fn read_head_reads_the_files_that_start_with_a_front_matter() {
+        let dir = std::env::temp_dir().join(format!("mddv-read-head-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = |name: &str, bytes: &[u8]| {
+            let path = dir.join(name);
+            std::fs::write(&path, bytes).unwrap();
+            path
+        };
+        let front_matter = "---\ntype: design_doc\n---\n";
+        assert_eq!(read_head(&file("a.md", front_matter.as_bytes())).as_deref(), Some(front_matter));
+        assert_eq!(read_head(&file("bom.md", b"\xEF\xBB\xBF---\n")).as_deref(), Some("---\n"));
+        assert_eq!(read_head(&file("b.md", b"# Title\n---\n")), None);
+        assert_eq!(read_head(&file("short.md", b"--")), None);
+        // Cut before a character that does not end within HEAD_BYTES.
+        let mut long = b"---\n".to_vec();
+        long.resize(HEAD_BYTES as usize - 1, b'a');
+        long.extend("あ".as_bytes());
+        assert_eq!(read_head(&file("long.md", &long)).map(|head| head.len()), Some(HEAD_BYTES as usize - 1));
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

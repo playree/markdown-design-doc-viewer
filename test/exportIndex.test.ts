@@ -79,7 +79,7 @@ describe('indexBody', () => {
 
   it('shows only the columns that a document has', () => {
     const html = indexBody('Docs', [entry('', 'a.md', { status: 'draft' }), entry('', 'b.md')], formatMessage);
-    expect(html).toContain('<thead><tr><th>Title</th><th>File</th><th>Status</th></tr></thead>');
+    expect(html).toContain('<thead><tr><th data-seqnotes-column="title">Title</th><th data-seqnotes-column="file">File</th><th data-seqnotes-column="status">Status</th></tr></thead>');
     expect(html).toContain('<td class="seqnotes-index-status"><span>draft</span></td>');
     expect(html).toContain('<td class="seqnotes-index-status"></td>');
     expect(html).not.toContain('Version');
@@ -92,7 +92,7 @@ describe('indexBody', () => {
     expect(html).toContain('<h2>&lt;x&gt;/</h2>');
     expect(html).toContain('>&lt;b&gt;</a>');
     expect(html).toContain('<span>&quot;1&quot;</span>');
-    expect(html).toContain('<th>タイトル</th><th>ファイル</th><th>版数</th>');
+    expect(html).toContain('>タイトル</th><th data-seqnotes-column="file">ファイル</th><th data-seqnotes-column="version">版数</th>');
   });
 
   it('gives the texts of the search box to the script', () => {

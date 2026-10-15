@@ -53,8 +53,11 @@ export interface WebviewState {
 /** What a list of documents shows (webview/indexList.ts): kept while the list is updated. */
 export interface IndexListState {
   query: string;
-  /** The column the rows are sorted by (its index), and the order; the order of the list without it. */
-  sort?: { column: number; descending: boolean };
+  /**
+   * The column the rows are sorted by (its `data-seqnotes-column`: `title`, `file` or a key of the front matter),
+   * and the order; the order of the list without it.
+   */
+  sort?: { column: string; descending: boolean };
 }
 
 /**

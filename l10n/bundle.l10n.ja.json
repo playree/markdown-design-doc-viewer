@@ -59,6 +59,7 @@
   "Title": "タイトル",
   "File": "ファイル",
   "Open Preview": "プレビューを開く",
+  "Could not list the design docs: {0}": "設計書の一覧を作れませんでした: {0}",
   "Filter": "絞り込み",
   "Filter by title, file name or metadata": "タイトル・ファイル名・メタ情報で絞り込み",
   "{0} of {1} documents": "{1} 件中 {0} 件",
