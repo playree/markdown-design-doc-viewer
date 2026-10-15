@@ -37,6 +37,8 @@ describe('parseTableOptions', () => {
 describe('rowDepths and treeGuides', () => {
   it('takes the lowest level as the top, and a row deeper than a child as a child', () => {
     expect(rowDepths([2, 3, 5, 3, undefined, 4])).toEqual([0, 1, 2, 1, 0, 1]);
+    // The rows after a skipped level are compared with the levels of the rows above, not their depths.
+    expect(rowDepths([1, 3, 4, 3, 2])).toEqual([0, 1, 2, 1, 1]);
   });
 
   it('draws the lines of the levels above and the row itself', () => {
@@ -127,9 +129,14 @@ describe('table options', () => {
     expect(renderDocument(md, source)).toContain('⚠ Line 5: The level &quot;two&quot; is not an integer.');
   });
 
-  it('warns of a column given twice', () => {
-    const issues = collectIssues(md, doc('<!-- table: level=a merge=a,b -->', '| a | b |', '|---|---|', '| 1 | 2 |'));
-    expect(issues.map((issue) => issue.message)).toEqual(['Column "a" is given twice in the table options.']);
+  it('warns of a column or a level given twice', () => {
+    const issues = collectIssues(md, doc('<!-- table: level=a merge=a,b level=b -->', '| a | b |', '|---|---|', '| 1 | 2 |'));
+    expect(issues.map((issue) => issue.message)).toEqual(['Column "a" is given twice in the table options.', 'Write "level=" only once in the table options.']);
+  });
+
+  it('names a column by the source of its header or by its text', () => {
+    const html = render('<!-- table: merge=Item,"`Physical name`" -->', '| **Item** | `Physical name` |', '|---|---|', '| a | b |');
+    expect(cells(html)[1]).toEqual(['<span class="seqnotes-cell-main">a</span><span class="seqnotes-cell-sub">b</span>']);
   });
 
   it('translates the warnings and the label of the button', () => {

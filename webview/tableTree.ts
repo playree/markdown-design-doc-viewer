@@ -5,7 +5,8 @@
 
 const TOGGLE = '.seqnotes-tree-toggle';
 const FOLDED = 'seqnotes-tree-folded';
-const HIDDEN = 'seqnotes-tree-hidden';
+/** Class of the rows hidden under a folded row. */
+export const TREE_HIDDEN = 'seqnotes-tree-hidden';
 const CURRENT = 'seqnotes-tree-current';
 const RELATED = 'seqnotes-tree-related';
 
@@ -23,7 +24,7 @@ function updateRows(table: Element): void {
       foldedDepth = Infinity;
     }
     const hidden = depth > foldedDepth;
-    row.classList.toggle(HIDDEN, hidden);
+    row.classList.toggle(TREE_HIDDEN, hidden);
     if (!hidden && row.classList.contains(FOLDED)) {
       foldedDepth = depth;
     }
@@ -96,36 +97,45 @@ export function setupTableTree(root: HTMLElement): void {
   root.addEventListener('mouseleave', clear);
 }
 
+/**
+ * The rows of the trees in `root` with their keys: the table (among those of the document, not the deleted ones shown by
+ * the comparison) and the names of the row and its ancestors, which stay the same while other rows are edited.
+ */
+function keyedRows(root: HTMLElement): { table: Element; row: HTMLTableRowElement; key: string }[] {
+  const tables = Array.from(root.querySelectorAll('.seqnotes-tree-table')).filter((table) => !table.closest('[data-seqnotes-diff="deleted"]'));
+  return tables.flatMap((table, index) => {
+    const path: string[] = [];
+    return rowsOf(table).map((row) => {
+      const depth = depthOf(row);
+      path.length = depth;
+      path.push(nameOf(row));
+      return { table, row, key: [index, ...path].join('\n') };
+    });
+  });
+}
+
+/** The text of the tree cell of a row, without the words deleted from it (marked by the comparison). */
+function nameOf(row: Element): string {
+  const cell = row.querySelector('.seqnotes-tree-cell')?.cloneNode(true) as Element | undefined;
+  cell?.querySelectorAll('del').forEach((el) => el.remove());
+  return cell?.textContent?.trim() ?? '';
+}
+
 /** Keys of the folded rows in `root`, to fold them again after its content is replaced (`restoreFolded`). */
 export function foldedRows(root: HTMLElement): Set<string> {
-  const keys = new Set<string>();
-  root.querySelectorAll('.seqnotes-tree-table').forEach((table, index) => {
-    for (const row of rowsOf(table)) {
-      if (row.classList.contains(FOLDED)) {
-        keys.add(rowKey(index, row));
-      }
-    }
-  });
-  return keys;
+  return new Set(keyedRows(root).flatMap(({ row, key }) => (row.classList.contains(FOLDED) ? [key] : [])));
 }
 
 export function restoreFolded(root: HTMLElement, keys: Set<string>): void {
   if (keys.size === 0) {
     return;
   }
-  root.querySelectorAll('.seqnotes-tree-table').forEach((table, index) => {
-    let changed = false;
-    for (const row of rowsOf(table)) {
-      if (row.classList.contains('seqnotes-tree-parent') && keys.has(rowKey(index, row))) {
-        setFolded(row, true);
-        changed = true;
-      }
+  const changed = new Set<Element>();
+  for (const { table, row, key } of keyedRows(root)) {
+    if (row.classList.contains('seqnotes-tree-parent') && keys.has(key)) {
+      setFolded(row, true);
+      changed.add(table);
     }
-    if (changed) {
-      updateRows(table);
-    }
-  });
+  }
+  changed.forEach(updateRows);
 }
-
-/** A row is told by its table and its text in the tree column, which stay the same while other rows are edited. */
-const rowKey = (table: number, row: Element): string => `${table}\n${row.querySelector('.seqnotes-tree-cell')?.textContent ?? ''}`;

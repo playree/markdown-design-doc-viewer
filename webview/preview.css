@@ -244,9 +244,9 @@ body.seqnotes-sticky-table-header thead th {
 .seqnotes-tree-parent > td { background: color-mix(in srgb, var(--seqnotes-th-bg) 50%, transparent); }
 .seqnotes-tree-parent > .seqnotes-tree-cell { font-weight: 600; }
 .seqnotes-tree-hidden { display: none; }
-/* The row under the pointer, with its ancestors and descendants. */
-.seqnotes-tree-related > td { background: color-mix(in srgb, var(--seqnotes-accent) 6%, transparent); }
-.seqnotes-tree-current > td { background: var(--seqnotes-accent-bg); }
+/* The row under the pointer, with its ancestors and descendants (also over the marks of the comparison). */
+.seqnotes-tree-table > tbody > .seqnotes-tree-related > td { background: color-mix(in srgb, var(--seqnotes-accent) 6%, transparent); }
+.seqnotes-tree-table > tbody > .seqnotes-tree-current > td { background: var(--seqnotes-accent-bg); }
 /* All the rows are printed. */
 @media print {
   .seqnotes-tree-hidden { display: table-row; }

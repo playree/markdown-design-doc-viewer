@@ -6,7 +6,7 @@ import { normalizeLabel } from '../src/sequence';
 import { markChanges, setupDiffBar } from './diff';
 import { setupFootnotePopup } from './footnotePopup';
 import { activeFor, isSideBySide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, type Active } from './linking';
-import { foldedRows, restoreFolded, setupTableTree } from './tableTree';
+import { foldedRows, restoreFolded, setupTableTree, TREE_HIDDEN } from './tableTree';
 
 interface VsCodeApi {
   postMessage(message: FromWebview): void;
@@ -1128,6 +1128,10 @@ function markLine(line: number, reveal: boolean): void {
 
   let found: HTMLElement | undefined;
   for (const el of root.querySelectorAll<HTMLElement>('[data-line]')) {
+    if (el.closest(`.${TREE_HIDDEN}`)) {
+      // A row of a folded table: its folded parent before it is marked instead.
+      continue;
+    }
     if (lineOf(el) <= line) {
       found = el;
     } else {

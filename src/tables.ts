@@ -9,6 +9,7 @@ import type { MarkdownIt, StateCore, Token } from 'markdown-it';
 import { formatMessage, type Translate } from './l10n';
 import type { LinkWarning } from './linker';
 import type { RenderEnv } from './render';
+import { toAsciiDigits } from './sequence';
 
 const DIRECTIVE_RE = /^<!--\s*table:([^]*?)-->\s*$/;
 
@@ -80,21 +81,23 @@ interface Row {
 /** Guides drawn in front of a row of the tree, one per level above it: a line going on (│), nothing, or its own (├ └). */
 type Guide = 'pipe' | 'blank' | 'tee' | 'elbow';
 
-const toAsciiDigits = (s: string): string => s.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
-
-/** The depth of each row (0 for the top), from the level of each row (undefined when it is not an integer). */
+/**
+ * The depth of each row (0 for the top), from the level of each row (undefined when it is not an integer, taken as the top).
+ * A row is a child of the last row above it with a lower level, so a row more than one level deeper is a child too.
+ */
 export function rowDepths(levels: (number | undefined)[]): number[] {
   const valid = levels.filter((l): l is number => l !== undefined);
-  const min = valid.length === 0 ? 0 : Math.min(...valid);
-  const depths: number[] = [];
-  let previous = -1;
-  for (const level of levels) {
-    // A row deeper than a child of the previous one is taken as its child.
-    const depth = level === undefined ? 0 : Math.min(level - min, previous + 1);
-    depths.push(depth);
-    previous = depth;
-  }
-  return depths;
+  const top = valid.length === 0 ? 0 : Math.min(...valid);
+  // The levels of the ancestors of the current row, and its own.
+  const stack: number[] = [];
+  return levels.map((l) => {
+    const level = l ?? top;
+    while (stack.length > 0 && stack[stack.length - 1] >= level) {
+      stack.pop();
+    }
+    stack.push(level);
+    return stack.length - 1;
+  });
 }
 
 /** The guides of each row of a tree whose rows are at `depths`, and whether each row has children. */
@@ -124,11 +127,10 @@ export function treeGuides(depths: number[]): { guides: Guide[][]; parent: boole
   return { guides, parent: depths.map((d, i) => i + 1 < depths.length && depths[i + 1] > d) };
 }
 
-function rowsOf(tokens: Token[], start: number): { rows: Row[]; close: number } {
+function rowsOf(tokens: Token[], start: number): Row[] {
   const rows: Row[] = [];
   let head = false;
-  let i = start + 1;
-  for (; i < tokens.length && tokens[i].type !== 'table_close'; i++) {
+  for (let i = start + 1; i < tokens.length && tokens[i].type !== 'table_close'; i++) {
     const token = tokens[i];
     if (token.type === 'thead_open' || token.type === 'thead_close') {
       head = token.type === 'thead_open';
@@ -138,8 +140,16 @@ function rowsOf(tokens: Token[], start: number): { rows: Row[]; close: number } 
       rows[rows.length - 1]?.cells.push({ open: i, inline: tokens[i + 1] });
     }
   }
-  return { rows, close: i };
+  return rows;
 }
+
+/** The text of a cell without its Markdown (`**Level**`, `` `Item` ``). */
+const textOf = (inline: Token): string =>
+  (inline.children ?? [])
+    .filter((child) => child.type === 'text' || child.type === 'code_inline' || child.type === 'text_special')
+    .map((child) => child.content)
+    .join('')
+    .trim();
 
 /** Applies the options of a table, and returns its warnings. Tokens to remove (the hidden cells) are added to `removed`. */
 function formatTable(state: StateCore, start: number, options: TableOption[], line: number, t: Translate, removed: Set<number>): LinkWarning[] {
@@ -148,15 +158,16 @@ function formatTable(state: StateCore, start: number, options: TableOption[], li
   const warn = (message: string, at = line): void => {
     warnings.push({ line: at, message });
   };
-  const { rows } = rowsOf(tokens, start);
+  const rows = rowsOf(tokens, start);
   const header = rows.find((row) => row.head);
   if (!header) {
     return warnings;
   }
-  const names = header.cells.map((cell) => cell.inline.content.trim());
+  // A column is named by the source of its header, or by its text.
+  const names = header.cells.map((cell) => [cell.inline.content.trim(), textOf(cell.inline)]);
   const used = new Set<number>();
   const column = (name: string): number | undefined => {
-    const index = names.indexOf(name);
+    const index = names.findIndex((n) => n.includes(name));
     if (index < 0) {
       warn(t('No column "{0}" in the table.', name));
       return undefined;
@@ -170,17 +181,23 @@ function formatTable(state: StateCore, start: number, options: TableOption[], li
   };
 
   let level: number | undefined;
+  let levelGiven = false;
   const merges: number[][] = [];
   for (const option of options) {
-    if (option.key === 'level' && option.values.length === 1 && level === undefined) {
-      level = column(option.values[0]);
+    if (option.key === 'level') {
+      if (levelGiven) {
+        warn(t('Write "level=" only once in the table options.'));
+      } else if (option.values.length !== 1) {
+        warn(t('Write one column for the level: "level=<column>".'));
+      } else {
+        level = column(option.values[0]);
+      }
+      levelGiven = true;
     } else if (option.key === 'merge' && option.values.length >= 2) {
       const group = option.values.map(column).filter((c): c is number => c !== undefined);
       if (group.length >= 2) {
         merges.push(group);
       }
-    } else if (option.key === 'level') {
-      warn(t('Write one column for the level: "level=<column>".'));
     } else if (option.key === 'merge') {
       warn(t('Write two or more columns to merge: "merge=<column>,<column>".'));
     } else {
