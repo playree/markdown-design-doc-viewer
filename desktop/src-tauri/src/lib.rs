@@ -94,9 +94,8 @@ struct Histories(Mutex<HashMap<String, History>>);
 struct History {
     /// The document whose history it is.
     file: String,
-    hashes: HashSet<String>,
-    /// The paths of the document in the commits, from the root of the repository.
-    paths: HashSet<String>,
+    /// Its commits, each with the path of the document in it, from the root of the repository.
+    revisions: HashSet<(String, String)>,
 }
 
 /// A document read by `open_document` or `read_document`.
@@ -732,22 +731,39 @@ async fn git_log(window: Window, windows: State<'_, Windows>, histories: State<'
     let mut args: Vec<OsString> = GIT_LOG_ARGS.iter().map(OsString::from).collect();
     args.push(name.to_owned());
     let output = String::from_utf8_lossy(&run_git(dir.to_path_buf(), args).await?).into_owned();
-    let mut history = History { file: file.clone(), hashes: HashSet::new(), paths: HashSet::new() };
-    // `\x1e<hash>\x1f…\0`, then `\n<path>\0` (none for a merge), read as `parseGitLog` does.
-    for record in output.split('\x1e').skip(1) {
-        let mut parts = record.split('\0');
-        if let Some(hash) = parts.next().and_then(|header| header.split('\x1f').next()) {
-            history.hashes.insert(hash.to_string());
-        }
-        history.paths.extend(
-            parts.map(|part| part.strip_prefix('\n').unwrap_or(part)).filter(|part| !part.is_empty()).map(str::to_string),
-        );
-    }
+    let history = History { file: file.clone(), revisions: logged_revisions(&output) };
     // Unless the window opened another document meanwhile, whose history may have been read already.
     if shown_document(&window, &windows).as_ref() == Some(&file) {
         histories.0.lock().unwrap_or_else(PoisonError::into_inner).insert(window.label().to_string(), history);
     }
     Ok(output)
+}
+
+/// The commits of the output of `git log` with `GIT_LOG_ARGS`, each with the path of the file in it, as `parseGitLog`
+/// in src/gitLog.ts reads them: `\x1e<hash>\x1f…\0`, then `\n<path>\0` (none for a merge, which has the path of the
+/// commit before it, or else after it).
+fn logged_revisions(output: &str) -> HashSet<(String, String)> {
+    let mut revisions: Vec<(String, Option<String>)> = Vec::new();
+    for record in output.split('\x1e').skip(1) {
+        let mut parts = record.split('\0');
+        let Some(hash) = parts.next().and_then(|header| header.split('\x1f').next()).filter(|hash| !hash.is_empty())
+        else {
+            continue;
+        };
+        let path = parts.map(|part| part.strip_prefix('\n').unwrap_or(part)).find(|part| !part.is_empty());
+        revisions.push((hash.to_string(), path.map(str::to_string)));
+    }
+    for i in (0..revisions.len().saturating_sub(1)).rev() {
+        if revisions[i].1.is_none() {
+            revisions[i].1 = revisions[i + 1].1.clone();
+        }
+    }
+    for i in 1..revisions.len() {
+        if revisions[i].1.is_none() {
+            revisions[i].1 = revisions[i - 1].1.clone();
+        }
+    }
+    revisions.into_iter().filter_map(|(hash, path)| Some((hash, path?))).collect()
 }
 
 /// The content of the window's document in a commit listed by `git_log`, at its path in that commit.
@@ -765,7 +781,7 @@ async fn git_show(
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
         .get(window.label())
-        .is_some_and(|history| history.file == file && history.hashes.contains(&hash) && history.paths.contains(&path));
+        .is_some_and(|history| history.file == file && history.revisions.contains(&(hash.clone(), path.clone())));
     if !listed {
         return Err(GitError::failed("Not a commit of the history of the document."));
     }
@@ -856,3 +872,34 @@ fn on_run_event(app: &AppHandle, event: RunEvent) {
 /// Nothing elsewhere: the files come on the command line (`setup` and the single instance).
 #[cfg(not(target_os = "macos"))]
 fn on_run_event(_app: &AppHandle, _event: RunEvent) {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn record(hash: &str, path: Option<&str>) -> String {
+        let path = path.map(|path| format!("\n{path}\0")).unwrap_or_default();
+        format!("\x1e{hash}\x1f{}\x1fAuthor\x1f2026-10-01T12:00:00+09:00\x1fSubject\0{path}", &hash[..7])
+    }
+
+    fn pair(hash: &str, path: &str) -> (String, String) {
+        (hash.to_string(), path.to_string())
+    }
+
+    #[test]
+    fn logged_revisions_pair_each_commit_with_its_path() {
+        let (a, b) = ("a".repeat(40), "b".repeat(40));
+        let output = record(&a, Some("docs/new.md")) + &record(&b, Some("docs/old.md"));
+        let revisions = logged_revisions(&output);
+        assert_eq!(revisions, HashSet::from([pair(&a, "docs/new.md"), pair(&b, "docs/old.md")]));
+        // Not the path of another commit.
+        assert!(!revisions.contains(&pair(&b, "docs/new.md")));
+    }
+
+    #[test]
+    fn logged_revisions_give_a_merge_the_path_of_the_commit_before_it() {
+        let (a, b, c) = ("a".repeat(40), "b".repeat(40), "c".repeat(40));
+        let output = record(&a, None) + &record(&b, Some("old.md")) + &record(&c, None);
+        assert_eq!(logged_revisions(&output), HashSet::from([pair(&a, "old.md"), pair(&b, "old.md"), pair(&c, "old.md")]));
+    }
+}

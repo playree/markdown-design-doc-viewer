@@ -185,9 +185,10 @@ async function openNow(path: string, fragment: string | undefined, keepFolder: b
     current = doc;
   }
   // Another document: shown alone, with its own history.
-  if (comparison && comparison.path !== doc.path) {
-    comparison = undefined;
-    sidebar.setComparedRevision(undefined);
+  const compared = pendingRevision ?? comparison;
+  if (compared && compared.path !== doc.path) {
+    // Rendered below.
+    stopComparing(false);
   }
   pendingFragment = fragment ? { path: doc.path, fragment } : undefined;
   try {
@@ -408,6 +409,8 @@ let historyOf: string | undefined;
 let historySeq = 0;
 /** Numbers the commits chosen, so that the last one is compared with. */
 let compareSeq = 0;
+/** The commit chosen last, while its content is being read (`git_show`): chosen again, it is not compared with. */
+let pendingRevision: { path: string; hash: string } | undefined;
 
 /** What an error of `git_log` or `git_show` (`GitError` in lib.rs) says for the document `name`. */
 function gitErrorText(error: unknown, name: string): string {
@@ -469,11 +472,15 @@ async function compareWith(revision: Revision): Promise<void> {
   if (!doc) {
     return;
   }
-  const seq = ++compareSeq;
-  if (comparison?.path === doc.path && comparison.hash === revision.hash) {
+  // The commit being read, or else the one compared with.
+  const chosen = pendingRevision ?? comparison;
+  if (chosen?.path === doc.path && chosen.hash === revision.hash) {
     stopComparing();
     return;
   }
+  const seq = ++compareSeq;
+  pendingRevision = { path: doc.path, hash: revision.hash };
+  sidebar.setComparedRevision(revision.hash);
   let source: string | undefined;
   let failure: unknown;
   try {
@@ -485,24 +492,32 @@ async function compareWith(revision: Revision): Promise<void> {
   if (seq !== compareSeq || current?.path !== doc.path) {
     return;
   }
+  pendingRevision = undefined;
   if (source === undefined) {
+    // The commit compared with before, if any, stays.
+    sidebar.setComparedRevision(comparison?.hash);
     await message(gitErrorText(failure, doc.name), { title: APP_NAME, kind: 'error' });
     return;
   }
   const date = formatRevisionDate(revision.date, lang);
   comparison = { path: doc.path, hash: revision.hash, label: t('Compared with {0}: {1} ({2})', revision.shortHash, revision.subject, date), source };
-  sidebar.setComparedRevision(revision.hash);
   render();
 }
 
-/** Shows the document alone again: the commit chosen again, or the bar of the differences closed. */
-function stopComparing(): void {
-  if (!comparison) {
-    return;
-  }
-  comparison = undefined;
+/**
+ * Shows the document alone again (rendered when `rerender`): the commit chosen again, the bar of the differences
+ * closed, or another document opened. A commit being read is then not compared with.
+ */
+function stopComparing(rerender = true): void {
+  ++compareSeq;
+  pendingRevision = undefined;
   sidebar.setComparedRevision(undefined);
-  render();
+  if (comparison) {
+    comparison = undefined;
+    if (rerender) {
+      render();
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
