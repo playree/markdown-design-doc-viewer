@@ -12,10 +12,11 @@ import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { message, open } from '@tauri-apps/plugin-dialog';
 import { renderDiff } from '../src/diffRender';
+import { documentInfo, indexBody, NO_DESIGN_DOCS, type IndexEntry } from '../src/exportIndex';
 import { documentTitle, exportFileName, exportPage, imageType, renderForExport, stripSourceMap } from '../src/exportPage';
 import { formatRevisionDate, parseGitLog, type Revision } from '../src/gitLog';
 import type { DiffView, FromWebview, PreviewTheme, ToWebview } from '../src/protocol';
-import { createMarkdown, renderDocument, type RenderEnv } from '../src/render';
+import { createMarkdown, escapeHtml, renderDocument, type RenderEnv } from '../src/render';
 import type { FolderTree } from './folderTree';
 import { lang, t } from './l10n';
 import { isInside, isMarkdownPath, linkTarget, relativeLink, resourcePath } from './paths';
@@ -46,6 +47,12 @@ const SETTINGS = {
   tableTreeHighlight: true,
 } as const;
 
+/** What `read_design_docs` returns: the Markdown files of a folder that start with a front matter. */
+interface FileHeads {
+  files: { path: string; name: string; folder: string; head: string }[];
+  truncated: boolean;
+}
+
 /** The settings of the extension that apply to the rendering of the documents, at their defaults. */
 const RENDER_SETTINGS = { frontMatter: true, headingNumbers: true } as const;
 
@@ -69,6 +76,8 @@ let pendingFragment: { path: string; fragment: string } | undefined;
 let rendering: Promise<void> = Promise.resolve();
 /** The commit of the document it is compared with (chosen in the History tab), whose differences are shown. */
 let comparison: { path: string; hash: string; label: string; source: string } | undefined;
+/** Whether the window shows the list of the design documents of the folder (View > Design Docs) in place of a document. */
+let listShown = false;
 
 export function onWebviewMessage(message: FromWebview): void {
   switch (message.type) {
@@ -105,6 +114,10 @@ function render(): void {
 }
 
 async function renderNow(): Promise<void> {
+  if (ready && listShown) {
+    await renderDesignDocs();
+    return;
+  }
   const doc = current;
   // Rendered when the webview is ready.
   if (!ready || !doc) {
@@ -184,6 +197,7 @@ async function openNow(path: string, fragment: string | undefined, keepFolder: b
     shownSeq = seq;
     current = doc;
   }
+  listShown = false;
   // Another document: shown alone, with its own history.
   const compared = pendingRevision ?? comparison;
   if (compared && compared.path !== doc.path) {
@@ -319,6 +333,9 @@ function saveFolder(): void {
 function setFolder(path: string, show = false): void {
   folder = path;
   saveFolder();
+  if (listShown) {
+    render();
+  }
   if (show && !sidebarShown) {
     setSidebarShown(true);
   } else {
@@ -381,7 +398,9 @@ async function dropFolder(path: string): Promise<void> {
 }
 
 async function openLink(href: string): Promise<void> {
-  const target = current && linkTarget(current.dir, href);
+  // The links of the list of the design documents are relative to its folder.
+  const dir = listShown ? folder : current?.dir;
+  const target = dir === undefined ? undefined : linkTarget(dir, href);
   try {
     switch (target?.kind) {
       case 'url':
@@ -396,6 +415,63 @@ async function openLink(href: string): Promise<void> {
     }
   } catch (error) {
     await showError(t('Could not open {0}.', href), error);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The list of the design documents of the folder (View > Design Docs), the same as the extension's "Show Design Docs"
+// (src/designDocsPanel.ts): in place of the document, until one is opened.
+
+/** Shows the list of the design documents of the sidebar's folder, after asking for a folder when there is none. */
+async function showDesignDocs(): Promise<void> {
+  if (!folder) {
+    const path = await open({ multiple: false, directory: true, defaultPath: current?.dir });
+    if (typeof path !== 'string') {
+      return;
+    }
+    setFolder(path);
+  }
+  listShown = true;
+  // The document is no longer shown: neither exported nor compared, and its history not listed.
+  current = undefined;
+  stopComparing(false);
+  try {
+    sessionStorage.removeItem(DOCUMENT_KEY);
+  } catch {
+    // Opened again by a reload of the page.
+  }
+  empty.hidden = true;
+  updateExportItem();
+  sidebar.setCurrent(undefined);
+  void appWindow.setTitle(`${t('Design Docs')} — ${APP_NAME}`);
+  void loadHistory();
+  render();
+}
+
+/** Reads the design documents of the folder, and sends their list to the webview. */
+async function renderDesignDocs(): Promise<void> {
+  const path = folder;
+  if (!path) {
+    return;
+  }
+  let html: string;
+  try {
+    const { files, truncated } = await invoke<FileHeads>('read_design_docs', { path });
+    const entries = files.flatMap((file): IndexEntry[] => {
+      const { designDoc, ...info } = documentInfo(md, file.head, file.name);
+      const href = [...file.folder.split('/').filter(Boolean), file.name].map(encodeURIComponent).join('/');
+      return designDoc ? [{ ...info, href, folder: file.folder, file: file.name }] : [];
+    });
+    html = indexBody(t('Design Docs'), entries, t, t(NO_DESIGN_DOCS));
+    if (truncated) {
+      html += `<p class="seqnotes-index-empty">${escapeHtml(t('The folder has too many files: some of them are not listed.'))}</p>`;
+    }
+  } catch (error) {
+    html = indexBody(t('Design Docs'), [], t, `${t('Could not open {0}.', path)}\n${reason(error)}`);
+  }
+  // Unless the list was left meanwhile. Another folder chosen meanwhile is rendered next (`setFolder`).
+  if (listShown) {
+    post({ type: 'update', uri: `design-docs:${path}`, html, ...SETTINGS });
   }
 }
 
@@ -734,6 +810,9 @@ async function setUpMenu(): Promise<void> {
         action: () => {
           void reload(true);
           void loadHistory(true);
+          if (listShown) {
+            render();
+          }
         },
       }),
       await separator(),
@@ -753,7 +832,12 @@ async function setUpMenu(): Promise<void> {
   });
   const view = await Submenu.new({
     text: label('&View'),
-    items: [sidebarItem, await Submenu.new({ text: label('&Theme'), items: themeItems })],
+    items: [
+      sidebarItem,
+      await MenuItem.new({ text: label('&Design Docs'), accelerator: 'CmdOrCtrl+Shift+D', action: () => void showDesignDocs() }),
+      await separator(),
+      await Submenu.new({ text: label('&Theme'), items: themeItems }),
+    ],
   });
   const items = [file, view];
   if (mac) {
@@ -800,7 +884,12 @@ void appWindow.listen<string>('document-changed', (event) => {
   }
 });
 
-void appWindow.listen<string>('folder-changed', () => listFolder(true));
+void appWindow.listen<string>('folder-changed', () => {
+  listFolder(true);
+  if (listShown) {
+    render();
+  }
+});
 
 void getCurrentWebview().onDragDropEvent((event) => {
   if (event.payload.type === 'drop') {

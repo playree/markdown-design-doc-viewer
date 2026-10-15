@@ -5,16 +5,13 @@
  */
 import * as vscode from 'vscode';
 import type { DesignDoc, DesignDocIndex } from './designDocs';
-import { indexBody } from './exportIndex';
+import { indexBody, NO_DESIGN_DOCS } from './exportIndex';
 import { readSettings, webviewShell } from './previewPanel';
 import type { FromWebview, ToWebview } from './protocol';
 
 const VIEW_TYPE = 'mdDesignDoc.designDocs';
 /** `uri` of the updates of the list, for the webview (which tells it from a document). */
 const LIST_URI = 'mdDesignDoc:designDocs';
-
-/** The text of an empty list, also used by the tree of the Explorer. */
-export const NO_DESIGN_DOCS = 'There are no design docs (Markdown files with type: design_doc in their front matter).';
 
 export class DesignDocsPanel implements vscode.Disposable {
   private panel: vscode.WebviewPanel | undefined;

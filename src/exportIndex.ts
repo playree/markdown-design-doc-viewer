@@ -54,6 +54,9 @@ function compareFolders(a: string, b: string): number {
   return as.length - bs.length;
 }
 
+/** The text of an empty list of the design documents (in English, to translate). */
+export const NO_DESIGN_DOCS = 'There are no design docs (Markdown files with type: design_doc in their front matter).';
+
 export interface IndexEntry extends Omit<DocumentInfo, 'designDoc'> {
   /** Link to the document (its exported file), from the index. */
   href: string;

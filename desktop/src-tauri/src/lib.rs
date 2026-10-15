@@ -10,6 +10,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::ffi::{OsStr, OsString};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Mutex, PoisonError};
@@ -364,6 +365,77 @@ async fn open_folder(window: Window, watches: State<'_, FolderWatches>, path: St
 #[tauri::command]
 fn close_folder(window: Window, watches: State<'_, FolderWatches>) {
     let _previous = watches.0.lock().unwrap_or_else(PoisonError::into_inner).remove(window.label());
+}
+
+/// The beginning of a Markdown file that starts with a front matter, for the list of the design documents
+/// (`read_design_docs`).
+#[derive(Serialize)]
+struct FileHead {
+    path: String,
+    name: String,
+    /// Its folder under the one listed, with `/` (`""` at its top).
+    folder: String,
+    /// Its first `HEAD_BYTES` (fewer at the end of a character), without a BOM.
+    head: String,
+}
+
+/// What `read_design_docs` returns.
+#[derive(Serialize)]
+struct FileHeads {
+    files: Vec<FileHead>,
+    /// As for the sidebar (`FolderTree`): some files were not looked at.
+    truncated: bool,
+}
+
+/// How much of a file `read_design_docs` reads: enough for its front matter and title.
+const HEAD_BYTES: u64 = 64 * 1024;
+
+/// The Markdown files of a folder and of its subfolders (those the sidebar lists) that start with a front matter, with
+/// their beginning: the webview tells the design documents (`type: design_doc`) and lists them with their title and
+/// main entries, as the extension does.
+#[tauri::command]
+async fn read_design_docs(path: String) -> Result<FileHeads, String> {
+    let root = dunce::canonicalize(&path).map_err(|e| e.to_string())?;
+    if !root.is_dir() {
+        return Err("Not a folder.".to_string());
+    }
+    let mut scan = Scan::default();
+    let tree = scan_folder(&root, 0, &mut scan);
+    let mut files = Vec::new();
+    collect_heads(&tree, &root, &mut files);
+    Ok(FileHeads { files, truncated: scan.truncated })
+}
+
+/// The files of `folder` and of its subfolders that start with a front matter (`read_head`).
+fn collect_heads(folder: &Folder, root: &Path, files: &mut Vec<FileHead>) {
+    let relative = Path::new(&folder.path)
+        .strip_prefix(root)
+        .map(|path| path.components().map(|c| c.as_os_str().to_string_lossy()).collect::<Vec<_>>().join("/"))
+        .unwrap_or_default();
+    for file in &folder.files {
+        if let Some(head) = read_head(Path::new(&file.path)) {
+            files.push(FileHead { path: file.path.clone(), name: file.name.clone(), folder: relative.clone(), head });
+        }
+    }
+    for sub in &folder.folders {
+        collect_heads(sub, root, files);
+    }
+}
+
+/// The beginning of a UTF-8 file that starts with `---` (after a BOM), cut at the end of its last whole character.
+fn read_head(path: &Path) -> Option<String> {
+    let mut bytes = Vec::new();
+    std::fs::File::open(path).ok()?.take(HEAD_BYTES).read_to_end(&mut bytes).ok()?;
+    let bytes = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(&bytes);
+    if !bytes.starts_with(b"---") {
+        return None;
+    }
+    match std::str::from_utf8(bytes) {
+        Ok(text) => Some(text.to_string()),
+        // Cut in the middle of a character.
+        Err(error) if error.error_len().is_none() => Some(String::from_utf8_lossy(&bytes[..error.valid_up_to()]).into_owned()),
+        Err(_) => None,
+    }
 }
 
 /// Whether the path is a folder: for a folder dropped on the window.
@@ -830,6 +902,7 @@ pub fn run() {
             read_document,
             open_folder,
             close_folder,
+            read_design_docs,
             is_folder,
             allow_images,
             open_url,
