@@ -398,6 +398,7 @@ export function createSidebar({ t, lang, onOpenFile, onChooseFolder, onTabChange
       history.content.append(message(revisions));
     } else {
       const ul = document.createElement('ul');
+      ul.className = 'desktop-history-list';
       ul.append(...revisions.map(revisionItem));
       history.content.append(ul);
     }
