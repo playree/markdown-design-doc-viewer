@@ -1,7 +1,8 @@
 /*
- * The sidebar of the files of a folder (sidebar.ts), fixed at the left of the window. The body makes room for it,
- * so that the preview, its table of contents (at the right) and its sticky diagrams stay as they are. Below the
- * table of contents (z-index 10), the footnotes (15) and the zoom of diagrams and images (20), which covers it.
+ * The sidebar of the files of a folder and of the history of the document (sidebar.ts), fixed at the left of the
+ * window. The body makes room for it, so that the preview, its table of contents (at the right) and its sticky
+ * diagrams stay as they are. Below the table of contents (z-index 10), the footnotes (15) and the zoom of diagrams
+ * and images (20), which covers it.
  */
 
 .desktop-sidebar {
@@ -26,6 +27,39 @@
 
 body.desktop-sidebar-shown { padding-left: calc(var(--desktop-sidebar-width) + 26px); }
 
+/* The tabs of the files and of the history, the one shown underlined. */
+.desktop-sidebar-tabs {
+  display: flex;
+  padding: 0 6px;
+  border-bottom: 1px solid var(--seqnotes-border);
+}
+.desktop-sidebar-tab {
+  padding: 7px 6px 5px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--seqnotes-muted);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.desktop-sidebar-tab:hover { color: var(--vscode-foreground); }
+.desktop-sidebar-tab[aria-selected="true"] {
+  border-bottom-color: var(--vscode-focusBorder);
+  color: var(--vscode-foreground);
+}
+.desktop-sidebar-tab:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
+
+.desktop-sidebar-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.desktop-sidebar-panel[hidden] { display: none; }
+
 .desktop-sidebar-header {
   display: flex;
   align-items: center;
@@ -41,7 +75,7 @@ body.desktop-sidebar-shown { padding-left: calc(var(--desktop-sidebar-width) + 2
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.desktop-sidebar-choose {
+.desktop-sidebar-icon-button {
   display: flex;
   padding: 3px;
   border: none;
@@ -50,7 +84,8 @@ body.desktop-sidebar-shown { padding-left: calc(var(--desktop-sidebar-width) + 2
   color: var(--vscode-icon-foreground);
   cursor: pointer;
 }
-.desktop-sidebar-choose:hover { background: var(--vscode-toolbar-hoverBackground); }
+.desktop-sidebar-icon-button:hover { background: var(--vscode-toolbar-hoverBackground); }
+.desktop-sidebar-icon-button:disabled { opacity: 0.4; cursor: default; background: none; }
 
 .desktop-sidebar-content {
   flex: 1;
@@ -117,6 +152,43 @@ body.desktop-sidebar-shown { padding-left: calc(var(--desktop-sidebar-width) + 2
 .desktop-tree-folder[aria-expanded="true"]::before { transform: rotate(45deg); margin-bottom: 4px; }
 /* The files line up with the names of the folders, after their chevron. */
 .desktop-tree-file { padding-left: calc(26px + var(--desktop-tree-depth, 0) * 12px); }
+
+/* The commits of the history, a line between each. */
+.desktop-history-list > li + li { border-top: 1px solid var(--seqnotes-border); }
+
+/* A commit of the history: its subject, and below it its short hash, author and date. */
+.desktop-history-revision {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 8px 6px 12px;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.desktop-history-revision:hover { background: var(--vscode-list-hoverBackground); }
+.desktop-history-revision:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
+.desktop-history-revision[aria-current] {
+  background: var(--seqnotes-accent-bg);
+  color: var(--seqnotes-accent);
+}
+.desktop-history-subject,
+.desktop-history-details {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.desktop-history-details { color: var(--seqnotes-muted); font-size: 12px; }
+
+/* The bar of the differences from a commit (webview/diff.ts), in the middle of the width left to the preview. */
+body.desktop-sidebar-shown .seqnotes-diff-bar {
+  left: calc(50% + var(--desktop-sidebar-width) / 2);
+  max-width: calc(100vw - var(--desktop-sidebar-width) - 32px);
+}
 
 /* Dragged to change the width of the sidebar. */
 .desktop-sidebar-sash {

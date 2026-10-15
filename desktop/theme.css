@@ -42,6 +42,11 @@ body.vscode-light {
   --vscode-charts-purple: #652d90;
   --vscode-charts-red: #e51400;
   --vscode-charts-yellow: #bf8803;
+  --vscode-editorGutter-addedBackground: #2ea043;
+  --vscode-editorGutter-modifiedBackground: #005fb8;
+  --vscode-editorGutter-deletedBackground: #f85149;
+  --vscode-diffEditor-insertedTextBackground: rgba(156, 204, 44, 0.25);
+  --vscode-diffEditor-removedTextBackground: rgba(255, 0, 0, 0.2);
 }
 
 body.vscode-dark {
@@ -74,6 +79,11 @@ body.vscode-dark {
   --vscode-charts-purple: #b180d7;
   --vscode-charts-red: #f14c4c;
   --vscode-charts-yellow: #cca700;
+  --vscode-editorGutter-addedBackground: #2ea043;
+  --vscode-editorGutter-modifiedBackground: #0078d4;
+  --vscode-editorGutter-deletedBackground: #f85149;
+  --vscode-diffEditor-insertedTextBackground: rgba(156, 204, 44, 0.2);
+  --vscode-diffEditor-removedTextBackground: rgba(255, 0, 0, 0.2);
 }
 
 /* The window around the body, and the scrollbars of the page. */
