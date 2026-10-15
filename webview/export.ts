@@ -4,6 +4,7 @@
  */
 import { setupFootnotePopup } from './footnotePopup';
 import { activeFor, revealCounterpart, scrollToFragment, showActive, type Active } from './linking';
+import { setupTableTree } from './tableTree';
 
 const root = document.getElementById('seqnotes-root')!;
 const width = Number(document.body.dataset.seqnotesSplitMinWidth);
@@ -36,6 +37,8 @@ setupFootnotePopup(root, (href) => {
   scrollToFragment(href);
   return true;
 });
+
+setupTableTree(root);
 
 root.addEventListener('mouseover', (e) => showActive(root, activeFor(e.target as Element) ?? pinned));
 root.addEventListener('mouseleave', () => showActive(root, pinned));

@@ -22,15 +22,19 @@ Options:
       --no-heading-numbers     Do not show the arrow numbers (autonumber) on the linked headings.
       --no-front-matter        Hide the YAML front matter.
       --no-sticky-table-header Do not keep the header row of long tables at the top.
+      --no-table-tree-highlight
+                               Do not highlight the parents and children of the row under the pointer in the
+                               tables shown as trees.
       --chrome <path>          Chrome or Chromium to render the diagrams with. Default: $CHROME_PATH, a Chromium of
                                the Playwright cache, or the Google Chrome installed on the system.
-      --strict                 Fail when a document has a link warning (a broken @ref or a misplaced marker).
+      --strict                 Fail when a document has a warning (a broken @ref, a misplaced marker, or table
+                               options that cannot be applied).
       --index                  Also write index.html, a list of the exported documents, in --out-dir.
       --index-title <title>    Title of index.html. Default: "Design Docs" in --lang.
   -h, --help                   Show this help.
   -v, --version                Show the version.
 
-Exit status: 0 when all the files were exported, 1 when one failed (or with --strict, had a link warning),
+Exit status: 0 when all the files were exported, 1 when one failed (or with --strict, had a warning),
 2 for a wrong command line.`;
 
 /** A mistake in the command line: reported with the usage, exit status 2. */
@@ -72,6 +76,7 @@ export function parseCommandLine(args: string[], cwd: string): Command {
         'no-heading-numbers': { type: 'boolean' },
         'no-front-matter': { type: 'boolean' },
         'no-sticky-table-header': { type: 'boolean' },
+        'no-table-tree-highlight': { type: 'boolean' },
         chrome: { type: 'string' },
         strict: { type: 'boolean' },
         index: { type: 'boolean' },
@@ -127,6 +132,7 @@ export function parseCommandLine(args: string[], cwd: string): Command {
     settings: {
       limitContentWidth: !values['full-width'],
       stickyTableHeader: !values['no-sticky-table-header'],
+      tableTreeHighlight: !values['no-table-tree-highlight'],
       splitMinWidth,
     },
     // A command name (without a folder) is looked up in PATH.

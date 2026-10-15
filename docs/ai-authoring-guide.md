@@ -119,10 +119,28 @@ A flowchart (`flowchart TD` / `graph TD`) can be linked instead of a sequence di
 - Write `<details>`, `<summary>…</summary>` and `</details>` each on a line of its own at the top level, with a blank line after the `<summary>` line. Without it, the Markdown inside (tables, lists) is not rendered. Also put a blank line before the `</details>` line.
 - Do not write headings inside a folded section. They are treated like the headings outside it, and count as steps inside the step descriptions. Use bold text for a subheading.
 
+## Tables of items
+
+For tables of the items of a message, a file or a screen (item name, physical name, type, length…), write an HTML comment with table options on the line right before the table. Elsewhere it stays a plain table.
+
+```markdown
+<!-- table: level=Level merge=Item,"Physical name" -->
+| No | Level | Item | Physical name | Type | Required | Description |
+|---|---|---|---|---|---|---|
+| 1 | 1 | Order | `order` | - | Yes | |
+| 2 | 2 | Order ID | `orderId` | string | Yes | |
+| 3 | 2 | Items | `items` | - | Yes | |
+| 4 | 3 | SKU | `sku` | string | Yes | |
+```
+
+- `merge=A,B` shows column B under column A, in one cell. Use it for the item name and the physical name.
+- `level=L` takes the integers of column L (1 for the top) as the depth of each row, hides the column and shows the rows as a tree in the column right of it. For nested items (XML elements, JSON objects), add a level column right before the item name instead of describing the parent in the text.
+- Name the columns with the text of their header. Quote a name with spaces (`"Physical name"`).
+
 ## Other Markdown
 
 - Tables, code blocks with a language (` ```json `, ` ```sql `), GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`) and task lists (`- [ ]`, `- [x]`) are rendered.
 
 ## Check
 
-When the file is open in VS Code, the extension reports link problems as diagnostics with the source `Markdown Design Doc`: arrows (nodes) without a heading, step headings without an arrow (node), `@ref` targets that do not exist, and `%% @link-headings` markers that have no effect. After writing or editing the document, read the diagnostics of the file and fix the document until none of them remain.
+When the file is open in VS Code, the extension reports link problems as diagnostics with the source `Markdown Design Doc`: arrows (nodes) without a heading, step headings without an arrow (node), `@ref` targets that do not exist, `%% @link-headings` markers that have no effect, and table options that cannot be applied. After writing or editing the document, read the diagnostics of the file and fix the document until none of them remain.

@@ -41,6 +41,7 @@ const SETTINGS = {
   theme: 'auto',
   limitContentWidth: true,
   stickyTableHeader: true,
+  tableTreeHighlight: true,
 } as const;
 
 /** The settings of the extension that apply to the rendering of the documents, at their defaults. */

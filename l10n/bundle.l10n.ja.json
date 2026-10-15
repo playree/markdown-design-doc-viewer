@@ -103,5 +103,14 @@
   "Previous change": "前の変更",
   "Next change": "次の変更",
   "Stop comparing": "比較を終了",
-  "Diagram before the change": "変更前の図"
+  "Diagram before the change": "変更前の図",
+  "No column \"{0}\" in the table.": "表に列「{0}」がありません。",
+  "Column \"{0}\" is given twice in the table options.": "表のオプションで列「{0}」を 2 回指定しています。",
+  "Write one column for the level: \"level=<column>\".": "階層の列を 1 つ指定してください（\"level=<列>\"）。",
+  "Write two or more columns to merge: \"merge=<column>,<column>\".": "まとめる列を 2 つ以上指定してください（\"merge=<列>,<列>\"）。",
+  "Unknown table option \"{0}\". Write \"level=<column>\" or \"merge=<column>,<column>\".": "表のオプション「{0}」は使えません。\"level=<列>\" または \"merge=<列>,<列>\" を書いてください。",
+  "Write \"level=\" only once in the table options.": "表のオプションの \"level=\" は 1 回だけ書いてください。",
+  "The level \"{0}\" is not an integer.": "階層「{0}」が整数ではありません。",
+  "The table options are not followed by a table.": "表のオプションの直後に表がありません。",
+  "Child rows": "子の行"
 }

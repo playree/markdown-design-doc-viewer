@@ -169,11 +169,14 @@ const STEP_NUMBER_RES = [
   /^[(（](\d+)[)）]\s*(.+)$/,
 ];
 
+/** Replaces the full-width digits (`１２`) with ASCII ones, keeping the length of the string. */
+export const toAsciiDigits = (s: string): string => s.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
+
 /** Splits a leading step number like `3.` off a heading. Labels such as `200 OK` are not numbered. */
 export function stripStepNumber(heading: string): StepNumber | undefined {
   const text = heading.trim();
   // Full-width digits keep the string length, so the match positions apply to `text` as well.
-  const ascii = text.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
+  const ascii = toAsciiDigits(text);
   for (const re of STEP_NUMBER_RES) {
     const m = re.exec(ascii);
     if (m) {

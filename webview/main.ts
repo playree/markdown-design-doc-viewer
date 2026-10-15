@@ -6,6 +6,7 @@ import { normalizeLabel } from '../src/sequence';
 import { markChanges, setupDiffBar } from './diff';
 import { setupFootnotePopup } from './footnotePopup';
 import { activeFor, isSideBySide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, type Active } from './linking';
+import { foldedRows, restoreFolded, setupTableTree, TREE_HIDDEN } from './tableTree';
 
 interface VsCodeApi {
   postMessage(message: FromWebview): void;
@@ -399,6 +400,8 @@ async function update(html: string, diff: DiffView | undefined): Promise<void> {
   const pinnedState = keep && pinned && { diagram: pinned.pair.getAttribute('data-diagram'), target: pinned.target };
   // The folded metadata of the header stays open while the document is edited.
   const metadataOpen = keep && root.querySelector<HTMLDetailsElement>('.seqnotes-doc-more')?.open === true;
+  // So do the folded rows of the tables shown as trees.
+  const folded = keep ? foldedRows(root) : new Set<string>();
 
   // Its reference is replaced.
   footnotePopup.hide();
@@ -414,6 +417,7 @@ async function update(html: string, diff: DiffView | undefined): Promise<void> {
   if (metadata) {
     metadata.open = metadataOpen;
   }
+  restoreFolded(root, folded);
   root.querySelectorAll('.seqnotes-pair').forEach((pair) => {
     wrapSections(pair);
     if (!pair.classList.contains('seqnotes-pair-stacked')) {
@@ -658,6 +662,8 @@ const footnotePopup = setupFootnotePopup(root, (href) => {
   openLink(href);
   return true;
 });
+
+setupTableTree(root);
 
 const diffBar = setupDiffBar(root, () => vscode.postMessage({ type: 'closeDiff' }));
 
@@ -1122,6 +1128,10 @@ function markLine(line: number, reveal: boolean): void {
 
   let found: HTMLElement | undefined;
   for (const el of root.querySelectorAll<HTMLElement>('[data-line]')) {
+    if (el.closest(`.${TREE_HIDDEN}`)) {
+      // A row of a folded table: its folded parent before it is marked instead.
+      continue;
+    }
     if (lineOf(el) <= line) {
       found = el;
     } else {
@@ -1161,6 +1171,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       document.body.dataset.seqnotesTheme = message.theme;
       document.body.classList.toggle('seqnotes-limit-width', message.limitContentWidth);
       document.body.classList.toggle('seqnotes-sticky-table-header', message.stickyTableHeader);
+      document.body.classList.toggle('seqnotes-table-tree-highlight', message.tableTreeHighlight);
       vscode.setState({ ...vscode.getState(), uri: message.uri });
       if ((currentUri !== undefined && message.uri !== currentUri) || message.fragment) {
         pendingScroll = { newDocument: pendingScroll?.newDocument === true || message.uri !== currentUri, fragment: message.fragment };

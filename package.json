@@ -186,6 +186,11 @@
           "default": true,
           "description": "%mdDesignDoc.stickyTableHeader.description%"
         },
+        "mdDesignDoc.tableTreeHighlight": {
+          "type": "boolean",
+          "default": true,
+          "description": "%mdDesignDoc.tableTreeHighlight.description%"
+        },
         "mdDesignDoc.syncEditor": {
           "type": "boolean",
           "default": true,

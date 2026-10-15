@@ -66,8 +66,9 @@ Idempotency-Key: 6f1c2a9e-0b7d-4f3a-9c55-1d2e8a7b4c10
 ```json
 {
   "cartId": "c_8241",
-  "shippingAddressId": "a_17",
-  "paymentMethodId": "pm_card_visa"
+  "shipping": { "addressId": "a_17", "timeSlot": "am" },
+  "payment": { "methodId": "pm_card_visa" },
+  "items": [{ "sku": "SKU-1042", "quantity": 2 }]
 }
 ```
 
@@ -96,7 +97,7 @@ The reservation expires after 15 minutes[^expiry] if the order is not confirmed.
 Authorizes the order total. The amount is captured later, when the order is shipped.
 
 > [!IMPORTANT]
-> Never send the card number to the Order API. The Web App sends it to the Payment Gateway directly and passes only `paymentMethodId`.
+> Never send the card number to the Order API. The Web App sends it to the Payment Gateway directly and passes only the `payment.methodId` it gets back.
 
 ### Authorization code
 
@@ -260,6 +261,26 @@ The errors of the Order API. The body of an error response is `{ "code": "ORD-01
 | `ORD-019` | 429 | Too many requests. | Retry after `Retry-After`. |
 | `ORD-020` | 502 | The payment gateway did not answer. | Check the order list before retrying. |
 | `ORD-021` | 503 | The inventory service is unavailable. | Retry later. |
+
+## Request body of POST /orders
+
+The fields of the JSON body. "Required" of a nested field applies when its parent is sent.
+
+<!-- table: level=Level merge=Field,"Physical name" -->
+| No | Level | Field | Physical name | Type | Required | Description |
+|---|---|---|---|---|---|---|
+| 1 | 1 | Cart ID | `cartId` | string | Yes | The cart to check out. |
+| 2 | 1 | Shipping | `shipping` | object | Yes | |
+| 3 | 2 | Address ID | `addressId` | string | Yes | One of the customer's addresses. |
+| 4 | 2 | Delivery date | `deliveryDate` | string | | `YYYY-MM-DD`. The earliest date when omitted. |
+| 5 | 2 | Time slot | `timeSlot` | string | | `am`, `pm` or `evening`. |
+| 6 | 1 | Payment | `payment` | object | Yes | |
+| 7 | 2 | Payment method ID | `methodId` | string | Yes | A saved card or wallet. |
+| 8 | 2 | Coupon code | `couponCode` | string | | |
+| 9 | 1 | Items | `items` | array | Yes | 1 to 100 items. |
+| 10 | 2 | SKU | `sku` | string | Yes | |
+| 11 | 2 | Quantity | `quantity` | integer | Yes | 1 to 99. |
+| 12 | 2 | Gift wrap | `giftWrap` | boolean | | `false` when omitted. |
 
 ## Refund (draft)
 

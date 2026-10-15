@@ -9,6 +9,7 @@ The desktop app has its own version, apart from the extension and the command li
 - **File** > **Export as HTML...** saves the document to a single HTML file, the same as the extension's **Export Design Doc as HTML**: the diagrams, the images of the document's folder embedded, and the side-by-side layout and highlighting in the browser.
 - **View** > **Sidebar** (Ctrl+B, ⌘B) shows the Markdown files of the document's folder and of its subfolders as a tree, to switch between the documents. It follows the files added, deleted or renamed, and **File** > **Open Folder...** lists another folder. Whether it is shown, and its width, are kept for the next launch.
 - The top of the preview has a small margin, so that the first element (such as the box of the document header) does not touch the top edge.
+- Tables of items: an HTML comment before a table (`<!-- table: level=Level merge=Item,"Physical name" -->`) shows two or more columns in one cell (such as the item name and the physical name), and the rows as a tree of the levels in a column, which is hidden: indented with lines, the rows with children emphasized and foldable, and the parents and children of the row under the pointer highlighted. Elsewhere, such as on GitHub, it stays a plain table.
 
 ## 0.1.0
 

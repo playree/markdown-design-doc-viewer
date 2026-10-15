@@ -22,6 +22,7 @@ Each arrow (or flowchart node) in the diagram is linked to a heading in the desc
 - **Plain Markdown** — the link syntax is made of mermaid comments and HTML comments, so the same file still renders correctly on GitHub and in the built-in Markdown preview.
 - **Design document friendly** — YAML front matter is shown as a table of the document's metadata (title, version, status...), or as a header with `type: design_doc` (see below), code blocks are syntax highlighted, and GitHub alerts (`> [!NOTE]`), task lists (`- [ ]`) and footnotes (`[^1]`, whose note pops up when hovering the reference) are rendered.
 - **Sticky table headers** — when scrolling through a long table, its header row stays at the top of the preview, so you can always see which column is which. It works in exported HTML too, and can be turned off with `mdDesignDoc.stickyTableHeader`.
+- **Tables of items** — in tables of the items of a message, a file or a screen, a comment before the table shows two columns (such as the item name and the physical name) in one cell, and the rows as a tree of their levels: indented with lines, the parents emphasized and foldable, and the parents and children of the row under the pointer highlighted. Elsewhere, such as on GitHub, it stays a plain table (see [Tables of items](#tables-of-items)).
 - **Resizable** — drag the boundary between the columns to resize them; double-click it to reset. In a wide preview, the text is kept in a centered column up to 1280px wide; the button in the preview's title bar switches it to the full width and back.
 - **Light / dark theme** — the preview follows VS Code's color theme by default. The button in the preview's title bar switches it to the other of light and dark (for example, to read a document in light while the editor stays dark), and pressing it again makes it follow VS Code again. The choice is saved in `mdDesignDoc.theme`.
 - **Table of contents** — hover the short lines at the right edge of the preview to open a table of contents (h1–h3) and jump to a heading. The highlighted line shows where you are.
@@ -160,6 +161,29 @@ reviewers:
 - The header is a box with `title` in bold on the left, and `version`, `product`, `status` and `updated` on the right (in this order, leaving out those not written), separated by lines.
 - The other entries (`owner` and `reviewers` here) are shown in a table folded below the header (closed by default). `type` itself is not shown.
 
+## Tables of items
+
+Tables of the items of a message, a file or a screen tend to have many columns, and their nesting is hard to read. Write the table options in an HTML comment right before the table (on the line before it, or with a blank line between):
+
+```markdown
+<!-- table: level=Level merge=Item,"Physical name" -->
+| No | Level | Item | Physical name | Type | Length | Required | Description |
+|---|---|---|---|---|---|---|---|
+| 1 | 1 | Order | `order` | - | - | Yes | |
+| 2 | 2 | Order ID | `orderId` | string | 12 | Yes | Assigned by the Order API. |
+| 3 | 2 | Customer | `customer` | - | - | Yes | |
+| 4 | 3 | Customer ID | `customerId` | string | 10 | Yes | |
+| 5 | 2 | Total | `total` | integer | 1–9 | Yes | Tax included. |
+```
+
+![A table of the fields of a request body: the physical names under the field names, the nested fields as a tree with "Payment" folded, and the parent and children of "Items" highlighted](images/screenshot-tables.png)
+
+- `merge=A,B` shows the cells of column B under those of column A, smaller, in one column (the header too). More columns can follow (`merge=A,B,C`), an empty cell adds no line, and `merge=` can be written more than once.
+- `level=L` takes the integers in column L as the depth of each row (the lowest is the top; full-width digits are accepted) and hides the column. The rows are shown as a tree in the column right of it (left of it when it is the last column; with `merge=`, the merged cell): indented with lines, and the rows with children emphasized. Click ▾ before a row to fold its children (they are all printed), and point to a row to highlight its parents and children (`mdDesignDoc.tableTreeHighlight` turns this off). A row more than one level deeper than the row above is taken as its child.
+- Columns are named by the text of their header. Quote a name with spaces or commas (`"Physical name"`).
+- Options that cannot be applied (a column that does not exist, a level that is not an integer, a comment not followed by a table) are reported as warnings at the top of the preview and in the Problems panel.
+- Without the comment (and on GitHub or in other viewers), the table is shown as it is.
+
 ## Writing with AI
 
 To have an AI assistant (Claude Code, GitHub Copilot, Cursor and so on) write documents in this format, give it the [authoring guide for AI](docs/ai-authoring-guide.md) ([日本語](docs/ai-authoring-guide.ja.md)). Copy it into your project's instructions file (`CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md` and so on), or tell the assistant to read it.
@@ -191,6 +215,7 @@ See [the command line's README](docs/cli.md) for its options and an example of G
 | `mdDesignDoc.splitMinWidth` | `1000` | Minimum preview width (px) for the side-by-side layout. |
 | `mdDesignDoc.limitContentWidth` | `true` | In a wide preview, keep the text in a centered column up to 1280px wide (diagrams beside their steps still use the whole width). Also switched with the button in the preview's title bar, and applied to exported HTML. |
 | `mdDesignDoc.stickyTableHeader` | `true` | Keep the header row of a long table at the top while scrolling through it (preview and exported HTML). |
+| `mdDesignDoc.tableTreeHighlight` | `true` | In a table shown as a tree (`level=` of the [table options](#tables-of-items)), highlight the parents and children of the row under the pointer (preview and exported HTML). |
 | `mdDesignDoc.syncEditor` | `true` | Sync the preview with the editor and enable double-click to jump to the source. |
 | `mdDesignDoc.toc` | `true` | Show the table of contents at the right edge of the preview. |
 | `mdDesignDoc.headingNumbers` | `true` | With `autonumber`, show the arrow's number at the start of its linked heading (preview and exported HTML). |

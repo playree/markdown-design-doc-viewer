@@ -80,7 +80,7 @@ describe('stripSourceMap', () => {
 });
 
 describe('exportPage', () => {
-  const page = (settings = { limitContentWidth: true, stickyTableHeader: true, splitMinWidth: 1000 }) =>
+  const page = (settings = { limitContentWidth: true, stickyTableHeader: true, tableTreeHighlight: true, splitMinWidth: 1000 }) =>
     exportPage({ lang: 'ja', title: 'A < B', body: '<p>body</p>', styles: ['a{}', 'b{}</style>'], script: 'x("</script>")', settings });
 
   it('inlines the styles and the script, so that they cannot close their elements', () => {
@@ -93,8 +93,8 @@ describe('exportPage', () => {
   });
 
   it('applies the settings to the body', () => {
-    expect(page()).toContain('class="seqnotes-export seqnotes-limit-width seqnotes-sticky-table-header" data-seqnotes-split-min-width="1000"');
-    expect(page({ limitContentWidth: false, stickyTableHeader: false, splitMinWidth: 800 })).toContain('class="seqnotes-export" data-seqnotes-split-min-width="800"');
-    expect(page({ limitContentWidth: false, stickyTableHeader: false, splitMinWidth: NaN })).toContain('data-seqnotes-split-min-width="1000"');
+    expect(page()).toContain('class="seqnotes-export seqnotes-limit-width seqnotes-sticky-table-header seqnotes-table-tree-highlight" data-seqnotes-split-min-width="1000"');
+    expect(page({ limitContentWidth: false, stickyTableHeader: false, tableTreeHighlight: false, splitMinWidth: 800 })).toContain('class="seqnotes-export" data-seqnotes-split-min-width="800"');
+    expect(page({ limitContentWidth: false, stickyTableHeader: false, tableTreeHighlight: false, splitMinWidth: NaN })).toContain('data-seqnotes-split-min-width="1000"');
   });
 });
