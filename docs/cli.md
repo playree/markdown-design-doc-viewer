@@ -50,8 +50,9 @@ md-design-doc export docs -o site
 | `--no-table-tree-highlight` | Do not highlight the parents and children of the row under the pointer in the tables shown as trees (`level=` of the table options). |
 | `--chrome <path>` | Chrome or Chromium to render the diagrams with. |
 | `--strict` | Fail when a document has a warning: a link warning (a broken `@ref` or a misplaced marker), or table options that cannot be applied. Arrows and headings that are only not linked do not fail. |
-| `--index` | Also write `index.html` in `--out-dir` (required), a list of the exported documents: a table for each folder, with their title (linked), file name, and the `version`, `product`, `status` and `updated` of their front matter. |
+| `--index` | Also write `index.html` in `--out-dir` (required), a list of the exported documents: a table for each folder, with their title (linked), file name, and the `version`, `product`, `status` and `updated` of their front matter. The page has a search box that filters the documents, and its column headers sort them. |
 | `--index-title <title>` | Title of `index.html`. Default: `Design Docs` (`設計書一覧` with `--lang ja`). |
+| `--index-design-docs` | List only the design docs (`type: design_doc` in their front matter) in `index.html`. The other documents are still exported. |
 | `-h`, `--help` | Show the help. |
 | `-v`, `--version` | Show the version. |
 

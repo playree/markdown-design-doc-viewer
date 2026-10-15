@@ -22,13 +22,14 @@ describe('parseCommandLine', () => {
       strict: false,
       index: false,
       indexTitle: undefined,
+      indexDesignDocs: false,
     });
   });
 
   it('reads the options', () => {
     expect(
       parseCommandLine(
-        ['export', 'a.md', '-o', 'out', '--root', 'docs', '--lang', 'ja', '--diagram-look', 'classic', '--split-min-width', '800', '--full-width', '--no-heading-numbers', '--no-front-matter', '--no-sticky-table-header', '--no-table-tree-highlight', '--chrome', './chrome', '--strict', '--index', '--index-title', 'Docs'],
+        ['export', 'a.md', '-o', 'out', '--root', 'docs', '--lang', 'ja', '--diagram-look', 'classic', '--split-min-width', '800', '--full-width', '--no-heading-numbers', '--no-front-matter', '--no-sticky-table-header', '--no-table-tree-highlight', '--chrome', './chrome', '--strict', '--index', '--index-title', 'Docs', '--index-design-docs'],
         cwd,
       ),
     ).toEqual({
@@ -45,6 +46,7 @@ describe('parseCommandLine', () => {
       strict: true,
       index: true,
       indexTitle: 'Docs',
+      indexDesignDocs: true,
     });
   });
 
@@ -66,6 +68,7 @@ describe('parseCommandLine', () => {
     [['export', 'a.md', '--split-min-width', 'wide']],
     [['export', 'a.md', '--index']],
     [['export', 'a.md', '-o', 'out', '--index-title', 'Docs']],
+    [['export', 'a.md', '-o', 'out', '--index-design-docs']],
   ])('rejects %j', (args) => {
     expect(() => parseCommandLine(args, cwd)).toThrow(UsageError);
   });

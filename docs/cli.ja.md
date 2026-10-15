@@ -50,8 +50,9 @@ md-design-doc export docs -o site
 | `--no-table-tree-highlight` | ツリーとして表示する表（表のオプションの `level=`）で、マウスを乗せた行の親と子をハイライトしない |
 | `--chrome <path>` | 図の描画に使う Chrome か Chromium |
 | `--strict` | 警告（壊れた `@ref` や置き場所の誤ったマーカーなどの紐付けの警告、適用できない表のオプション）があれば失敗にする。紐付いていないだけの矢印・見出しでは失敗しない |
-| `--index` | 書き出した文書の一覧を `--out-dir`（必須）の `index.html` にも書き出す。フォルダごとの表に、タイトル（リンク）・ファイル名と、front matter の `version`・`product`・`status`・`updated` を載せる |
+| `--index` | 書き出した文書の一覧を `--out-dir`（必須）の `index.html` にも書き出す。フォルダごとの表に、タイトル（リンク）・ファイル名と、front matter の `version`・`product`・`status`・`updated` を載せる。ページの検索欄で文書を絞り込め、列見出しで並べ替えられる |
 | `--index-title <title>` | `index.html` のタイトル。既定は `Design Docs`（`--lang ja` では `設計書一覧`） |
+| `--index-design-docs` | `index.html` に設計書（front matter に `type: design_doc`）だけを載せる。ほかの文書もエクスポートはする |
 | `-h`, `--help` | ヘルプを表示する |
 | `-v`, `--version` | バージョンを表示する |
 

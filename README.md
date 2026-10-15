@@ -28,6 +28,7 @@ Each arrow (or flowchart node) in the diagram is linked to a heading in the desc
 - **Table of contents** — hover the short lines at the right edge of the preview to open a table of contents (h1–h3) and jump to a heading. The highlighted line shows where you are.
 - **Diagram and image zoom** — hover a mermaid diagram and click the button at its top right to show it full screen. Scroll the wheel to zoom, drag to pan, double-click to fit it again and press Esc to close. Clicking a linked arrow closes it and shows the step. Images open the same way when clicked (except images in a link, which open the link).
 - **Compare with Git history** — `Markdown Design Doc Viewer: Compare Design Doc with Git Revision...` (the history button in the preview's title bar, also in its context menu) lists the commits of the document and shows its differences from the one you choose in the preview: the blocks added, changed and deleted are marked with green, blue and red bands, the words changed are highlighted in the changed blocks, and the old version of a changed diagram is shown folded below it. The bar at the bottom goes from one change to the next, and closes the comparison. The differences follow the edits of the document, saved or not. It needs Git (the one of the setting `git.path`, or on the PATH). In the desktop app, use the **History** tab of the sidebar.
+- **Design doc list** — `Markdown Design Doc Viewer: Show Design Docs` lists the design documents of the workspace (`type: design_doc` in their front matter) in a table of their titles, versions, statuses and update dates, with a search box and sortable columns. The **Design Docs** view of the Explorer shows them as a tree (see [Design doc list](#design-doc-list)).
 - **Find** — press `Ctrl+F` (`Cmd+F` on macOS) in the preview to search it.
 - **HTML export** — `Markdown Design Doc Viewer: Export Design Doc as HTML` (also in the preview's context menu) writes the document to a single HTML file, with the diagrams rendered in the light theme and local images embedded (like the preview, only images in the document's folder and the workspace; others stay links). The side-by-side layout and the arrow ⇔ heading highlighting work in the browser too, and printing lays it out vertically, so you can print it to PDF from the browser. Warnings and missing-link marks are left out. It also runs from the command line for CI and batch conversions (see [Command line (CI)](#command-line-ci)).
 
@@ -160,6 +161,15 @@ reviewers:
 
 - The header is a box with `title` in bold on the left, and `version`, `product`, `status` and `updated` on the right (in this order, leaving out those not written), separated by lines.
 - The other entries (`owner` and `reviewers` here) are shown in a table folded below the header (closed by default). `type` itself is not shown.
+
+### Design doc list
+
+The documents with `type: design_doc` can be listed with their metadata:
+
+- `Markdown Design Doc Viewer: Show Design Docs` (also the list button in the title bar of the **Design Docs** view) opens a page with a table of the design documents of the workspace, by folder: their title, file name, `version`, `product`, `status` and `updated`. The search box filters them (by title, file name or metadata; words separated by spaces must all match), and clicking a column header sorts them by that column (again for the reverse order, a third time for the order of the list). Clicking a title opens its preview. The list follows the files added, changed and deleted.
+- The **Design Docs** view of the Explorer shows the same documents as a tree of their titles by folder, with their version and status. Click one to open its preview, or use the button at its right to open it in the editor.
+- The files excluded by `files.exclude`, those in `node_modules` and in folders starting with a dot are not listed.
+- In the desktop app, **View** > **Design Docs** shows the list of the folder of the sidebar in place of the document. On the command line, `--index-design-docs` lists only the design documents in `index.html` (see [the command line's README](docs/cli.md)).
 
 ## Tables of items
 

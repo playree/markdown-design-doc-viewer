@@ -3,6 +3,7 @@
  * without the parts that talk to VS Code.
  */
 import { setupFootnotePopup } from './footnotePopup';
+import { setUpIndexList } from './indexList';
 import { activeFor, revealCounterpart, scrollToFragment, showActive, type Active } from './linking';
 import { setupTableTree } from './tableTree';
 
@@ -39,6 +40,12 @@ setupFootnotePopup(root, (href) => {
 });
 
 setupTableTree(root);
+
+// The list of the documents (index.html).
+const index = root.querySelector<HTMLElement>('.seqnotes-index');
+if (index) {
+  setUpIndexList(index);
+}
 
 root.addEventListener('mouseover', (e) => showActive(root, activeFor(e.target as Element) ?? pinned));
 root.addEventListener('mouseleave', () => showActive(root, pinned));

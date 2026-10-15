@@ -90,6 +90,11 @@ export function frontMatterValue(entries: FrontMatterEntry[], key: string): stri
 /** `type` of a front matter shown as the header of a design document instead of a table. */
 const DESIGN_DOC_TYPE = 'design_doc';
 
+/** Whether the front matter is that of a design document (`type: design_doc`). */
+export function isDesignDoc(entries: FrontMatterEntry[]): boolean {
+  return entries.find((entry) => entry.key === 'type')?.value.trim() === DESIGN_DOC_TYPE;
+}
+
 /** Entries shown in a row under the title of a design document's header, in this order. */
 export const DESIGN_DOC_META = [
   { key: 'version', label: 'Version' },
@@ -132,7 +137,7 @@ function frontMatter(md: MarkdownIt): void {
       `<table${attrs} class="seqnotes-front-matter">\n<tbody>\n` +
       rows.map(({ key, value }) => `<tr><th>${escape(key)}</th><td>${escape(value)}</td></tr>\n`).join('') +
       '</tbody>\n</table>\n';
-    if (entries.find((entry) => entry.key === 'type')?.value.trim() !== DESIGN_DOC_TYPE) {
+    if (!isDesignDoc(entries)) {
       return entries.length === 0 ? '' : table(entries, self.renderAttrs(token));
     }
     const t = env?.t ?? formatMessage;

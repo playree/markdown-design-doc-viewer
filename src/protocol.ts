@@ -46,6 +46,18 @@ export interface WebviewState {
   uri: string;
   /** Width of the diagram column in percent. */
   split?: number;
+  /** The search and the order of a list of documents (webview/indexList.ts). */
+  indexList?: IndexListState;
+}
+
+/** What a list of documents shows (webview/indexList.ts): kept while the list is updated. */
+export interface IndexListState {
+  query: string;
+  /**
+   * The column the rows are sorted by (its `data-seqnotes-column`: `title`, `file` or a key of the front matter),
+   * and the order; the order of the list without it.
+   */
+  sort?: { column: string; descending: boolean };
 }
 
 /**

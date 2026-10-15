@@ -56,6 +56,41 @@ export function resolveDocumentPath(document: vscode.Uri, path: string): vscode.
   return vscode.Uri.joinPath(document, '..', path);
 }
 
+/**
+ * The page of a webview that shows the preview (webview/main.ts): the document is sent to it with `update` once it
+ * is `ready`. Also that of the list of the design documents (designDocsPanel.ts).
+ */
+export function webviewShell(webview: vscode.Webview, extensionUri: vscode.Uri, theme: PreviewTheme): string {
+  const dist = vscode.Uri.joinPath(extensionUri, 'dist');
+  const script = webview.asWebviewUri(vscode.Uri.joinPath(dist, 'webview.js'));
+  const style = webview.asWebviewUri(vscode.Uri.joinPath(dist, 'webview.css'));
+  const n = nonce();
+  const csp = [
+    "default-src 'none'",
+    `script-src 'nonce-${n}'`,
+    // mermaid writes inline <style> elements and style attributes into its SVGs
+    `style-src ${webview.cspSource} 'unsafe-inline'`,
+    `img-src ${webview.cspSource} https: data:`,
+    `font-src ${webview.cspSource}`,
+  ].join('; ');
+  const titles = Object.entries(WEBVIEW_TITLES)
+    .map(([name, title]) => ` data-seqnotes-${name}="${escapeHtml(vscode.l10n.t(title))}"`)
+    .join('');
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="${csp}">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="${style}">
+</head>
+<body data-seqnotes-theme="${theme}"${titles}>
+<div id="seqnotes-root"></div>
+<script nonce="${n}" src="${script}"></script>
+</body>
+</html>`;
+}
+
 function nonce(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   return Array.from({ length: 32 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
@@ -381,34 +416,6 @@ export class Preview {
   }
 
   private shell(): string {
-    const webview = this.panel.webview;
-    const dist = vscode.Uri.joinPath(this.extensionUri, 'dist');
-    const script = webview.asWebviewUri(vscode.Uri.joinPath(dist, 'webview.js'));
-    const style = webview.asWebviewUri(vscode.Uri.joinPath(dist, 'webview.css'));
-    const n = nonce();
-    const csp = [
-      "default-src 'none'",
-      `script-src 'nonce-${n}'`,
-      // mermaid writes inline <style> elements and style attributes into its SVGs
-      `style-src ${webview.cspSource} 'unsafe-inline'`,
-      `img-src ${webview.cspSource} https: data:`,
-      `font-src ${webview.cspSource}`,
-    ].join('; ');
-    const titles = Object.entries(WEBVIEW_TITLES)
-      .map(([name, title]) => ` data-seqnotes-${name}="${escapeHtml(vscode.l10n.t(title))}"`)
-      .join('');
-    return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="${csp}">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="${style}">
-</head>
-<body data-seqnotes-theme="${this.host.settings().theme}"${titles}>
-<div id="seqnotes-root"></div>
-<script nonce="${n}" src="${script}"></script>
-</body>
-</html>`;
+    return webviewShell(this.panel.webview, this.extensionUri, this.host.settings().theme);
   }
 }

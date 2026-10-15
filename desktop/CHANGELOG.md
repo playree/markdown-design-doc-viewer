@@ -4,6 +4,7 @@ The desktop app has its own version, apart from the extension and the command li
 
 ## Unreleased
 
+- **View** > **Design Docs** (Ctrl+Shift+D, ⌘⇧D) lists the design documents of the sidebar's folder (`type: design_doc` in their front matter) in place of the document: a table of their titles, file names, versions, products, statuses and update dates, by folder, with a search box and sortable columns. Clicking a title opens the document.
 - The installers add the app to the apps that open `.md` and `.markdown` files (Open with in the Explorer and the Finder), without making it their default app.
 - A file opened while the app is running opens in a new window, or brings to the front the window that shows it already. **File** > **Close** (Ctrl+W, ⌘W) closes the window, and **File** > **Exit** all the windows.
 - **File** > **Export as HTML...** saves the document to a single HTML file, the same as the extension's **Export Design Doc as HTML**: the diagrams, the images of the document's folder embedded, and the side-by-side layout and highlighting in the browser.

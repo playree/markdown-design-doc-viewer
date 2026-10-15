@@ -5,6 +5,7 @@ import type { DiagramMeta } from '../src/render';
 import { normalizeLabel } from '../src/sequence';
 import { markChanges, setupDiffBar } from './diff';
 import { setupFootnotePopup } from './footnotePopup';
+import { setUpIndexList } from './indexList';
 import { activeFor, isSideBySide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, type Active } from './linking';
 import { foldedRows, isFoldedAway, plainTables, restoreFolded, restorePlain, setupTableTree } from './tableTree';
 
@@ -398,6 +399,9 @@ async function update(html: string, diff: DiffView | undefined): Promise<void> {
   const scrollY = keep ? window.scrollY : 0;
   const colScroll = keep ? Array.from(root.querySelectorAll('.seqnotes-seq-col'), (col) => col.scrollTop) : [];
   const pinnedState = keep && pinned && { diagram: pinned.pair.getAttribute('data-diagram'), target: pinned.target };
+  // The search box of a list of documents keeps the focus while the list is updated (e.g. a file saved meanwhile).
+  const filter = keep ? root.querySelector<HTMLInputElement>('.seqnotes-index-filter input') : null;
+  const filterFocus = filter && document.activeElement === filter ? { start: filter.selectionStart, end: filter.selectionEnd } : undefined;
   // The folded metadata of the header stays open while the document is edited.
   const metadataOpen = keep && root.querySelector<HTMLDetailsElement>('.seqnotes-doc-more')?.open === true;
   // So do the folded rows of the tables shown as trees, and the tables shown as plain tables.
@@ -420,6 +424,13 @@ async function update(html: string, diff: DiffView | undefined): Promise<void> {
   }
   restoreFolded(root, folded);
   restorePlain(root, plain);
+  // A list of documents: its search and order are kept with the state, also when the list is shown again.
+  const index = root.querySelector<HTMLElement>('.seqnotes-index');
+  const input = index ? setUpIndexList(index, vscode.getState()?.indexList, (indexList) => vscode.setState({ ...vscode.getState()!, indexList })) : undefined;
+  if (input && filterFocus) {
+    input.focus();
+    input.setSelectionRange(filterFocus.start, filterFocus.end);
+  }
   root.querySelectorAll('.seqnotes-pair').forEach((pair) => {
     wrapSections(pair);
     if (!pair.classList.contains('seqnotes-pair-stacked')) {
