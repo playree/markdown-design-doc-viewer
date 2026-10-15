@@ -66,8 +66,9 @@ Idempotency-Key: 6f1c2a9e-0b7d-4f3a-9c55-1d2e8a7b4c10
 ```json
 {
   "cartId": "c_8241",
-  "shippingAddressId": "a_17",
-  "paymentMethodId": "pm_card_visa"
+  "shipping": { "addressId": "a_17", "timeSlot": "am" },
+  "payment": { "methodId": "pm_card_visa" },
+  "items": [{ "sku": "SKU-1042", "quantity": 2 }]
 }
 ```
 
@@ -96,7 +97,7 @@ The reservation expires after 15 minutes[^expiry] if the order is not confirmed.
 Authorizes the order total. The amount is captured later, when the order is shipped.
 
 > [!IMPORTANT]
-> Never send the card number to the Order API. The Web App sends it to the Payment Gateway directly and passes only `paymentMethodId`.
+> Never send the card number to the Order API. The Web App sends it to the Payment Gateway directly and passes only the `payment.methodId` it gets back.
 
 ### Authorization code
 

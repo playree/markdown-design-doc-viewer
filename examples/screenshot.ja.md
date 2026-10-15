@@ -66,8 +66,9 @@ Idempotency-Key: 6f1c2a9e-0b7d-4f3a-9c55-1d2e8a7b4c10
 ```json
 {
   "cartId": "c_8241",
-  "shippingAddressId": "a_17",
-  "paymentMethodId": "pm_card_visa"
+  "shipping": { "addressId": "a_17", "timeSlot": "am" },
+  "payment": { "methodId": "pm_card_visa" },
+  "items": [{ "sku": "SKU-1042", "quantity": 2 }]
 }
 ```
 
@@ -96,7 +97,7 @@ WHERE sku = $1 AND quantity - reserved >= $2;
 注文金額をオーソリする。売上の確定は出荷時に行う。
 
 > [!IMPORTANT]
-> カード番号は注文 API に送らない。Web アプリが決済ゲートウェイに直接送り、`paymentMethodId` だけを渡す。
+> カード番号は注文 API に送らない。Web アプリが決済ゲートウェイに直接送り、返された `payment.methodId` だけを渡す。
 
 ### 承認番号
 
