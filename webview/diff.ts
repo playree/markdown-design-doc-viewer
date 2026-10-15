@@ -8,8 +8,11 @@ import { diffWordLists, groupChanges, splitWords, wordSegmenter } from '../src/t
 const segmenter = wordSegmenter(document.documentElement.lang || navigator.language);
 const titles = document.body.dataset;
 
-/** The texts not compared word by word: those of the diagrams, compared as a whole. */
-const SKIPPED = '.seqnotes-mermaid, script, style';
+/**
+ * The texts not compared word by word: those of the diagrams, compared as a whole, and the cells hidden by the table
+ * options (src/tables.ts), whose text is also shown merged into another cell.
+ */
+const SKIPPED = '.seqnotes-mermaid, .seqnotes-cell-hidden, script, style';
 /** Beyond this many words, a changed block is only marked as a whole. */
 const MAX_WORDS = 20_000;
 /** Where a change is put on the screen when the bar's buttons go to it (also `scroll-margin` in preview.css). */

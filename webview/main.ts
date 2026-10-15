@@ -6,7 +6,7 @@ import { normalizeLabel } from '../src/sequence';
 import { markChanges, setupDiffBar } from './diff';
 import { setupFootnotePopup } from './footnotePopup';
 import { activeFor, isSideBySide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, type Active } from './linking';
-import { foldedRows, restoreFolded, setupTableTree, TREE_HIDDEN } from './tableTree';
+import { foldedRows, isFoldedAway, plainTables, restoreFolded, restorePlain, setupTableTree } from './tableTree';
 
 interface VsCodeApi {
   postMessage(message: FromWebview): void;
@@ -400,8 +400,9 @@ async function update(html: string, diff: DiffView | undefined): Promise<void> {
   const pinnedState = keep && pinned && { diagram: pinned.pair.getAttribute('data-diagram'), target: pinned.target };
   // The folded metadata of the header stays open while the document is edited.
   const metadataOpen = keep && root.querySelector<HTMLDetailsElement>('.seqnotes-doc-more')?.open === true;
-  // So do the folded rows of the tables shown as trees.
+  // So do the folded rows of the tables shown as trees, and the tables shown as plain tables.
   const folded = keep ? foldedRows(root) : new Set<string>();
+  const plain = keep ? plainTables(root) : new Set<number>();
 
   // Its reference is replaced.
   footnotePopup.hide();
@@ -418,6 +419,7 @@ async function update(html: string, diff: DiffView | undefined): Promise<void> {
     metadata.open = metadataOpen;
   }
   restoreFolded(root, folded);
+  restorePlain(root, plain);
   root.querySelectorAll('.seqnotes-pair').forEach((pair) => {
     wrapSections(pair);
     if (!pair.classList.contains('seqnotes-pair-stacked')) {
@@ -1128,7 +1130,7 @@ function markLine(line: number, reveal: boolean): void {
 
   let found: HTMLElement | undefined;
   for (const el of root.querySelectorAll<HTMLElement>('[data-line]')) {
-    if (el.closest(`.${TREE_HIDDEN}`)) {
+    if (isFoldedAway(el)) {
       // A row of a folded table: its folded parent before it is marked instead.
       continue;
     }

@@ -1,12 +1,16 @@
 /**
  * Folding and highlighting of the rows of a table shown as a tree (`level=` of the table options in src/tables.ts),
- * shared by the preview (`main.ts`) and exported HTML (`export.ts`).
+ * and the button showing a table with options as a plain table, shared by the preview (`main.ts`) and exported HTML
+ * (`export.ts`).
  */
 
 const TOGGLE = '.seqnotes-tree-toggle';
 const FOLDED = 'seqnotes-tree-folded';
 /** Class of the rows hidden under a folded row. */
-export const TREE_HIDDEN = 'seqnotes-tree-hidden';
+const TREE_HIDDEN = 'seqnotes-tree-hidden';
+const PLAIN_TOGGLE = '.seqnotes-table-plain-toggle';
+/** Class of a table shown as a plain table: all its columns, without the tree (in preview.css). */
+const PLAIN = 'seqnotes-table-plain';
 const CURRENT = 'seqnotes-tree-current';
 const RELATED = 'seqnotes-tree-related';
 
@@ -59,12 +63,31 @@ function relatives(row: HTMLTableRowElement): HTMLTableRowElement[] {
   return related;
 }
 
+/** Whether `el` is in a row hidden under a folded row (shown in a plain table). */
+export function isFoldedAway(el: Element): boolean {
+  return el.closest(`.${TREE_HIDDEN}`) !== null && el.closest(`.${PLAIN}`) === null;
+}
+
+function setPlain(table: Element, plain: boolean): void {
+  table.classList.toggle(PLAIN, plain);
+  table.querySelector(PLAIN_TOGGLE)?.setAttribute('aria-pressed', String(plain));
+}
+
 export function setupTableTree(root: HTMLElement): void {
-  // In the capture phase, so that the click on the button does not also go to the handlers of the preview
+  // In the capture phase, so that the click on the buttons does not also go to the handlers of the preview
   // (e.g. a double click jumping to the editor).
   const onToggle = (e: Event): void => {
-    const toggle = (e.target as Element).closest(TOGGLE);
-    const row = toggle?.closest('tr');
+    const target = e.target as Element;
+    const plainToggle = target.closest(PLAIN_TOGGLE);
+    const table = plainToggle?.closest('table');
+    if (table) {
+      e.stopPropagation();
+      if (e.type === 'click') {
+        setPlain(table, !table.classList.contains(PLAIN));
+      }
+      return;
+    }
+    const row = target.closest(TOGGLE)?.closest('tr');
     if (!row) {
       return;
     }
@@ -98,13 +121,16 @@ export function setupTableTree(root: HTMLElement): void {
   root.addEventListener('mouseleave', clear);
 }
 
+/** The tables in `root` matching `selector`, among those of the document: not the deleted ones shown by the comparison. */
+const tablesOf = (root: HTMLElement, selector: string): Element[] =>
+  Array.from(root.querySelectorAll(selector)).filter((table) => !table.closest('[data-seqnotes-diff="deleted"]'));
+
 /**
  * The rows of the trees in `root` with their keys: the table (among those of the document, not the deleted ones shown by
  * the comparison) and the names of the row and its ancestors, which stay the same while other rows are edited.
  */
 function keyedRows(root: HTMLElement): { table: Element; row: HTMLTableRowElement; key: string }[] {
-  const tables = Array.from(root.querySelectorAll('.seqnotes-tree-table')).filter((table) => !table.closest('[data-seqnotes-diff="deleted"]'));
-  return tables.flatMap((table, index) => {
+  return tablesOf(root, '.seqnotes-tree-table').flatMap((table, index) => {
     const path: string[] = [];
     return rowsOf(table).map((row) => {
       const depth = depthOf(row);
@@ -139,4 +165,20 @@ export function restoreFolded(root: HTMLElement, keys: Set<string>): void {
     }
   }
   changed.forEach(updateRows);
+}
+
+/** Indexes of the tables with options in `root` shown as plain tables, to show them so again after its content is replaced (`restorePlain`). */
+export function plainTables(root: HTMLElement): Set<number> {
+  return new Set(tablesOf(root, '.seqnotes-item-table').flatMap((table, index) => (table.classList.contains(PLAIN) ? [index] : [])));
+}
+
+export function restorePlain(root: HTMLElement, indexes: Set<number>): void {
+  if (indexes.size === 0) {
+    return;
+  }
+  tablesOf(root, '.seqnotes-item-table').forEach((table, index) => {
+    if (indexes.has(index)) {
+      setPlain(table, true);
+    }
+  });
 }

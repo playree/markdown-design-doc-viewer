@@ -112,5 +112,6 @@
   "Write \"level=\" only once in the table options.": "表のオプションの \"level=\" は 1 回だけ書いてください。",
   "The level \"{0}\" is not an integer.": "階層「{0}」が整数ではありません。",
   "The table options are not followed by a table.": "表のオプションの直後に表がありません。",
-  "Child rows": "子の行"
+  "Child rows": "子の行",
+  "Show as a plain table": "ふつうの表で表示"
 }

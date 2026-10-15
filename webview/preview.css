@@ -174,6 +174,7 @@ body.seqnotes-sticky-table-header thead th {
 }
 
 /* Table options (src/tables.ts): columns merged into one, and rows shown as a tree with `level=` */
+.seqnotes-cell-hidden { display: none; }
 .seqnotes-cell-sub { display: block; font-size: 0.9em; font-weight: normal; color: var(--seqnotes-muted); }
 /* As large as the code in the text, not smaller again. */
 .seqnotes-cell-sub code { font-size: 1em; }
@@ -243,16 +244,31 @@ body.seqnotes-sticky-table-header thead th {
   transform: rotate(45deg);
 }
 .seqnotes-tree-folded .seqnotes-tree-toggle::before { margin: 0 0 0 -0.2em; transform: rotate(-45deg); }
-.seqnotes-tree-parent > td { background: color-mix(in srgb, var(--seqnotes-th-bg) 50%, transparent); }
-.seqnotes-tree-parent > .seqnotes-tree-cell { font-weight: 600; }
+/* Not in a plain table. In :where(), so that the marks of the comparison still go over them. */
+:where(.seqnotes-tree-table:not(.seqnotes-table-plain)) .seqnotes-tree-parent > td { background: color-mix(in srgb, var(--seqnotes-th-bg) 50%, transparent); }
+:where(.seqnotes-tree-table:not(.seqnotes-table-plain)) .seqnotes-tree-parent > .seqnotes-tree-cell { font-weight: 600; }
 .seqnotes-tree-hidden { display: none; }
 /* With mdDesignDoc.tableTreeHighlight, the row under the pointer, with its ancestors and descendants (also over the marks of the comparison). */
-.seqnotes-table-tree-highlight .seqnotes-tree-table > tbody > .seqnotes-tree-related > td { background: color-mix(in srgb, var(--seqnotes-accent) 6%, transparent); }
-.seqnotes-table-tree-highlight .seqnotes-tree-table > tbody > .seqnotes-tree-current > td { background: var(--seqnotes-accent-bg); }
+.seqnotes-table-tree-highlight .seqnotes-tree-table:not(.seqnotes-table-plain) > tbody > .seqnotes-tree-related > td { background: color-mix(in srgb, var(--seqnotes-accent) 6%, transparent); }
+.seqnotes-table-tree-highlight .seqnotes-tree-table:not(.seqnotes-table-plain) > tbody > .seqnotes-tree-current > td { background: var(--seqnotes-accent-bg); }
+/* The button at the right of the header showing the table as it is (webview/tableTree.ts), while hovering the table,
+   with room for it so that it does not cover the header. */
+.seqnotes-table-plain-cell { position: relative; padding-right: 34px; }
+.seqnotes-table-plain-cell > .seqnotes-table-plain-toggle { top: 50%; right: 4px; transform: translateY(-50%); }
+.seqnotes-item-table:hover .seqnotes-table-plain-toggle { opacity: 1; }
+.seqnotes-table-plain-toggle[aria-pressed="true"] { background: var(--seqnotes-accent-bg); }
+/* A plain table: all the columns, without the merged lines, the tree and its highlight; the folded rows are shown. */
+.seqnotes-table-plain :is(th, td).seqnotes-cell-hidden { display: table-cell; }
+.seqnotes-table-plain :is(.seqnotes-cell-sub, .seqnotes-tree-guides, .seqnotes-tree-toggle) { display: none; }
+.seqnotes-table-plain :is(.seqnotes-tree-head, .seqnotes-tree-cell) { padding-left: 10px; white-space: normal; }
+.seqnotes-table-plain .seqnotes-tree-head { text-align: revert; }
+.seqnotes-table-plain .seqnotes-tree-hidden { display: table-row; }
 /* All the rows are printed. */
 @media print {
   .seqnotes-tree-hidden { display: table-row; }
   .seqnotes-tree-toggle { visibility: hidden; }
+  .seqnotes-table-plain-toggle { display: none; }
+  .seqnotes-table-plain-cell { padding-right: 10px; }
   .seqnotes-tree-folded .seqnotes-tree-stem { display: block; }
   .seqnotes-tree-parent :is(.seqnotes-tree-tee, .seqnotes-tree-elbow)::after { width: calc(1.5 * var(--seqnotes-tree-indent) - 4px); }
 }
@@ -471,7 +487,8 @@ body:is(.vscode-light, .vscode-high-contrast-light):not([data-seqnotes-theme="da
 /* ---------------------------------------------------------------- Diagram / image zoom */
 
 .seqnotes-zoom-button,
-.seqnotes-zoom-toolbar button {
+.seqnotes-zoom-toolbar button,
+.seqnotes-table-plain-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -488,12 +505,15 @@ body:is(.vscode-light, .vscode-high-contrast-light):not([data-seqnotes-theme="da
   cursor: pointer;
 }
 .seqnotes-zoom-button:hover,
-.seqnotes-zoom-toolbar button:hover { background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2)); }
+.seqnotes-zoom-toolbar button:hover,
+.seqnotes-table-plain-toggle:hover { background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2)); }
 .seqnotes-zoom-button:focus-visible,
-.seqnotes-zoom-toolbar button:focus-visible { outline: 1px solid var(--vscode-focusBorder); }
+.seqnotes-zoom-toolbar button:focus-visible,
+.seqnotes-table-plain-toggle:focus-visible { outline: 1px solid var(--vscode-focusBorder); }
 
-/* Shown over the top right corner of a diagram while hovering it. */
-.seqnotes-zoom-button {
+/* Shown over the top right corner of a diagram (or of the header of a table with options) while hovering it. */
+.seqnotes-zoom-button,
+.seqnotes-table-plain-toggle {
   position: absolute;
   top: 0;
   right: 0;
@@ -504,7 +524,8 @@ body:is(.vscode-light, .vscode-high-contrast-light):not([data-seqnotes-theme="da
   transition: opacity 0.15s;
 }
 .seqnotes-diagram:hover > .seqnotes-zoom-button,
-.seqnotes-zoom-button:focus-visible { opacity: 1; }
+.seqnotes-zoom-button:focus-visible,
+.seqnotes-table-plain-toggle:focus-visible { opacity: 1; }
 
 /* Images open in the zoom overlay on click. */
 .seqnotes-zoomable { cursor: zoom-in; }

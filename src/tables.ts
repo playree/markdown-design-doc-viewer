@@ -4,6 +4,8 @@
  * - `merge=A,B…` shows the cells of columns B… under those of column A, in one column.
  * - `level=L` takes the integers of column L as the depth of each row, hides that column and shows the rows as a tree
  *   in the column right of it: indented with lines, the rows with children emphasized and foldable.
+ * The columns are hidden (`seqnotes-cell-hidden`), not removed, so that a button in the header shows the table as it is
+ * (`seqnotes-table-plain`, in webview/tableTree.ts and preview.css).
  */
 import type { MarkdownIt, StateCore, Token } from 'markdown-it';
 import { formatMessage, type Translate } from './l10n';
@@ -151,8 +153,8 @@ const textOf = (inline: Token): string =>
     .join('')
     .trim();
 
-/** Applies the options of a table, and returns its warnings. Tokens to remove (the hidden cells) are added to `removed`. */
-function formatTable(state: StateCore, start: number, options: TableOption[], line: number, t: Translate, removed: Set<number>): LinkWarning[] {
+/** Applies the options of a table, and returns its warnings. */
+function formatTable(state: StateCore, start: number, options: TableOption[], line: number, t: Translate): LinkWarning[] {
   const tokens = state.tokens;
   const warnings: LinkWarning[] = [];
   const warn = (message: string, at = line): void => {
@@ -211,11 +213,31 @@ function formatTable(state: StateCore, start: number, options: TableOption[], li
     return token;
   };
   const isEmpty = (cell: Cell | undefined): boolean => !cell || cell.inline.content.trim() === '';
+  const hidden = new Set<number>();
   const hide = (cell: Cell | undefined): void => {
-    if (cell) {
-      // The cell's opening, inline and closing tokens.
-      [cell.open, cell.open + 1, cell.open + 2].forEach((i) => removed.add(i));
+    if (cell && !hidden.has(cell.open)) {
+      hidden.add(cell.open);
+      tokens[cell.open].attrJoin('class', 'seqnotes-cell-hidden');
     }
+  };
+  /** Marks the table, and adds the button showing it as a plain table at the right of its header, once the options are applied. */
+  const addPlainToggle = (): void => {
+    if (merges.length === 0 && level === undefined) {
+      return;
+    }
+    tokens[start].attrJoin('class', 'seqnotes-item-table');
+    const last = header.cells.filter((cell) => !hidden.has(cell.open)).pop();
+    if (!last) {
+      return;
+    }
+    tokens[last.open].attrJoin('class', 'seqnotes-table-plain-cell');
+    const label = state.md.utils.escapeHtml(t('Show as a plain table'));
+    const icon =
+      '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2.5 2.5h11v11h-11zM2.5 6h11M2.5 9.75h11M6.5 6v7.5M10 6v7.5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
+    last.inline.children = [
+      ...(last.inline.children ?? []),
+      span(`<button type="button" class="seqnotes-table-plain-toggle" aria-pressed="false" aria-label="${label}" title="${label}">${icon}</button>`),
+    ];
   };
 
   for (const row of rows) {
@@ -237,6 +259,7 @@ function formatTable(state: StateCore, start: number, options: TableOption[], li
   }
 
   if (level === undefined) {
+    addPlainToggle();
     return warnings;
   }
   const levelColumn = level;
@@ -259,6 +282,7 @@ function formatTable(state: StateCore, start: number, options: TableOption[], li
     hide(row.cells[levelColumn]);
   }
   const tree = treeColumn >= 0 ? header.cells[treeColumn] : undefined;
+  addPlainToggle();
   if (!tree) {
     return warnings;
   }
@@ -297,7 +321,6 @@ export function tableOptions(md: MarkdownIt): void {
   md.core.ruler.after('inline', 'seqnotes_table_options', (state: StateCore) => {
     const t = (state.env as RenderEnv | undefined)?.t ?? formatMessage;
     const tokens = state.tokens;
-    const removed = new Set<number>();
     for (let i = 0; i < tokens.length; i++) {
       const token = tokens[i];
       const m = token.type === 'html_block' ? DIRECTIVE_RE.exec(token.content.trim()) : null;
@@ -307,14 +330,11 @@ export function tableOptions(md: MarkdownIt): void {
       const line = token.map?.[0] ?? 0;
       const warnings =
         tokens[i + 1]?.type === 'table_open'
-          ? formatTable(state, i + 1, parseTableOptions(m[1]), line, t, removed)
+          ? formatTable(state, i + 1, parseTableOptions(m[1]), line, t)
           : [{ line, message: t('The table options are not followed by a table.') }];
       if (warnings.length > 0) {
         token.meta = { ...token.meta, [WARNINGS]: warnings };
       }
-    }
-    if (removed.size > 0) {
-      state.tokens = tokens.filter((_, i) => !removed.has(i));
     }
   });
 }
