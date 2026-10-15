@@ -1,5 +1,8 @@
 import * as vscode from 'vscode';
 import { registerAuthoringProviders } from './authoringProviders';
+import { DesignDocIndex } from './designDocs';
+import { DesignDocsPanel } from './designDocsPanel';
+import { DesignDocsView, nodeUri } from './designDocsView';
 import { DiagnosticsManager } from './diagnostics';
 import { exportHtml } from './exportHtml';
 import { compareWithRevision } from './history';
@@ -28,8 +31,14 @@ export function activate(context: vscode.ExtensionContext): void {
     manager.show(uri, column);
   };
 
+  const designDocs = new DesignDocIndex();
+  const designDocsPanel = new DesignDocsPanel(context.extensionUri, designDocs);
+
   context.subscriptions.push(
     manager,
+    designDocs,
+    designDocsPanel,
+    new DesignDocsView(designDocs),
     new DiagnosticsManager(),
     registerAuthoringProviders(),
     vscode.commands.registerCommand('mdDesignDoc.openPreview', open(vscode.ViewColumn.Active)),
@@ -51,6 +60,12 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
       return compareWithRevision(manager, uri);
+    }),
+    vscode.commands.registerCommand('mdDesignDoc.showDesignDocs', () => designDocsPanel.show()),
+    vscode.commands.registerCommand('mdDesignDoc.refreshDesignDocs', () => designDocs.refresh()),
+    vscode.commands.registerCommand('mdDesignDoc.openDesignDocInEditor', (node: unknown) => {
+      const uri = nodeUri(node);
+      return uri && vscode.commands.executeCommand('vscode.open', uri);
     }),
     vscode.commands.registerCommand('mdDesignDoc.useFullContentWidth', () => updateSetting('limitContentWidth', false)),
     vscode.commands.registerCommand('mdDesignDoc.limitContentWidth', () => updateSetting('limitContentWidth', true)),

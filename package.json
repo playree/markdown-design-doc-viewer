@@ -37,7 +37,8 @@
   },
   "activationEvents": [
     "onLanguage:markdown",
-    "onWebviewPanel:mdDesignDoc.preview"
+    "onWebviewPanel:mdDesignDoc.preview",
+    "onWebviewPanel:mdDesignDoc.designDocs"
   ],
   "contributes": {
     "commands": [
@@ -81,6 +82,40 @@
         "title": "%mdDesignDoc.compareWithRevision.title%",
         "category": "%category%",
         "icon": "$(history)"
+      },
+      {
+        "command": "mdDesignDoc.showDesignDocs",
+        "title": "%mdDesignDoc.showDesignDocs.title%",
+        "category": "%category%",
+        "icon": "$(list-flat)"
+      },
+      {
+        "command": "mdDesignDoc.refreshDesignDocs",
+        "title": "%mdDesignDoc.refreshDesignDocs.title%",
+        "category": "%category%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "mdDesignDoc.openDesignDocInEditor",
+        "title": "%mdDesignDoc.openDesignDocInEditor.title%",
+        "category": "%category%",
+        "icon": "$(go-to-file)"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "mdDesignDoc.designDocs",
+          "name": "%mdDesignDoc.designDocs.name%",
+          "when": "workspaceFolderCount > 0",
+          "icon": "$(list-flat)"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "mdDesignDoc.designDocs",
+        "contents": "%mdDesignDoc.designDocs.welcome%"
       }
     ],
     "customEditors": [
@@ -154,6 +189,14 @@
         {
           "command": "mdDesignDoc.compareWithRevision",
           "when": "editorLangId == markdown || activeWebviewPanelId == 'mdDesignDoc.preview' || activeCustomEditorId == 'mdDesignDoc.editor'"
+        },
+        {
+          "command": "mdDesignDoc.refreshDesignDocs",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "mdDesignDoc.openDesignDocInEditor",
+          "when": "false"
         }
       ],
       "webview/context": [
@@ -164,6 +207,30 @@
         {
           "command": "mdDesignDoc.compareWithRevision",
           "when": "webviewId == 'mdDesignDoc.preview' || webviewId == 'mdDesignDoc.editor'"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "mdDesignDoc.showDesignDocs",
+          "when": "view == mdDesignDoc.designDocs",
+          "group": "navigation@1"
+        },
+        {
+          "command": "mdDesignDoc.refreshDesignDocs",
+          "when": "view == mdDesignDoc.designDocs",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "mdDesignDoc.openDesignDocInEditor",
+          "when": "view == mdDesignDoc.designDocs && viewItem == designDoc",
+          "group": "inline"
+        },
+        {
+          "command": "mdDesignDoc.openDesignDocInEditor",
+          "when": "view == mdDesignDoc.designDocs && viewItem == designDoc",
+          "group": "navigation"
         }
       ]
     },
