@@ -57,11 +57,13 @@ export class DesignDocIndex implements vscode.Disposable {
   /** The list read, or being read; undefined once a file changed. */
   private reading: Promise<DesignDoc[]> | undefined;
   private timer: ReturnType<typeof setTimeout> | undefined;
+  /** Counts the times the workspace is to be looked through again, so that an older search does not replace `files`. */
+  private generation = 0;
 
   constructor() {
     const watcher = vscode.workspace.createFileSystemWatcher(MARKDOWN_GLOB);
     const lookAgain = () => {
-      this.files = undefined;
+      this.forgetFiles();
       this.scheduleChange();
     };
     this.disposables.push(
@@ -109,9 +111,15 @@ export class DesignDocIndex implements vscode.Disposable {
   /** Looks through the workspace again (the Refresh button), e.g. after changes not seen by the watcher. */
   refresh(): void {
     clearTimeout(this.timer);
-    this.files = undefined;
+    this.forgetFiles();
     this.reading = undefined;
     this.changed.fire();
+  }
+
+  /** Looks through the workspace again at the next read, also when a search is under way. */
+  private forgetFiles(): void {
+    this.generation++;
+    this.files = undefined;
   }
 
   private scheduleChange(): void {
@@ -128,10 +136,15 @@ export class DesignDocIndex implements vscode.Disposable {
     if (files) {
       toRead = [...this.changedFiles].flatMap((key) => files!.get(key) ?? []);
     } else {
+      const generation = this.generation;
       // The files of `files.exclude` are left out by the search.
       const uris = await vscode.workspace.findFiles(MARKDOWN_GLOB);
       files = new Map(uris.filter((uri) => !isSkipped(vscode.workspace.asRelativePath(uri, false))).map((uri) => [uri.toString(), { uri }]));
-      this.files = files;
+      // Unless files were added or deleted meanwhile: they may be missing from this search, which the next read
+      // (scheduled by that change) does again.
+      if (generation === this.generation) {
+        this.files = files;
+      }
       toRead = [...files.values()];
     }
     this.changedFiles.clear();
