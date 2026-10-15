@@ -440,9 +440,12 @@ async function loadHistory(force = false): Promise<void> {
   if (!force && historyOf === doc.path) {
     return;
   }
-  historyOf = doc.path;
   const seq = ++historySeq;
-  sidebar.setHistory(doc.name, t('Reading the Git history...'));
+  // Read again: the list stays, with its scroll position, until it is replaced.
+  if (historyOf !== doc.path) {
+    sidebar.setHistory(doc.name, t('Reading the Git history...'));
+  }
+  historyOf = doc.path;
   let history: Revision[] | string;
   try {
     // Of the document the Rust side shows for the window: the one opened last, as `doc`.
@@ -471,15 +474,19 @@ async function compareWith(revision: Revision): Promise<void> {
     stopComparing();
     return;
   }
-  let source: string;
+  let source: string | undefined;
+  let failure: unknown;
   try {
     source = await invoke<string>('git_show', { hash: revision.hash, path: revision.path });
   } catch (error) {
-    await message(gitErrorText(error, doc.name), { title: APP_NAME, kind: 'error' });
+    failure = error;
+  }
+  // Unless another commit or document was chosen meanwhile: neither shown nor told when it failed.
+  if (seq !== compareSeq || current?.path !== doc.path) {
     return;
   }
-  // Unless another commit or document was chosen meanwhile.
-  if (seq !== compareSeq || current?.path !== doc.path) {
+  if (source === undefined) {
+    await message(gitErrorText(failure, doc.name), { title: APP_NAME, kind: 'error' });
     return;
   }
   const date = formatRevisionDate(revision.date, lang);

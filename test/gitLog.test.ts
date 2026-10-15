@@ -56,7 +56,9 @@ describe('the git log of the desktop app', () => {
   // desktop/src-tauri/src/lib.rs runs git itself, with the arguments of gitLogArgs.
   const lib = readFileSync(new URL('../desktop/src-tauri/src/lib.rs', import.meta.url), 'utf8');
 
-  it.each(gitLogArgs('a.md').slice(0, -1))('has the argument %s', (arg) => {
-    expect(lib).toContain(`"${arg}"`);
+  it('has the arguments of gitLogArgs, before the file', () => {
+    const list = /const GIT_LOG_ARGS: &\[&str\] = &\[([^\]]*)\];/.exec(lib)?.[1] ?? '';
+    const args = [...list.matchAll(/"([^"]*)"/g)].map((match) => match[1]);
+    expect(args).toEqual(gitLogArgs('a.md').slice(0, -1));
   });
 });

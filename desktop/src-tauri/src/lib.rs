@@ -685,8 +685,9 @@ async fn run_git(dir: PathBuf, args: Vec<OsString>) -> Result<Vec<u8>, GitError>
     tauri::async_runtime::spawn_blocking(move || {
         let mut command = Command::new(git_program());
         command
-            // Not the fsmonitor of the repository, which would start a daemon (or run a hook) for a read.
-            .args(["-c", "core.fsmonitor=false"])
+            // Not the fsmonitor of the repository, which would start a daemon (or run a hook) for a read, nor the
+            // check of the signatures, which would run the gpg program of the repository's config for each commit.
+            .args(["-c", "core.fsmonitor=false", "-c", "log.showSignature=false"])
             .args(&args)
             .current_dir(&dir)
             // The messages in English, which are told apart below.
@@ -698,7 +699,12 @@ async fn run_git(dir: PathBuf, args: Vec<OsString>) -> Result<Vec<u8>, GitError>
             command.creation_flags(CREATE_NO_WINDOW);
         }
         let output = command.output().map_err(|error| GitError {
-            kind: if error.kind() == std::io::ErrorKind::NotFound { GitErrorKind::NotFound } else { GitErrorKind::Failed },
+            // Not when the folder is missing (the document's folder deleted or renamed), which fails the same way.
+            kind: if error.kind() == std::io::ErrorKind::NotFound && dir.is_dir() {
+                GitErrorKind::NotFound
+            } else {
+                GitErrorKind::Failed
+            },
             message: error.to_string(),
         })?;
         if output.status.success() {
@@ -727,13 +733,15 @@ async fn git_log(window: Window, windows: State<'_, Windows>, histories: State<'
     args.push(name.to_owned());
     let output = String::from_utf8_lossy(&run_git(dir.to_path_buf(), args).await?).into_owned();
     let mut history = History { file: file.clone(), hashes: HashSet::new(), paths: HashSet::new() };
-    // `\x1e<hash>\x1f…\0`, then `\n<path>\0` (none for a merge).
+    // `\x1e<hash>\x1f…\0`, then `\n<path>\0` (none for a merge), read as `parseGitLog` does.
     for record in output.split('\x1e').skip(1) {
         let mut parts = record.split('\0');
         if let Some(hash) = parts.next().and_then(|header| header.split('\x1f').next()) {
             history.hashes.insert(hash.to_string());
         }
-        history.paths.extend(parts.map(|part| part.trim_start_matches('\n')).filter(|part| !part.is_empty()).map(str::to_string));
+        history.paths.extend(
+            parts.map(|part| part.strip_prefix('\n').unwrap_or(part)).filter(|part| !part.is_empty()).map(str::to_string),
+        );
     }
     // Unless the window opened another document meanwhile, whose history may have been read already.
     if shown_document(&window, &windows).as_ref() == Some(&file) {
