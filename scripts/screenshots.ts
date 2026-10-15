@@ -69,6 +69,7 @@ interface Names {
   flowchartStep: string;
   linkChecks: string;
   markdown: string;
+  tables: string;
 }
 
 interface Locale {
@@ -100,6 +101,7 @@ const LOCALES: Locale[] = [
       flowchartStep: 'Retryable error?',
       linkChecks: 'Refund (draft)',
       markdown: 'Open items',
+      tables: 'Request body of POST /orders',
     },
   },
   {
@@ -115,6 +117,7 @@ const LOCALES: Locale[] = [
       flowchartStep: 'リトライ可能?',
       linkChecks: '返金（草案）',
       markdown: '未決事項',
+      tables: 'POST /orders のリクエスト本文',
     },
   },
 ];
@@ -170,6 +173,17 @@ const SCENES: Scene[] = [
     prepare: (page, names) => sectionClip(page, names.markdown),
   },
   {
+    // A table of items shown as a tree: a parent folded, and the parent and children of a row highlighted.
+    name: 'tables',
+    file: 'images/screenshot-tables',
+    height: 790,
+    prepare: async (page, names) => {
+      await treeRow(page, names.tables, 'payment', (row) => row.querySelector<HTMLElement>('.seqnotes-tree-toggle')?.click());
+      await treeRow(page, names.tables, 'items', (row) => row.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })));
+      return sectionClip(page, names.tables);
+    },
+  },
+  {
     // The header of `type: design_doc`, with the other metadata opened.
     name: 'header',
     file: 'images/screenshot-header',
@@ -211,6 +225,27 @@ async function highlight(page: Page, title: string, heading: string, top?: numbe
     },
     [title, heading, top] as const,
   );
+}
+
+/** Runs `action` on the row of the tree table under the h2 `title` whose tree cell shows the physical name `name`. */
+async function treeRow(page: Page, title: string, name: string, action: (row: Element) => void): Promise<void> {
+  const row = await page.evaluateHandle(
+    ([title, name]) => {
+      const h2 = [...document.querySelectorAll('h2')].find((h) => h.textContent?.trim() === title);
+      let table = h2?.nextElementSibling;
+      while (table && !table.matches('.seqnotes-tree-table')) {
+        table = table.nextElementSibling;
+      }
+      const row = [...(table?.querySelectorAll('tbody > tr') ?? [])].find((tr) => tr.querySelector('.seqnotes-tree-cell .seqnotes-cell-sub')?.textContent?.trim() === name);
+      if (!row) {
+        throw new Error(`No row "${name}" in a tree table under the h2 "${title}"`);
+      }
+      return row;
+    },
+    [title, name] as const,
+  );
+  await row.evaluate(action);
+  await row.dispose();
 }
 
 /**

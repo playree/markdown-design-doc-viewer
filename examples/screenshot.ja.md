@@ -261,6 +261,26 @@ graph LR
 | `ORD-020` | 502 | 決済ゲートウェイが応答しなかった。 | 注文一覧を確かめてからリトライする。 |
 | `ORD-021` | 503 | 在庫サービスが利用できない。 | 時間をおいてリトライする。 |
 
+## POST /orders のリクエスト本文
+
+JSON の本文の項目。子の項目の「必須」は、親を送るときに必須かを表す。
+
+<!-- table: level=階層 merge=項目名,物理名 -->
+| No | 階層 | 項目名 | 物理名 | 型 | 必須 | 説明 |
+|---|---|---|---|---|---|---|
+| 1 | 1 | カート ID | `cartId` | string | ○ | 注文するカート |
+| 2 | 1 | 配送 | `shipping` | object | ○ | |
+| 3 | 2 | 配送先 ID | `addressId` | string | ○ | 顧客の登録済みの住所 |
+| 4 | 2 | 配達日 | `deliveryDate` | string | | `YYYY-MM-DD`。省略時は最短の日 |
+| 5 | 2 | 時間帯 | `timeSlot` | string | | `am`・`pm`・`evening` |
+| 6 | 1 | 支払い | `payment` | object | ○ | |
+| 7 | 2 | 支払い方法 ID | `methodId` | string | ○ | 登録済みのカードやウォレット |
+| 8 | 2 | クーポンコード | `couponCode` | string | | |
+| 9 | 1 | 商品 | `items` | array | ○ | 1〜100 件 |
+| 10 | 2 | SKU | `sku` | string | ○ | |
+| 11 | 2 | 数量 | `quantity` | integer | ○ | 1〜99 |
+| 12 | 2 | ギフト包装 | `giftWrap` | boolean | | 省略時は `false` |
+
 ## 返金（草案）
 
 ```mermaid

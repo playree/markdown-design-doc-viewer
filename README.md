@@ -176,6 +176,8 @@ Tables of the items of a message, a file or a screen tend to have many columns, 
 | 5 | 2 | Total | `total` | integer | 1–9 | Yes | Tax included. |
 ```
 
+![A table of the fields of a request body: the physical names under the field names, the nested fields as a tree with "Payment" folded, and the parent and children of "Items" highlighted](images/screenshot-tables.png)
+
 - `merge=A,B` shows the cells of column B under those of column A, smaller, in one column (the header too). More columns can follow (`merge=A,B,C`), an empty cell adds no line, and `merge=` can be written more than once.
 - `level=L` takes the integers in column L as the depth of each row (the lowest is the top; full-width digits are accepted) and hides the column. The rows are shown as a tree in the column right of it (left of it when it is the last column; with `merge=`, the merged cell): indented with lines, and the rows with children emphasized. Click ▾ before a row to fold its children (they are all printed), and point to a row to highlight its parents and children (`mdDesignDoc.tableTreeHighlight` turns this off). A row more than one level deeper than the row above is taken as its child.
 - Columns are named by the text of their header. Quote a name with spaces or commas (`"Physical name"`).
