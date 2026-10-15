@@ -2,6 +2,7 @@ import type { MarkdownIt } from 'markdown-it';
 import { formatMessage, type Translate } from './l10n';
 import { headingText, linkDiagrams } from './linker';
 import { normalizeLabel } from './sequence';
+import { tableWarnings } from './tables';
 
 export interface Issue {
   /** 0-based line in the Markdown document. */
@@ -11,13 +12,13 @@ export interface Issue {
 }
 
 /**
- * Problems of the arrow / node ⇔ heading links, for the editor diagnostics: the warnings shown in the preview,
+ * Problems of the arrow / node ⇔ heading links and of the table options, for the editor diagnostics: the warnings shown in the preview,
  * and the arrows and headings the preview marks as unlinked. Sorted by line.
  */
 export function collectIssues(md: MarkdownIt, source: string, t: Translate = formatMessage): Issue[] {
-  const tokens = md.parse(source, {});
+  const tokens = md.parse(source, { t });
   const { diagrams, warnings } = linkDiagrams(tokens, t);
-  const issues: Issue[] = warnings.map((w) => ({ line: w.line, message: w.message, severity: 'warning' }));
+  const issues: Issue[] = [...warnings, ...tableWarnings(tokens)].map((w) => ({ line: w.line, message: w.message, severity: 'warning' }));
 
   for (const diagram of diagrams.filter((d) => d.paired)) {
     // Without any link, the arrows are not marked as unlinked, so the diagram is reported once instead.

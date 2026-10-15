@@ -48,15 +48,15 @@ md-design-doc export docs -o site
 | `--no-front-matter` | YAML front matter（メタ情報の表、`type: design_doc` ではヘッダ）を表示しない |
 | `--no-sticky-table-header` | 長い表のヘッダ行をスクロール中に上端に固定しない |
 | `--chrome <path>` | 図の描画に使う Chrome か Chromium |
-| `--strict` | 紐付けの警告（壊れた `@ref` や置き場所の誤ったマーカーなど）があれば失敗にする。紐付いていないだけの矢印・見出しでは失敗しない |
+| `--strict` | 警告（壊れた `@ref` や置き場所の誤ったマーカーなどの紐付けの警告、適用できない表のオプション）があれば失敗にする。紐付いていないだけの矢印・見出しでは失敗しない |
 | `--index` | 書き出した文書の一覧を `--out-dir`（必須）の `index.html` にも書き出す。フォルダごとの表に、タイトル（リンク）・ファイル名と、front matter の `version`・`product`・`status`・`updated` を載せる |
 | `--index-title <title>` | `index.html` のタイトル。既定は `Design Docs`（`--lang ja` では `設計書一覧`） |
 | `-h`, `--help` | ヘルプを表示する |
 | `-v`, `--version` | バージョンを表示する |
 
-フォルダはサブフォルダも含めて `*.md` と `*.markdown` を探します（`node_modules` とドットで始まるフォルダは除く）。紐付けの警告は標準エラーに出します（GitHub Actions では注釈になります）。
+フォルダはサブフォルダも含めて `*.md` と `*.markdown` を探します（`node_modules` とドットで始まるフォルダは除く）。紐付けの警告と表のオプションの警告は標準エラーに出します（GitHub Actions では注釈になります）。
 
-文書を書き出せなかったとき、mermaid が描画できない図があったとき（HTML は書き出します）、`--strict` で紐付けの警告があったときは終了コード 1、コマンドラインの誤りは 2 で終わります。
+文書を書き出せなかったとき、mermaid が描画できない図があったとき（HTML は書き出します）、`--strict` で警告があったときは終了コード 1、コマンドラインの誤りは 2 で終わります。
 
 ## GitHub Actions
 

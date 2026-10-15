@@ -153,3 +153,24 @@ Returns the order ID and the expected delivery date.
 | Unknown | No | — |
 
 </details>
+
+## Message definition
+
+The comment before the table shows the physical names under the item names, and the elements as a tree by their `Level` (the column is hidden). Click ▾ to fold the children of an element, and point to a row to highlight its parents and children. Elsewhere, such as on GitHub, it is a plain table.
+
+<!-- table: level=Level merge=Item,"Physical name" -->
+| No | Level | Item | Physical name | Type | Length | Required | Description |
+|---|---|---|---|---|---|---|---|
+| 1 | 1 | Order | `order` | - | - | Yes | |
+| 2 | 2 | Order ID | `orderId` | string | 12 | Yes | Assigned by the Order API. |
+| 3 | 2 | Customer | `customer` | - | - | Yes | |
+| 4 | 3 | Customer ID | `customerId` | string | 10 | Yes | |
+| 5 | 3 | Name | `name` | string | 1–100 | Yes | |
+| 6 | 3 | Address | `address` | - | - | No | Omitted for a digital item. |
+| 7 | 4 | Postal code | `postalCode` | string | 7 | Yes | |
+| 8 | 4 | Lines | `lines` | string | 1–200 | Yes | Street, building and room. |
+| 9 | 2 | Items | `items` | - | - | Yes | One to 100 items. |
+| 10 | 3 | Item | `item` | - | - | Yes | Repeated for each item. |
+| 11 | 4 | SKU | `sku` | string | 8 | Yes | |
+| 12 | 4 | Quantity | `quantity` | integer | 1–3 | Yes | A positive integer. |
+| 13 | 2 | Total | `total` | integer | 1–9 | Yes | Tax included, in the currency of the shop. |

@@ -4,6 +4,7 @@ import { formatMessage, type Translate } from './l10n';
 import { isMermaidFence, linkDiagrams, type DiagramInfo, type DiagramKind } from './linker';
 import { markdownExtras } from './markdownExtras';
 import { HEADING_ID_PREFIX, slugify } from './slug';
+import { tableOptions, tableWarnings } from './tables';
 
 export { HEADING_ID_PREFIX, slugify };
 
@@ -148,7 +149,7 @@ function resourceLinks(md: MarkdownIt): void {
 
 export function createMarkdown(): MarkdownIt {
   const md = markdownit({ html: true, linkify: true });
-  md.use(footnote).use(markdownExtras).use(headingIds).use(sourceLines).use(mermaidFence).use(resourceLinks);
+  md.use(footnote).use(markdownExtras).use(tableOptions).use(headingIds).use(sourceLines).use(mermaidFence).use(resourceLinks);
   return md;
 }
 
@@ -159,7 +160,8 @@ export function renderDocument(md: MarkdownIt, source: string, env: RenderEnv = 
 /** Renders the tokens of a document parsed with `env` (`renderDocument`, or `renderDiff` with the blocks of the revision added). */
 export function renderTokens(md: MarkdownIt, tokens: Token[], env: RenderEnv): string {
   const t = env.t ?? formatMessage;
-  const { diagrams, warnings } = linkDiagrams(tokens, t);
+  const { diagrams, warnings: linkWarnings } = linkDiagrams(tokens, t);
+  const warnings = [...linkWarnings, ...tableWarnings(tokens)].sort((a, b) => a.line - b.line);
   for (const diagram of diagrams) {
     const fence = tokens[diagram.fenceIndex];
     fence.meta = { ...fence.meta, seqNotes: diagram };
