@@ -6,7 +6,7 @@ import { normalizeLabel } from '../src/sequence';
 import { markChanges, setupDiffBar } from './diff';
 import { setupFootnotePopup } from './footnotePopup';
 import { activeFor, isSideBySide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, type Active } from './linking';
-import { foldedRows, restoreFolded, setupTableTree, TREE_HIDDEN, TREE_HIGHLIGHT } from './tableTree';
+import { foldedRows, restoreFolded, setupTableTree, TREE_HIDDEN } from './tableTree';
 
 interface VsCodeApi {
   postMessage(message: FromWebview): void;
@@ -1171,7 +1171,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       document.body.dataset.seqnotesTheme = message.theme;
       document.body.classList.toggle('seqnotes-limit-width', message.limitContentWidth);
       document.body.classList.toggle('seqnotes-sticky-table-header', message.stickyTableHeader);
-      document.body.classList.toggle(TREE_HIGHLIGHT, message.tableTreeHighlight);
+      document.body.classList.toggle('seqnotes-table-tree-highlight', message.tableTreeHighlight);
       vscode.setState({ ...vscode.getState(), uri: message.uri });
       if ((currentUri !== undefined && message.uri !== currentUri) || message.fragment) {
         pendingScroll = { newDocument: pendingScroll?.newDocument === true || message.uri !== currentUri, fragment: message.fragment };
