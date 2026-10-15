@@ -1106,7 +1106,8 @@ function scrollToLine(line: number): void {
     window.scrollTo(0, 0);
     return;
   }
-  const top = (el: Element): number => el.getBoundingClientRect().top + window.scrollY;
+  // The first element from the top of the page, so that the margin above it is not scrolled out of view.
+  const top = (el: Element): number => (el === elements[0] ? 0 : el.getBoundingClientRect().top + window.scrollY);
   let y = top(prev);
   if (next && lineOf(next) > lineOf(prev)) {
     y += ((line - lineOf(prev)) / (lineOf(next) - lineOf(prev))) * (top(next) - top(prev));

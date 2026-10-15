@@ -2,6 +2,10 @@
 
 This changelog covers the extension and the command line. The desktop app has its own version and [changelog](desktop/CHANGELOG.md).
 
+## Unreleased
+
+- The margin at the top of the preview, above the box of the document header, is no longer scrolled out of view when the editor is scrolled to the top.
+
 ## 1.1.0
 
 - `Show Design Docs` lists the design documents of the workspace (`type: design_doc` in their front matter) in a table of their titles, file names, versions, products, statuses and update dates, by folder, with a search box and sortable columns. Clicking a title opens its preview, and the list follows the files added, changed and deleted. The **Design Docs** view of the Explorer shows them as a tree of their titles, with their version and status.
