@@ -269,18 +269,18 @@ JSON の本文の項目。子の項目の「必須」は、親を送るときに
 <!-- table: level=階層 merge=項目名,物理名 -->
 | No | 階層 | 項目名 | 物理名 | 型 | 必須 | 説明 |
 |---|---|---|---|---|---|---|
-| 1 | 1 | カート ID | `cartId` | string | ○ | 注文するカート |
+| 1 | 1 | カート ID | `cartId` | string | ○ | 注文するカート。ログイン中の顧客のもので、まだ注文していないこと |
 | 2 | 1 | 配送 | `shipping` | object | ○ | |
-| 3 | 2 | 配送先 ID | `addressId` | string | ○ | 顧客の登録済みの住所 |
-| 4 | 2 | 配達日 | `deliveryDate` | string | | `YYYY-MM-DD`。省略時は最短の日 |
-| 5 | 2 | 時間帯 | `timeSlot` | string | | `am`・`pm`・`evening` |
+| 3 | 2 | 配送先 ID | `addressId` | string | ○ | 顧客の登録済みの住所。配送エリア外の住所は受け付けないので、注文画面では配送できない住所をグレーアウトして選べなくする |
+| 4 | 2 | 配達日 | `deliveryDate` | string | | `YYYY-MM-DD`。省略時は最短の日。予約が埋まっている日と 14 日より先の日は受け付けない |
+| 5 | 2 | 時間帯 | `timeSlot` | string | | `am`・`pm`・`evening`。省略時は指定なし。日曜日は `evening` を選べない |
 | 6 | 1 | 支払い | `payment` | object | ○ | |
-| 7 | 2 | 支払い方法 ID | `methodId` | string | ○ | 登録済みのカードやウォレット |
-| 8 | 2 | クーポンコード | `couponCode` | string | | |
-| 9 | 1 | 商品 | `items` | array | ○ | 1〜100 件 |
+| 7 | 2 | 支払い方法 ID | `methodId` | string | ○ | 登録済みのカードやウォレット。有効期限切れや前回のオーソリで拒否されたカードは、顧客が更新するまで使えない |
+| 8 | 2 | クーポンコード | `couponCode` | string | | 1 回の注文に 1 枚まで。期限切れのクーポンは適用せず、理由をレスポンスで返す |
+| 9 | 1 | 商品 | `items` | array | ○ | 1〜100 件。同じ SKU は 1 件にまとめ、合計を `quantity` で送る |
 | 10 | 2 | SKU | `sku` | string | ○ | |
-| 11 | 2 | 数量 | `quantity` | integer | ○ | 1〜99 |
-| 12 | 2 | ギフト包装 | `giftWrap` | boolean | | 省略時は `false` |
+| 11 | 2 | 数量 | `quantity` | integer | ○ | 1〜99。在庫と商品ごとの購入数の上限のうち、少ない方までに制限する |
+| 12 | 2 | ギフト包装 | `giftWrap` | boolean | | 省略時は `false`。包装は商品ごとに有料で、家具など一部の商品では選べない |
 
 ## 返金（草案）
 
