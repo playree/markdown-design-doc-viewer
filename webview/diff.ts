@@ -8,11 +8,14 @@ import { diffWordLists, groupChanges, splitWords, wordSegmenter } from '../src/t
 const segmenter = wordSegmenter(document.documentElement.lang || navigator.language);
 const titles = document.body.dataset;
 
+/** The texts not compared word by word: those of the diagrams, compared as a whole. */
+const SKIPPED = '.seqnotes-mermaid, script, style';
 /**
- * The texts not compared word by word: those of the diagrams, compared as a whole, and the cells hidden by the table
- * options (src/tables.ts), whose text is also shown merged into another cell.
+ * The cells hidden by the table options (src/tables.ts), shown in a plain table, and their text merged into another
+ * cell, shown otherwise. Only one of them is compared at a time, so that the words are not changed twice.
  */
-const SKIPPED = '.seqnotes-mermaid, .seqnotes-cell-hidden, script, style';
+const HIDDEN = '.seqnotes-cell-hidden';
+const MERGED = '.seqnotes-cell-sub';
 /** Beyond this many words, a changed block is only marked as a whole. */
 const MAX_WORDS = 20_000;
 /** Where a change is put on the screen when the bar's buttons go to it (also `scroll-margin` in preview.css). */
@@ -30,11 +33,16 @@ export function markChanges(content: HTMLElement, diff: DiffView, sanitize: (htm
       continue;
     }
     const before = document.createElement('div');
-    before.append(sanitize(html));
+    // A row is parsed in a table: outside of it, its cells would be dropped, with the classes of the hidden ones.
+    before.append(sanitize(block.matches('tr') ? `<table>${html}</table>` : html));
     if (block.matches('.seqnotes-mermaid')) {
       addOldDiagram(block, before);
     } else {
-      markWords(block, before);
+      if (block.querySelector(HIDDEN)) {
+        // As shown in a plain table (webview/tableTree.ts), marked in the hidden cells only: the others are marked next.
+        markWords(block, before, `${SKIPPED}, ${MERGED}`, HIDDEN);
+      }
+      markWords(block, before, `${SKIPPED}, ${HIDDEN}`);
     }
   }
 }
@@ -53,13 +61,13 @@ function addOldDiagram(block: HTMLElement, before: HTMLElement): void {
   block.after(details);
 }
 
-function textNodes(root: Node): Text[] {
+function textNodes(root: Node, skipped: string): Text[] {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const nodes: Text[] = [];
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     const text = node as Text;
     // The spaces between the elements are not part of the text, and an <ins> could not be put there (e.g. in a <tr>).
-    if (text.data.trim() !== '' && !text.parentElement?.closest(SKIPPED)) {
+    if (text.data.trim() !== '' && !text.parentElement?.closest(skipped)) {
       nodes.push(text);
     }
   }
@@ -89,11 +97,14 @@ function wordsOf(nodes: Text[]): Word[] {
 /** An `<ins>` around the text `[at, end)` of a node, or a `<del>` with `text` at `at`. */
 type Edit = { at: number; end: number; text?: undefined } | { at: number; end?: undefined; text: string };
 
-/** Marks the words added to a block with `<ins>`, and puts those removed from it back in `<del>`. */
-function markWords(after: HTMLElement, before: HTMLElement): void {
-  const afterNodes = textNodes(after);
+/**
+ * Marks the words added to a block with `<ins>`, and puts those removed from it back in `<del>`, comparing the texts
+ * outside `skipped`. With `only`, only the texts in it are marked.
+ */
+function markWords(after: HTMLElement, before: HTMLElement, skipped: string, only?: string): void {
+  const afterNodes = textNodes(after, skipped);
   const afterWords = wordsOf(afterNodes);
-  const beforeWords = wordsOf(textNodes(before));
+  const beforeWords = wordsOf(textNodes(before, skipped));
   if (afterWords.length + beforeWords.length > MAX_WORDS) {
     return;
   }
@@ -149,6 +160,9 @@ function markWords(after: HTMLElement, before: HTMLElement): void {
   }
   for (const [index, list] of edits) {
     const node = afterNodes[index];
+    if (only && !node.parentElement?.closest(only)) {
+      continue;
+    }
     // A deletion goes before an insertion at the same place: the old words, then the new ones.
     list.sort((x, y) => x.at - y.at || (x.text === undefined ? 1 : 0) - (y.text === undefined ? 1 : 0));
     const fragment = document.createDocumentFragment();
