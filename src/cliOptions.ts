@@ -31,6 +31,7 @@ Options:
                                options that cannot be applied).
       --index                  Also write index.html, a list of the exported documents, in --out-dir.
       --index-title <title>    Title of index.html. Default: "Design Docs" in --lang.
+      --index-design-docs      List only the design docs (type: design_doc in their front matter) in index.html.
   -h, --help                   Show this help.
   -v, --version                Show the version.
 
@@ -55,6 +56,8 @@ export interface ExportOptions {
   /** Write a list of the documents (`indexPath`). */
   index: boolean;
   indexTitle?: string;
+  /** List only the design documents (`type: design_doc`). */
+  indexDesignDocs: boolean;
 }
 
 export type Command = { command: 'help' } | { command: 'version' } | ({ command: 'export' } & ExportOptions);
@@ -81,6 +84,7 @@ export function parseCommandLine(args: string[], cwd: string): Command {
         strict: { type: 'boolean' },
         index: { type: 'boolean' },
         'index-title': { type: 'string' },
+        'index-design-docs': { type: 'boolean' },
         help: { type: 'boolean', short: 'h' },
         version: { type: 'boolean', short: 'v' },
       },
@@ -120,6 +124,9 @@ export function parseCommandLine(args: string[], cwd: string): Command {
   if (values['index-title'] !== undefined && !values.index) {
     throw new UsageError('--index-title requires --index.');
   }
+  if (values['index-design-docs'] && !values.index) {
+    throw new UsageError('--index-design-docs requires --index.');
+  }
   return {
     command: 'export',
     inputs: inputs.map((input) => resolve(cwd, input)),
@@ -140,6 +147,7 @@ export function parseCommandLine(args: string[], cwd: string): Command {
     strict: values.strict ?? false,
     index: values.index ?? false,
     indexTitle: values['index-title'],
+    indexDesignDocs: values['index-design-docs'] ?? false,
   };
 }
 

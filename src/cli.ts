@@ -133,9 +133,9 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
         mkdirSync(dirname(target), { recursive: true });
         writeFileSync(target, page);
         console.log(`${display(document)} -> ${display(target)}`);
-        if (index !== undefined) {
+        if (index !== undefined && (info.designDoc || !options.indexDesignDocs)) {
           const folder = relative(dirname(index), dirname(target)).split(sep).join('/');
-          indexEntries.push({ ...info, href: linkFrom(index, target), folder, file });
+          indexEntries.push({ title: info.title, meta: info.meta, href: linkFrom(index, target), folder, file });
         }
       } catch (error) {
         report('error', document, error instanceof Error ? error.message : String(error));
@@ -150,8 +150,10 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
   if (index !== undefined && indexEntries.length > 0) {
     const title = options.indexTitle || t('Design Docs');
     mkdirSync(dirname(index), { recursive: true });
-    writeFileSync(index, exportPage({ lang: options.lang, title, body: indexBody(title, indexEntries, t), styles, script: '', settings: options.settings }));
+    writeFileSync(index, exportPage({ lang: options.lang, title, body: indexBody(title, indexEntries, t), styles, script, settings: options.settings }));
     console.log(`-> ${display(index)}`);
+  } else if (index !== undefined && options.indexDesignDocs) {
+    console.error(`No design doc (type: design_doc) was exported: ${display(index)} is not written.`);
   }
   return ok;
 }

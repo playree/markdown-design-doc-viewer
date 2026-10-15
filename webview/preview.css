@@ -335,6 +335,55 @@ body.seqnotes-sticky-table-header thead th {
 }
 .seqnotes-doc-header .seqnotes-doc-more > summary:hover { color: var(--vscode-foreground, inherit); }
 
+/* A list of documents (`indexBody` in src/exportIndex.ts), with a search box and sortable columns (webview/indexList.ts) */
+.seqnotes-index table { width: 100%; }
+.seqnotes-index th { text-align: left; }
+.seqnotes-index-file { color: var(--seqnotes-muted); font-family: var(--vscode-editor-font-family); font-size: 0.9em; }
+.seqnotes-index-status span {
+  padding: 0 0.6em;
+  border: 1px solid var(--seqnotes-border);
+  border-radius: 1em;
+  white-space: nowrap;
+}
+.seqnotes-index-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 0 1em; }
+.seqnotes-index-filter input {
+  flex: 0 1 28em;
+  min-width: 0;
+  padding: 4px 8px;
+  font: inherit;
+  color: var(--vscode-input-foreground, inherit);
+  background: var(--vscode-input-background, transparent);
+  border: 1px solid var(--vscode-input-border, var(--seqnotes-border));
+  border-radius: 2px;
+}
+.seqnotes-index-filter input:focus { outline: 1px solid var(--vscode-focusBorder, #0078d4); outline-offset: -1px; }
+.seqnotes-index-count, .seqnotes-index-empty { color: var(--seqnotes-muted); }
+/* The header of a column is a button that sorts by it, with an arrow for the order */
+.seqnotes-index th:has(> .seqnotes-index-sort) { padding: 0; }
+.seqnotes-index-sort {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  width: 100%;
+  padding: 4px 10px;
+  font: inherit;
+  font-weight: inherit;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.seqnotes-index-sort:focus-visible { outline: 1px solid var(--vscode-focusBorder, #0078d4); outline-offset: -1px; }
+.seqnotes-index-sort::after { content: "↕"; color: var(--seqnotes-muted); opacity: 0; }
+.seqnotes-index-sort:hover::after { opacity: 1; }
+.seqnotes-index th[aria-sort="ascending"] .seqnotes-index-sort::after { content: "↑"; opacity: 1; }
+.seqnotes-index th[aria-sort="descending"] .seqnotes-index-sort::after { content: "↓"; opacity: 1; }
+@media print {
+  .seqnotes-index-filter { display: none; }
+  .seqnotes-index-sort::after { display: none; }
+}
+
 img { max-width: 100%; }
 hr { border: 0; border-top: 1px solid var(--seqnotes-border); }
 

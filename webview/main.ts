@@ -5,6 +5,7 @@ import type { DiagramMeta } from '../src/render';
 import { normalizeLabel } from '../src/sequence';
 import { markChanges, setupDiffBar } from './diff';
 import { setupFootnotePopup } from './footnotePopup';
+import { setUpIndexList } from './indexList';
 import { activeFor, isSideBySide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, type Active } from './linking';
 import { foldedRows, isFoldedAway, plainTables, restoreFolded, restorePlain, setupTableTree } from './tableTree';
 
@@ -420,6 +421,11 @@ async function update(html: string, diff: DiffView | undefined): Promise<void> {
   }
   restoreFolded(root, folded);
   restorePlain(root, plain);
+  // A list of documents: its search and order are kept with the state, also when the list is shown again.
+  const index = root.querySelector<HTMLElement>('.seqnotes-index');
+  if (index) {
+    setUpIndexList(index, vscode.getState()?.indexList, (indexList) => vscode.setState({ ...vscode.getState()!, indexList }));
+  }
   root.querySelectorAll('.seqnotes-pair').forEach((pair) => {
     wrapSections(pair);
     if (!pair.classList.contains('seqnotes-pair-stacked')) {

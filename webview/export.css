@@ -23,17 +23,6 @@ body.seqnotes-export.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) {
   column-gap: 24px;
 }
 
-/* The list of the documents (`md-design-doc export --index`) */
-.seqnotes-index table { width: 100%; }
-.seqnotes-index th { text-align: left; }
-.seqnotes-index-file { color: var(--seqnotes-muted); font-family: var(--vscode-editor-font-family); font-size: 0.9em; }
-.seqnotes-index-status span {
-  padding: 0 0.6em;
-  border: 1px solid var(--seqnotes-border);
-  border-radius: 1em;
-  white-space: nowrap;
-}
-
 @media print {
   body.seqnotes-export { max-width: none; padding: 0; }
 

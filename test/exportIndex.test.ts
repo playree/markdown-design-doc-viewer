@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { documentInfo, indexBody, type IndexEntry } from '../src/exportIndex';
+import { documentInfo, groupByFolder, indexBody, mayHaveFrontMatter, type IndexEntry } from '../src/exportIndex';
 import { formatMessage, type Translate } from '../src/l10n';
 import { createMarkdown } from '../src/render';
 
@@ -10,16 +10,52 @@ const doc = (...lines: string[]): string => lines.join('\n');
 describe('documentInfo', () => {
   it('takes the title and the main entries of the front matter', () => {
     const source = doc('---', 'type: design_doc', 'title: Login', 'version: "1.2"', 'status: draft', 'updated:', 'owner: me', '---', '', '# Heading');
-    expect(documentInfo(md, source, 'login.md')).toEqual({ title: 'Login', meta: { version: '1.2', status: 'draft' } });
+    expect(documentInfo(md, source, 'login.md')).toEqual({ title: 'Login', meta: { version: '1.2', status: 'draft' }, designDoc: true });
   });
 
   it('hides the entries without the front matter', () => {
-    expect(documentInfo(md, doc('---', 'title: Login', 'status: draft', '---'), 'login.md', false)).toEqual({ title: 'Login', meta: {} });
+    expect(documentInfo(md, doc('---', 'title: Login', 'status: draft', '---'), 'login.md', false)).toEqual({ title: 'Login', meta: {}, designDoc: false });
+  });
+
+  it('tells a design document by its type, also without the front matter', () => {
+    expect(documentInfo(md, doc('---', 'type: "design_doc"', '---'), 'a.md').designDoc).toBe(true);
+    expect(documentInfo(md, doc('---', 'type: design_doc', 'status: draft', '---'), 'a.md', false)).toEqual({ title: 'a.md', meta: {}, designDoc: true });
+    expect(documentInfo(md, doc('---', 'type: api', '---'), 'a.md').designDoc).toBe(false);
+    expect(documentInfo(md, doc('# A', '', 'type: design_doc'), 'a.md').designDoc).toBe(false);
   });
 
   it('falls back to the first h1, then the file name', () => {
-    expect(documentInfo(md, '# Main', 'doc.md')).toEqual({ title: 'Main', meta: {} });
-    expect(documentInfo(md, 'text', 'doc.md')).toEqual({ title: 'doc.md', meta: {} });
+    expect(documentInfo(md, '# Main', 'doc.md')).toEqual({ title: 'Main', meta: {}, designDoc: false });
+    expect(documentInfo(md, 'text', 'doc.md')).toEqual({ title: 'doc.md', meta: {}, designDoc: false });
+  });
+});
+
+describe('mayHaveFrontMatter', () => {
+  it('tells the documents that start with ---', () => {
+    expect(mayHaveFrontMatter('---\ntype: design_doc\n---')).toBe(true);
+    expect(mayHaveFrontMatter('\uFEFF---\r\ntitle: A')).toBe(true);
+    expect(mayHaveFrontMatter('# A\n---\n')).toBe(false);
+    expect(mayHaveFrontMatter('----\n')).toBe(false);
+  });
+});
+
+describe('groupByFolder', () => {
+  it('puts the top folder first, each folder before its subfolders, and the files by name', () => {
+    const entries = [
+      { folder: 'b', file: 'x.md' },
+      { folder: '', file: 'z.md' },
+      { folder: 'a-b', file: 'w.md' },
+      { folder: 'a/c', file: 'y.md' },
+      { folder: 'a', file: 'v.md' },
+      { folder: '', file: 'a.md' },
+    ];
+    expect(groupByFolder(entries).map(({ folder, entries: files }) => [folder, files.map((entry) => entry.file)])).toEqual([
+      ['', ['a.md', 'z.md']],
+      ['a', ['v.md']],
+      ['a/c', ['y.md']],
+      ['a-b', ['w.md']],
+      ['b', ['x.md']],
+    ]);
   });
 });
 
@@ -57,5 +93,17 @@ describe('indexBody', () => {
     expect(html).toContain('>&lt;b&gt;</a>');
     expect(html).toContain('<span>&quot;1&quot;</span>');
     expect(html).toContain('<th>タイトル</th><th>ファイル</th><th>版数</th>');
+  });
+
+  it('gives the texts of the search box to the script', () => {
+    const t: Translate = (message) => ({ '{0} of {1} documents': '{1} 件中 {0} 件' })[message] ?? message;
+    const html = indexBody('Docs', [entry('', 'a.md')], t);
+    expect(html).toMatch(/^<div class="seqnotes-index" data-seqnotes-filter-label="Filter" [^>]*data-seqnotes-count="\{1\} 件中 \{0\} 件"/);
+  });
+
+  it('shows a text in place of the tables without documents', () => {
+    const html = indexBody('Docs', [], formatMessage, 'No <docs>.');
+    expect(html).toContain('<p class="seqnotes-index-empty">No &lt;docs&gt;.</p>');
+    expect(html).not.toContain('<table>');
   });
 });
