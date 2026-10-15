@@ -269,18 +269,18 @@ The fields of the JSON body. "Required" of a nested field applies when its paren
 <!-- table: level=Level merge=Field,"Physical name" -->
 | No | Level | Field | Physical name | Type | Required | Description |
 |---|---|---|---|---|---|---|
-| 1 | 1 | Cart ID | `cartId` | string | Yes | The cart to check out. |
+| 1 | 1 | Cart ID | `cartId` | string | Yes | The cart to check out. It must belong to the signed-in customer and must not have been checked out already. |
 | 2 | 1 | Shipping | `shipping` | object | Yes | |
-| 3 | 2 | Address ID | `addressId` | string | Yes | One of the customer's addresses. |
-| 4 | 2 | Delivery date | `deliveryDate` | string | | `YYYY-MM-DD`. The earliest date when omitted. |
-| 5 | 2 | Time slot | `timeSlot` | string | | `am`, `pm` or `evening`. |
+| 3 | 2 | Address ID | `addressId` | string | Yes | One of the customer's saved addresses. An address outside the delivery area is rejected, so the order screen grays out the addresses that cannot be delivered to. |
+| 4 | 2 | Delivery date | `deliveryDate` | string | | `YYYY-MM-DD`. The earliest date when omitted. A fully booked date or a date more than 14 days ahead is rejected. |
+| 5 | 2 | Time slot | `timeSlot` | string | | `am`, `pm` or `evening`. Any time of the day when omitted. `evening` is not available on Sundays. |
 | 6 | 1 | Payment | `payment` | object | Yes | |
-| 7 | 2 | Payment method ID | `methodId` | string | Yes | A saved card or wallet. |
-| 8 | 2 | Coupon code | `couponCode` | string | | |
-| 9 | 1 | Items | `items` | array | Yes | 1 to 100 items. |
+| 7 | 2 | Payment method ID | `methodId` | string | Yes | A saved card or wallet. A card that has expired or failed the last authorization cannot be used until the customer updates it. |
+| 8 | 2 | Coupon code | `couponCode` | string | | Only one coupon per order. An expired coupon is ignored, and the response tells why. |
+| 9 | 1 | Items | `items` | array | Yes | 1 to 100 items. Each SKU appears only once; send the total in `quantity`. |
 | 10 | 2 | SKU | `sku` | string | Yes | |
-| 11 | 2 | Quantity | `quantity` | integer | Yes | 1 to 99. |
-| 12 | 2 | Gift wrap | `giftWrap` | boolean | | `false` when omitted. |
+| 11 | 2 | Quantity | `quantity` | integer | Yes | 1 to 99. Also limited by the stock and by the per-customer limit of the product, whichever is smaller. |
+| 12 | 2 | Gift wrap | `giftWrap` | boolean | | `false` when omitted. Wrapping is charged per item and is not available for some products such as furniture. |
 
 ## Refund (draft)
 
