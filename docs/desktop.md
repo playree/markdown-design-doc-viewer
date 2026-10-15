@@ -47,7 +47,7 @@ When the app is running, a file opened from the file manager or the command line
 
 When the file is saved, the preview is updated, keeping its scroll position. **File** > **Reload** (Ctrl+R, ⌘R) reads it again.
 
-**View** > **Sidebar** (Ctrl+B, ⌘B) shows or hides a sidebar that lists the Markdown files of a folder and of its subfolders as a tree.
+**View** > **Sidebar** (Ctrl+B, ⌘B) shows or hides a sidebar. Its **Files** tab lists the Markdown files of a folder and of its subfolders as a tree, and its **History** tab the Git history of the document.
 
 - Whether it is shown, and its width (drag its right edge), are kept for the next launch.
 - The folder it lists:
@@ -60,6 +60,15 @@ When the file is saved, the preview is updated, keeping its scroll position. **F
   - `node_modules`
   - folders without Markdown files
 - While the sidebar is shown, the diagrams and their step descriptions are shown side by side according to the width of the window less that of the sidebar.
+
+The **History** tab compares the document with its Git history, like the extension's **Compare Design Doc with Git Revision**:
+
+- It lists the commits that changed the document (following its renames), the latest first, with their subject, short hash, author and date.
+- Choosing a commit shows the differences of the document from it in the preview: the blocks added, changed and deleted are marked with green, blue and red bands, the words changed are highlighted, and the old version of a changed diagram is shown folded below it. The bar at the bottom goes from one change to the next.
+- Choosing the same commit again, or closing the bar, shows the document alone again. So does opening another document.
+- The differences follow the changes of the file when it is saved.
+- The history is read when the tab is shown, when another document is opened, with **File** > **Reload** and with the reload button of the tab. Git does not run until the tab is shown.
+- It needs Git on the PATH. On macOS, the Git of Homebrew (`/opt/homebrew/bin/git` or `/usr/local/bin/git`) is used first; else that of the Command Line Tools, which the system offers to install if they are missing. The tab tells when Git is not found or the document is not in a Git repository.
 
 Links:
 
@@ -74,7 +83,7 @@ Images are looked up from the folder of the document, also with a leading `/` (t
 
 **View** > **Theme** shows the preview in the colors of the system (light or dark, following its changes), or always light or dark. The menus and texts are in Japanese when the language of the system is Japanese, else in English.
 
-Compared with the extension, the app does not follow an editor (no scroll sync or double-click to jump to a line), cannot compare a document with its Git history yet, and uses the default settings of the extension. To export many documents at once, use the [command line](cli.md).
+Compared with the extension, the app does not follow an editor (no scroll sync or double-click to jump to a line), and uses the default settings of the extension. To export many documents at once, use the [command line](cli.md).
 
 ## Development
 

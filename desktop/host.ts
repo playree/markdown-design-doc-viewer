@@ -1,8 +1,8 @@
 /**
  * The desktop app's side of the preview, in place of the extension host (Preview in src/previewPanel.ts): opens a
  * Markdown file through the Rust commands (src-tauri/src/lib.rs), renders it with `renderDocument` and sends it to
- * the webview, and follows its changes. Also the sidebar of the files of its folder (sidebar.ts), the menu, the
- * dropped files, the theme and the HTML export.
+ * the webview, and follows its changes. Also the sidebar of the files of its folder and of its git history, with
+ * which it is compared (`renderDiff`) (sidebar.ts), the menu, the dropped files, the theme and the HTML export.
  *
  * Each window of the app runs its own copy: the app opens a window for each file given to it while it runs.
  */
@@ -11,9 +11,11 @@ import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu } from '@tau
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { message, open } from '@tauri-apps/plugin-dialog';
+import { renderDiff } from '../src/diffRender';
 import { documentTitle, exportFileName, exportPage, imageType, renderForExport, stripSourceMap } from '../src/exportPage';
-import type { FromWebview, PreviewTheme, ToWebview } from '../src/protocol';
-import { createMarkdown, renderDocument } from '../src/render';
+import { formatRevisionDate, parseGitLog, type Revision } from '../src/gitLog';
+import type { DiffView, FromWebview, PreviewTheme, ToWebview } from '../src/protocol';
+import { createMarkdown, renderDocument, type RenderEnv } from '../src/render';
 import type { FolderTree } from './folderTree';
 import { lang, t } from './l10n';
 import { isInside, isMarkdownPath, linkTarget, relativeLink, resourcePath } from './paths';
@@ -65,6 +67,8 @@ let current: OpenedDocument | undefined;
 let pendingFragment: { path: string; fragment: string } | undefined;
 /** Renders one at a time, so that the updates reach the webview in order. */
 let rendering: Promise<void> = Promise.resolve();
+/** The commit of the document it is compared with (chosen in the History tab), whose differences are shown. */
+let comparison: { path: string; hash: string; label: string; source: string } | undefined;
 
 export function onWebviewMessage(message: FromWebview): void {
   switch (message.type) {
@@ -85,6 +89,9 @@ export function onWebviewMessage(message: FromWebview): void {
       }
       break;
     }
+    case 'closeDiff':
+      stopComparing();
+      break;
     // `revealLine` is not sent without an editor (syncEditor).
   }
 }
@@ -106,7 +113,7 @@ async function renderNow(): Promise<void> {
   const fragment = pendingFragment?.path === doc.path ? pendingFragment.fragment : undefined;
   pendingFragment = undefined;
   const images: string[] = [];
-  const html = renderDocument(md, doc.text, {
+  const env: RenderEnv = {
     t,
     ...RENDER_SETTINGS,
     resolveResource: (src) => {
@@ -117,12 +124,23 @@ async function renderNow(): Promise<void> {
       images.push(path);
       return convertFileSrc(path);
     },
-  });
+  };
+  // Also the changes of the file made meanwhile.
+  const compared = comparison?.path === doc.path ? comparison : undefined;
+  let html: string;
+  let diff: DiffView | undefined;
+  if (compared) {
+    const result = renderDiff(md, compared.source, doc.text, env);
+    html = result.html;
+    diff = { label: compared.label, old: result.old, stats: result.stats };
+  } else {
+    html = renderDocument(md, doc.text, env);
+  }
   if (images.length > 0) {
     // The asset protocol serves only the files allowed by the app.
     await invoke('allow_images', { paths: images }).catch((error: unknown) => console.error(error));
   }
-  post({ type: 'update', uri: doc.path, html, ...SETTINGS, ...(fragment ? { fragment } : {}) });
+  post({ type: 'update', uri: doc.path, html, ...SETTINGS, ...(fragment ? { fragment } : {}), ...(diff ? { diff } : {}) });
 }
 
 /** The reason of an error: an English text of the Rust commands, translated, or one of the system. */
@@ -166,6 +184,11 @@ async function openNow(path: string, fragment: string | undefined, keepFolder: b
     shownSeq = seq;
     current = doc;
   }
+  // Another document: shown alone, with its own history.
+  if (comparison && comparison.path !== doc.path) {
+    comparison = undefined;
+    sidebar.setComparedRevision(undefined);
+  }
   pendingFragment = fragment ? { path: doc.path, fragment } : undefined;
   try {
     sessionStorage.setItem(DOCUMENT_KEY, doc.path);
@@ -180,6 +203,7 @@ async function openNow(path: string, fragment: string | undefined, keepFolder: b
   }
   sidebar.setCurrent(doc.path);
   render();
+  void loadHistory();
 }
 
 /** Reads the document again: when it changed (`report` false: a file being saved may be missing for a moment), or from the menu. */
@@ -246,6 +270,9 @@ const sidebar = createSidebar({
   lang,
   onOpenFile: (path) => void openDocument(path, undefined, true),
   onChooseFolder: () => void chooseFolder(),
+  onTabChange: () => void loadHistory(),
+  onSelectRevision: (revision) => void compareWith(revision),
+  onReloadHistory: () => void loadHistory(true),
 });
 sidebar.setShown(sidebarShown);
 
@@ -263,6 +290,7 @@ function setSidebarShown(shown: boolean): void {
   if (shown) {
     // Listed again: its changes are not followed while it is hidden.
     listFolder(true);
+    void loadHistory();
   } else {
     // After the listing under way, which would watch the folder again.
     listing = listing
@@ -368,6 +396,106 @@ async function openLink(href: string): Promise<void> {
   } catch (error) {
     await showError(t('Could not open {0}.', href), error);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Git history: the commits of the document in the sidebar's History tab, and its differences from the one chosen,
+// as the extension's "Compare Design Doc with Git Revision" (src/history.ts).
+
+/** The document whose history the sidebar shows or is reading, so that it is not read again for nothing. */
+let historyOf: string | undefined;
+/** Numbers the reads of the history, so that an older answer does not replace a newer one. */
+let historySeq = 0;
+/** Numbers the commits chosen, so that the last one is compared with. */
+let compareSeq = 0;
+
+/** What an error of `git_log` or `git_show` (`GitError` in lib.rs) says for the document `name`. */
+function gitErrorText(error: unknown, name: string): string {
+  const { kind, message: text } = (typeof error === 'object' && error !== null ? error : {}) as { kind?: string; message?: string };
+  switch (kind) {
+    case 'notFound':
+      return t('Git was not found. Install Git.');
+    case 'notRepository':
+      return t('{0} is not in a Git repository.', name);
+    default:
+      return t('Git failed: {0}', text !== undefined ? t(text) : reason(error));
+  }
+}
+
+/**
+ * Reads the history of the document into the sidebar, while its History tab is shown: again when `force`, else
+ * unless it shows that of the document. git runs only then, never on a launch: on macOS without the Command Line
+ * Tools, it asks to install them.
+ */
+async function loadHistory(force = false): Promise<void> {
+  if (!sidebarShown || sidebar.tab() !== 'history') {
+    return;
+  }
+  const doc = current;
+  if (!doc) {
+    historyOf = undefined;
+    sidebar.setHistory(undefined, t('Open a Markdown file to compare it with its Git history.'));
+    return;
+  }
+  if (!force && historyOf === doc.path) {
+    return;
+  }
+  historyOf = doc.path;
+  const seq = ++historySeq;
+  sidebar.setHistory(doc.name, t('Reading the Git history...'));
+  let history: Revision[] | string;
+  try {
+    // Of the document the Rust side shows for the window: the one opened last, as `doc`.
+    const revisions = parseGitLog(await invoke<string>('git_log'));
+    history = revisions.length > 0 ? revisions : t('{0} has no Git history yet.', doc.name);
+  } catch (error) {
+    history = gitErrorText(error, doc.name);
+    if (seq === historySeq) {
+      // Read again when the tab is shown again (e.g. once Git is installed).
+      historyOf = undefined;
+    }
+  }
+  if (seq === historySeq) {
+    sidebar.setHistory(doc.name, history);
+  }
+}
+
+/** Shows the differences of the document from a commit of its history, or the document alone if it is compared with it already. */
+async function compareWith(revision: Revision): Promise<void> {
+  const doc = current;
+  if (!doc) {
+    return;
+  }
+  const seq = ++compareSeq;
+  if (comparison?.path === doc.path && comparison.hash === revision.hash) {
+    stopComparing();
+    return;
+  }
+  let source: string;
+  try {
+    source = await invoke<string>('git_show', { hash: revision.hash, path: revision.path });
+  } catch (error) {
+    await message(gitErrorText(error, doc.name), { title: APP_NAME, kind: 'error' });
+    return;
+  }
+  // Unless another commit or document was chosen meanwhile.
+  if (seq !== compareSeq || current?.path !== doc.path) {
+    return;
+  }
+  const date = formatRevisionDate(revision.date, lang);
+  comparison = { path: doc.path, hash: revision.hash, label: t('Compared with {0}: {1} ({2})', revision.shortHash, revision.subject, date), source };
+  sidebar.setComparedRevision(revision.hash);
+  render();
+}
+
+/** Shows the document alone again: the commit chosen again, or the bar of the differences closed. */
+function stopComparing(): void {
+  if (!comparison) {
+    return;
+  }
+  comparison = undefined;
+  sidebar.setComparedRevision(undefined);
+  render();
 }
 
 // ---------------------------------------------------------------------------
@@ -578,7 +706,14 @@ async function setUpMenu(): Promise<void> {
     items: [
       await MenuItem.new({ text: label('&Open...'), accelerator: 'CmdOrCtrl+O', action: () => void chooseDocument() }),
       await MenuItem.new({ text: label('Open &Folder...'), action: () => void chooseFolder() }),
-      await MenuItem.new({ text: label('&Reload'), accelerator: 'CmdOrCtrl+R', action: () => void reload(true) }),
+      await MenuItem.new({
+        text: label('&Reload'),
+        accelerator: 'CmdOrCtrl+R',
+        action: () => {
+          void reload(true);
+          void loadHistory(true);
+        },
+      }),
       await separator(),
       exportItem,
       await separator(),

@@ -1,7 +1,7 @@
 /** The command comparing a document with one of its revisions in git, shown as differences in its preview. */
 import * as vscode from 'vscode';
 import { GitError, gitLog, gitShow } from './gitCli';
-import type { Revision } from './gitLog';
+import { formatRevisionDate, type Revision } from './gitLog';
 import type { PreviewManager } from './previewPanel';
 
 /** The git of VS Code's setting `git.path` (a path, or paths tried in turn), else the one on the PATH. */
@@ -9,11 +9,6 @@ function gitPath(): string {
   const value = vscode.workspace.getConfiguration('git').get<string | string[] | null>('path');
   const path = Array.isArray(value) ? value[0] : value;
   return path || 'git';
-}
-
-function formatDate(date: string): string {
-  const d = new Date(date);
-  return Number.isNaN(d.getTime()) ? date : d.toLocaleString(vscode.env.language, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 function showGitError(error: unknown, uri: vscode.Uri): void {
@@ -53,7 +48,7 @@ export async function compareWithRevision(manager: PreviewManager, uri: vscode.U
   const picked = await vscode.window.showQuickPick(
     revisions.map((revision) => ({
       label: revision.subject,
-      description: `${revision.shortHash} · ${revision.author} · ${formatDate(revision.date)}`,
+      description: `${revision.shortHash} · ${revision.author} · ${formatRevisionDate(revision.date, vscode.env.language)}`,
       revision,
     })),
     { placeHolder: vscode.l10n.t('Select a commit to compare the document with'), matchOnDescription: true },
@@ -79,7 +74,7 @@ export async function compareWithRevision(manager: PreviewManager, uri: vscode.U
     preview.panel.reveal(undefined, true);
   }
   await preview.compare({
-    label: vscode.l10n.t('Compared with {0}: {1} ({2})', revision.shortHash, revision.subject, formatDate(revision.date)),
+    label: vscode.l10n.t('Compared with {0}: {1} ({2})', revision.shortHash, revision.subject, formatRevisionDate(revision.date, vscode.env.language)),
     source,
   });
 }

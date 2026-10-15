@@ -28,7 +28,7 @@ const END = '\0';
 /**
  * The arguments of `git log` listing the commits that changed `fileName` (in the working folder), following its
  * renames, each with the file's path in it (`--name-only`, ended by a NUL with `-z`: never quoted). Not those that
- * deleted it, where it has no content.
+ * deleted it, where it has no content. The desktop app runs the same (`git_log` in desktop/src-tauri/src/lib.rs).
  */
 export function gitLogArgs(fileName: string): string[] {
   return [
@@ -47,6 +47,12 @@ export function gitLogArgs(fileName: string): string[] {
 /** The arguments of `git show` writing the content of the file at `path` in the commit `hash`. */
 export function gitShowArgs(hash: string, path: string): string[] {
   return ['show', `${hash}:${path}`];
+}
+
+/** The date of a revision (ISO 8601) for the user, in the language `locale`. */
+export function formatRevisionDate(date: string, locale: string): string {
+  const d = new Date(date);
+  return Number.isNaN(d.getTime()) ? date : d.toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 /** Parses the output of `git log` with `gitLogArgs`. */

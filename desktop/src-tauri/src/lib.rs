@@ -1,6 +1,6 @@
 //! The Rust side of the desktop app: reads the Markdown files, follows their changes, lists the Markdown files of a
-//! folder for the sidebar, lets the webview load their images, opens the links, and saves the HTML exports. The documents are rendered in the webview
-//! (desktop/host.ts).
+//! folder for the sidebar, lets the webview load their images, opens the links, saves the HTML exports, and reads the
+//! git history of the documents. The documents are rendered in the webview (desktop/host.ts).
 //!
 //! One process shows the documents, each in its window: the files given to another launch (Windows and Linux) or
 //! by the Finder (macOS, `RunEvent::Opened`) open in a new window (`open_paths`).
@@ -9,8 +9,9 @@
 //! are English texts, which the webview translates.
 
 use std::collections::{HashMap, HashSet};
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
@@ -84,6 +85,19 @@ struct AllowedImages(Mutex<HashSet<PathBuf>>);
 /// file `write_export` writes and `open_export` opens, so that the webview cannot write elsewhere.
 #[derive(Default)]
 struct ExportTargets(Mutex<HashMap<String, PathBuf>>);
+
+/// The git history of the document of each window, by window label, as `git_log` last listed it: `git_show` reads
+/// only its commits and paths, so that the webview cannot read the other files of the repository.
+#[derive(Default)]
+struct Histories(Mutex<HashMap<String, History>>);
+
+struct History {
+    /// The document whose history it is.
+    file: String,
+    hashes: HashSet<String>,
+    /// The paths of the document in the commits, from the root of the repository.
+    paths: HashSet<String>,
+}
 
 /// A document read by `open_document` or `read_document`.
 #[derive(Serialize)]
@@ -597,13 +611,163 @@ async fn open_export(app: AppHandle, window: Window, targets: State<'_, ExportTa
 /// embedding them, as the extension does with the images outside the folders its preview shows.
 #[tauri::command]
 async fn read_image(window: Window, windows: State<'_, Windows>, path: String) -> Result<Response, String> {
-    let document = windows.0.lock().unwrap_or_else(PoisonError::into_inner).shown.get(window.label()).cloned();
+    let document = shown_document(&window, &windows);
     let folder = document.as_deref().map(Path::new).and_then(Path::parent).ok_or("The window shows no document.")?;
     let path = dunce::canonicalize(&path).map_err(|e| e.to_string())?;
     if !path.is_file() || !has_extension(&path, IMAGE_EXTENSIONS) || !path.starts_with(folder) {
         return Err("Not an image in the folder of the document.".to_string());
     }
     std::fs::read(&path).map(Response::new).map_err(|e| e.to_string())
+}
+
+/// The file the window shows.
+fn shown_document(window: &Window, windows: &Windows) -> Option<String> {
+    windows.0.lock().unwrap_or_else(PoisonError::into_inner).shown.get(window.label()).cloned()
+}
+
+// ---------------------------------------------------------------------------
+// Git history of the document of a window, which the webview compares it with (the sidebar's History tab).
+
+/// The arguments of `git log` listing the commits of a file (given after them), the same as `gitLogArgs` in
+/// src/gitLog.ts (whose test checks them), which parses the output (`parseGitLog`).
+const GIT_LOG_ARGS: &[&str] = &[
+    "log",
+    "--follow",
+    "-z",
+    "--diff-filter=d",
+    "-n200",
+    "--format=%x1e%H%x1f%h%x1f%an%x1f%aI%x1f%s",
+    "--name-only",
+    "--",
+];
+
+/// Why git could not give the history (`GitErrorKind` in src/gitCli.ts).
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+enum GitErrorKind {
+    NotFound,
+    NotRepository,
+    Failed,
+}
+
+/// The error of `git_log` and `git_show`: its message is an English text of git or of the app.
+#[derive(Serialize)]
+struct GitError {
+    kind: GitErrorKind,
+    message: String,
+}
+
+impl GitError {
+    fn failed(message: impl Into<String>) -> Self {
+        GitError { kind: GitErrorKind::Failed, message: message.into() }
+    }
+}
+
+/// The git to run: on the PATH, or on macOS that of Homebrew first. An app started from the Finder has only the
+/// folders of the system on its PATH, whose git (/usr/bin/git) asks to install the Command Line Tools when they are
+/// missing.
+#[cfg(target_os = "macos")]
+fn git_program() -> PathBuf {
+    ["/opt/homebrew/bin/git", "/usr/local/bin/git"]
+        .iter()
+        .map(PathBuf::from)
+        .find(|path| path.is_file())
+        .unwrap_or_else(|| PathBuf::from("git"))
+}
+
+#[cfg(not(target_os = "macos"))]
+fn git_program() -> PathBuf {
+    PathBuf::from("git")
+}
+
+/// Runs git in `dir`, without a shell (nor a console window on Windows), and returns what it writes.
+async fn run_git(dir: PathBuf, args: Vec<OsString>) -> Result<Vec<u8>, GitError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut command = Command::new(git_program());
+        command
+            // Not the fsmonitor of the repository, which would start a daemon (or run a hook) for a read.
+            .args(["-c", "core.fsmonitor=false"])
+            .args(&args)
+            .current_dir(&dir)
+            // The messages in English, which are told apart below.
+            .env("LC_ALL", "C");
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
+        let output = command.output().map_err(|error| GitError {
+            kind: if error.kind() == std::io::ErrorKind::NotFound { GitErrorKind::NotFound } else { GitErrorKind::Failed },
+            message: error.to_string(),
+        })?;
+        if output.status.success() {
+            return Ok(output.stdout);
+        }
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        if stderr.to_ascii_lowercase().contains("not a git repository") {
+            return Err(GitError { kind: GitErrorKind::NotRepository, message: stderr });
+        }
+        Err(GitError::failed(if stderr.is_empty() { output.status.to_string() } else { stderr }))
+    })
+    .await
+    .map_err(|error| GitError::failed(error.to_string()))?
+}
+
+/// Lists the commits of the window's document with `git log` (the output of `GIT_LOG_ARGS`, which the webview
+/// parses), and keeps them for `git_show`. Only that document: the webview gives no path.
+#[tauri::command]
+async fn git_log(window: Window, windows: State<'_, Windows>, histories: State<'_, Histories>) -> Result<String, GitError> {
+    let file = shown_document(&window, &windows).ok_or_else(|| GitError::failed("The window shows no document."))?;
+    let path = Path::new(&file);
+    let (Some(dir), Some(name)) = (path.parent(), path.file_name()) else {
+        return Err(GitError::failed("The file has no folder."));
+    };
+    let mut args: Vec<OsString> = GIT_LOG_ARGS.iter().map(OsString::from).collect();
+    args.push(name.to_owned());
+    let output = String::from_utf8_lossy(&run_git(dir.to_path_buf(), args).await?).into_owned();
+    let mut history = History { file: file.clone(), hashes: HashSet::new(), paths: HashSet::new() };
+    // `\x1e<hash>\x1f…\0`, then `\n<path>\0` (none for a merge).
+    for record in output.split('\x1e').skip(1) {
+        let mut parts = record.split('\0');
+        if let Some(hash) = parts.next().and_then(|header| header.split('\x1f').next()) {
+            history.hashes.insert(hash.to_string());
+        }
+        history.paths.extend(parts.map(|part| part.trim_start_matches('\n')).filter(|part| !part.is_empty()).map(str::to_string));
+    }
+    // Unless the window opened another document meanwhile, whose history may have been read already.
+    if shown_document(&window, &windows).as_ref() == Some(&file) {
+        histories.0.lock().unwrap_or_else(PoisonError::into_inner).insert(window.label().to_string(), history);
+    }
+    Ok(output)
+}
+
+/// The content of the window's document in a commit listed by `git_log`, at its path in that commit.
+#[tauri::command]
+async fn git_show(
+    window: Window,
+    windows: State<'_, Windows>,
+    histories: State<'_, Histories>,
+    hash: String,
+    path: String,
+) -> Result<String, GitError> {
+    let file = shown_document(&window, &windows).ok_or_else(|| GitError::failed("The window shows no document."))?;
+    let listed = histories
+        .0
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .get(window.label())
+        .is_some_and(|history| history.file == file && history.hashes.contains(&hash) && history.paths.contains(&path));
+    if !listed {
+        return Err(GitError::failed("Not a commit of the history of the document."));
+    }
+    let dir = Path::new(&file).parent().ok_or_else(|| GitError::failed("The file has no folder."))?;
+    let bytes = run_git(dir.to_path_buf(), vec!["show".into(), format!("{hash}:{path}").into()]).await?;
+    let mut text = String::from_utf8(bytes).map_err(|_| GitError::failed("The file is not UTF-8 text."))?;
+    if text.starts_with('\u{feff}') {
+        text.remove(0);
+    }
+    Ok(text)
 }
 
 /// Runs the app (src/main.rs).
@@ -629,6 +793,7 @@ pub fn run() {
         .manage(AllowedImages::default())
         .manage(Windows::default())
         .manage(ExportTargets::default())
+        .manage(Histories::default())
         .setup(|app| {
             let cwd = std::env::current_dir().unwrap_or_default();
             open_paths(app.handle(), arg_paths(std::env::args_os().skip(1), &cwd));
@@ -648,7 +813,9 @@ pub fn run() {
             choose_export_target,
             write_export,
             open_export,
-            read_image
+            read_image,
+            git_log,
+            git_show
         ])
         .on_window_event(|window, event| {
             if let WindowEvent::Destroyed = event {
@@ -656,6 +823,7 @@ pub fn run() {
                 window.state::<Watches>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
                 window.state::<FolderWatches>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
                 window.state::<ExportTargets>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
+                window.state::<Histories>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
                 let windows = window.state::<Windows>();
                 let mut state = windows.0.lock().unwrap_or_else(PoisonError::into_inner);
                 state.started.remove(label);
