@@ -70,6 +70,14 @@ The **History** tab compares the document with its Git history, like the extensi
 - The history is read when the tab is shown, when another document is opened, with **File** > **Reload** and with the reload button of the tab. Git does not run until the tab is shown.
 - It needs Git on the PATH. On macOS, the Git of Homebrew (`/opt/homebrew/bin/git` or `/usr/local/bin/git`) is used first; else that of the Command Line Tools, which the system offers to install if they are missing. The tab tells when Git is not found or the document is not in a Git repository.
 
+**View** > **Design Docs** (Ctrl+Shift+D, ⌘⇧D) shows, in place of the document, the list of the design documents (`type: design_doc` in their front matter) of the folder of the sidebar and of its subfolders, like the extension's **Show Design Docs**:
+
+- It is a table for each folder of their title, file name, `version`, `product`, `status` and `updated`. The search box filters them (by title, file name or metadata), and clicking a column header sorts them by that column.
+- Clicking a title opens the document. To come back to the list, use the menu again.
+- If no folder is listed yet, the app asks for one.
+- The files the sidebar does not list are not listed either.
+- The list is read again when files are added, deleted or renamed while the sidebar is shown, and with **File** > **Reload**. The changes of the contents of the files (such as a new `status`) are shown with **File** > **Reload**.
+
 Links:
 
 - `#heading` scrolls to the heading.
