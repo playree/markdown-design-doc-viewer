@@ -133,9 +133,11 @@ For tables of the items of a message, a file or a screen (item name, physical na
 | 4 | 3 | SKU | `sku` | string | Yes | |
 ```
 
-- `merge=A,B` shows column B under column A, in one cell. Use it for the item name and the physical name.
-- `level=L` takes the integers of column L (1 for the top) as the depth of each row, hides the column and shows the rows as a tree in the column right of it. For nested items (XML elements, JSON objects), add a level column right before the item name instead of describing the parent in the text.
-- Name the columns with the text of their header. Quote a name with spaces (`"Physical name"`).
+- `merge=A,B` shows column B under column A, in one cell. Use it for the item name and the physical name. More columns can follow (`merge=A,B,C`), `merge=` can be written more than once (`merge="Min length","Max length"`), and an empty cell adds no line.
+- `level=L` takes the integers of column L (1 for the top) as the depth of each row, hides the column and shows the rows as a tree in the column right of it. For nested items (XML elements, JSON objects), add a level column right before the item name instead of describing the parent in the text. With `merge=`, the tree is drawn in the merged cell.
+- Write the level of every row as an integer, and make a child one level deeper than its parent. A row more than one level deeper than the row above is also taken as its child, but do not skip levels.
+- Name the columns with the text of their header. Quote a name with spaces or commas (`"Physical name"`).
+- Options that cannot be applied (a column that does not exist, a level that is not an integer, a comment not followed by a table) are reported as warnings.
 
 ## Other Markdown
 
