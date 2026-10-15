@@ -17,7 +17,7 @@ describe('parseCommandLine', () => {
       diagramLook: 'neo',
       headingNumbers: true,
       frontMatter: true,
-      settings: { limitContentWidth: true, stickyTableHeader: true, splitMinWidth: 1000 },
+      settings: { limitContentWidth: true, stickyTableHeader: true, tableTreeHighlight: true, splitMinWidth: 1000 },
       chrome: undefined,
       strict: false,
       index: false,
@@ -28,7 +28,7 @@ describe('parseCommandLine', () => {
   it('reads the options', () => {
     expect(
       parseCommandLine(
-        ['export', 'a.md', '-o', 'out', '--root', 'docs', '--lang', 'ja', '--diagram-look', 'classic', '--split-min-width', '800', '--full-width', '--no-heading-numbers', '--no-front-matter', '--no-sticky-table-header', '--chrome', './chrome', '--strict', '--index', '--index-title', 'Docs'],
+        ['export', 'a.md', '-o', 'out', '--root', 'docs', '--lang', 'ja', '--diagram-look', 'classic', '--split-min-width', '800', '--full-width', '--no-heading-numbers', '--no-front-matter', '--no-sticky-table-header', '--no-table-tree-highlight', '--chrome', './chrome', '--strict', '--index', '--index-title', 'Docs'],
         cwd,
       ),
     ).toEqual({
@@ -40,7 +40,7 @@ describe('parseCommandLine', () => {
       diagramLook: 'classic',
       headingNumbers: false,
       frontMatter: false,
-      settings: { limitContentWidth: false, stickyTableHeader: false, splitMinWidth: 800 },
+      settings: { limitContentWidth: false, stickyTableHeader: false, tableTreeHighlight: false, splitMinWidth: 800 },
       chrome: join(cwd, 'chrome'),
       strict: true,
       index: true,

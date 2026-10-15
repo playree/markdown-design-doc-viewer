@@ -177,7 +177,7 @@ Tables of the items of a message, a file or a screen tend to have many columns, 
 ```
 
 - `merge=A,B` shows the cells of column B under those of column A, smaller, in one column (the header too). More columns can follow (`merge=A,B,C`), an empty cell adds no line, and `merge=` can be written more than once.
-- `level=L` takes the integers in column L as the depth of each row (the lowest is the top; full-width digits are accepted) and hides the column. The rows are shown as a tree in the column right of it (left of it when it is the last column; with `merge=`, the merged cell): indented with lines, and the rows with children emphasized. Click ▾ before a row to fold its children (they are all printed), and point to a row to highlight its parents and children. A row more than one level deeper than the row above is taken as its child.
+- `level=L` takes the integers in column L as the depth of each row (the lowest is the top; full-width digits are accepted) and hides the column. The rows are shown as a tree in the column right of it (left of it when it is the last column; with `merge=`, the merged cell): indented with lines, and the rows with children emphasized. Click ▾ before a row to fold its children (they are all printed), and point to a row to highlight its parents and children (`mdDesignDoc.tableTreeHighlight` turns this off). A row more than one level deeper than the row above is taken as its child.
 - Columns are named by the text of their header. Quote a name with spaces or commas (`"Physical name"`).
 - Options that cannot be applied (a column that does not exist, a level that is not an integer, a comment not followed by a table) are reported as warnings at the top of the preview and in the Problems panel.
 - Without the comment (and on GitHub or in other viewers), the table is shown as it is.
@@ -213,6 +213,7 @@ See [the command line's README](docs/cli.md) for its options and an example of G
 | `mdDesignDoc.splitMinWidth` | `1000` | Minimum preview width (px) for the side-by-side layout. |
 | `mdDesignDoc.limitContentWidth` | `true` | In a wide preview, keep the text in a centered column up to 1280px wide (diagrams beside their steps still use the whole width). Also switched with the button in the preview's title bar, and applied to exported HTML. |
 | `mdDesignDoc.stickyTableHeader` | `true` | Keep the header row of a long table at the top while scrolling through it (preview and exported HTML). |
+| `mdDesignDoc.tableTreeHighlight` | `true` | In a table shown as a tree (`level=` of the [table options](#tables-of-items)), highlight the parents and children of the row under the pointer (preview and exported HTML). |
 | `mdDesignDoc.syncEditor` | `true` | Sync the preview with the editor and enable double-click to jump to the source. |
 | `mdDesignDoc.toc` | `true` | Show the table of contents at the right edge of the preview. |
 | `mdDesignDoc.headingNumbers` | `true` | With `autonumber`, show the arrow's number at the start of its linked heading (preview and exported HTML). |

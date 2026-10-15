@@ -174,7 +174,9 @@ body.seqnotes-sticky-table-header thead th {
 }
 
 /* Table options (src/tables.ts): columns merged into one, and rows shown as a tree with `level=` */
-.seqnotes-cell-sub { display: block; font-size: 0.85em; font-weight: normal; color: var(--seqnotes-muted); }
+.seqnotes-cell-sub { display: block; font-size: 0.9em; font-weight: normal; color: var(--seqnotes-muted); }
+/* As large as the code in the text, not smaller again. */
+.seqnotes-cell-sub code { font-size: 1em; }
 .seqnotes-tree-table {
   --seqnotes-tree-indent: 1.25em;
   --seqnotes-tree-line: color-mix(in srgb, var(--seqnotes-muted) 55%, transparent);
@@ -244,9 +246,9 @@ body.seqnotes-sticky-table-header thead th {
 .seqnotes-tree-parent > td { background: color-mix(in srgb, var(--seqnotes-th-bg) 50%, transparent); }
 .seqnotes-tree-parent > .seqnotes-tree-cell { font-weight: 600; }
 .seqnotes-tree-hidden { display: none; }
-/* The row under the pointer, with its ancestors and descendants (also over the marks of the comparison). */
-.seqnotes-tree-table > tbody > .seqnotes-tree-related > td { background: color-mix(in srgb, var(--seqnotes-accent) 6%, transparent); }
-.seqnotes-tree-table > tbody > .seqnotes-tree-current > td { background: var(--seqnotes-accent-bg); }
+/* With mdDesignDoc.tableTreeHighlight, the row under the pointer, with its ancestors and descendants (also over the marks of the comparison). */
+.seqnotes-table-tree-highlight .seqnotes-tree-table > tbody > .seqnotes-tree-related > td { background: color-mix(in srgb, var(--seqnotes-accent) 6%, transparent); }
+.seqnotes-table-tree-highlight .seqnotes-tree-table > tbody > .seqnotes-tree-current > td { background: var(--seqnotes-accent-bg); }
 /* All the rows are printed. */
 @media print {
   .seqnotes-tree-hidden { display: table-row; }

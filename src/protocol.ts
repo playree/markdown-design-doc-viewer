@@ -21,7 +21,7 @@ export type ToWebview =
    * window, by the desktop app), the preview starts at the top, or at `fragment` (the id of a heading) when given.
    * With `diff`, the HTML is that of `renderDiff`, and the preview shows the differences.
    */
-  | { type: 'update'; uri: string; html: string; splitMinWidth: number; syncEditor: boolean; toc: boolean; diagramLook: DiagramLook; theme: PreviewTheme; limitContentWidth: boolean; stickyTableHeader: boolean; fragment?: string; diff?: DiffView }
+  | { type: 'update'; uri: string; html: string; splitMinWidth: number; syncEditor: boolean; toc: boolean; diagramLook: DiagramLook; theme: PreviewTheme; limitContentWidth: boolean; stickyTableHeader: boolean; tableTreeHighlight: boolean; fragment?: string; diff?: DiffView }
   /** Editor scrolled: align the preview so that this line is at the top. */
   | { type: 'scrollToLine'; line: number }
   /** Editor cursor moved: mark the element for this line. */

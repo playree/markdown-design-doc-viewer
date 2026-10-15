@@ -9,6 +9,8 @@ const FOLDED = 'seqnotes-tree-folded';
 export const TREE_HIDDEN = 'seqnotes-tree-hidden';
 const CURRENT = 'seqnotes-tree-current';
 const RELATED = 'seqnotes-tree-related';
+/** Class of the body when the parents and children of the row under the pointer are highlighted (mdDesignDoc.tableTreeHighlight). */
+export const TREE_HIGHLIGHT = 'seqnotes-table-tree-highlight';
 
 const depthOf = (row: Element): number => Number(row.getAttribute('data-seqnotes-depth'));
 
@@ -83,7 +85,9 @@ export function setupTableTree(root: HTMLElement): void {
     current = undefined;
   };
   root.addEventListener('mouseover', (e) => {
-    const row = (e.target as Element).closest<HTMLTableRowElement>('.seqnotes-tree-table > tbody > tr[data-seqnotes-depth]');
+    const row = document.body.classList.contains(TREE_HIGHLIGHT)
+      ? ((e.target as Element).closest<HTMLTableRowElement>('.seqnotes-tree-table > tbody > tr[data-seqnotes-depth]') ?? undefined)
+      : undefined;
     if (row === current) {
       return;
     }

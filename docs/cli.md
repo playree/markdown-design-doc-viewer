@@ -47,6 +47,7 @@ md-design-doc export docs -o site
 | `--no-heading-numbers` | Do not show the arrow numbers (`autonumber`) at the start of the linked headings. |
 | `--no-front-matter` | Hide the YAML front matter (shown as a table of metadata, or as a header with `type: design_doc`). |
 | `--no-sticky-table-header` | Do not keep the header row of a long table at the top while scrolling. |
+| `--no-table-tree-highlight` | Do not highlight the parents and children of the row under the pointer in the tables shown as trees (`level=` of the table options). |
 | `--chrome <path>` | Chrome or Chromium to render the diagrams with. |
 | `--strict` | Fail when a document has a warning: a link warning (a broken `@ref` or a misplaced marker), or table options that cannot be applied. Arrows and headings that are only not linked do not fail. |
 | `--index` | Also write `index.html` in `--out-dir` (required), a list of the exported documents: a table for each folder, with their title (linked), file name, and the `version`, `product`, `status` and `updated` of their front matter. |

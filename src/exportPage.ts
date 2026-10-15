@@ -118,6 +118,7 @@ export function stripSourceMap(text: string): string {
 export interface ExportSettings {
   limitContentWidth: boolean;
   stickyTableHeader: boolean;
+  tableTreeHighlight: boolean;
   splitMinWidth: number;
 }
 
@@ -136,7 +137,12 @@ export interface ExportPage {
 
 /** The exported HTML file: a single page with its styles and script inlined. */
 export function exportPage({ lang, title, body, styles, script, settings }: ExportPage): string {
-  const classes = ['seqnotes-export', ...(settings.limitContentWidth ? ['seqnotes-limit-width'] : []), ...(settings.stickyTableHeader ? ['seqnotes-sticky-table-header'] : [])];
+  const classes = [
+    'seqnotes-export',
+    ...(settings.limitContentWidth ? ['seqnotes-limit-width'] : []),
+    ...(settings.stickyTableHeader ? ['seqnotes-sticky-table-header'] : []),
+    ...(settings.tableTreeHighlight ? ['seqnotes-table-tree-highlight'] : []),
+  ];
   const splitMinWidth = Number.isFinite(Number(settings.splitMinWidth)) ? Number(settings.splitMinWidth) : 1000;
   return `<!DOCTYPE html>
 <html lang="${escapeHtml(lang)}">

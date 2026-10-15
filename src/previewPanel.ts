@@ -24,6 +24,7 @@ export interface Settings {
   theme: PreviewTheme;
   limitContentWidth: boolean;
   stickyTableHeader: boolean;
+  tableTreeHighlight: boolean;
 }
 
 export function readSettings(): Settings {
@@ -38,6 +39,7 @@ export function readSettings(): Settings {
     theme: readTheme(c.get<string>('theme')),
     limitContentWidth: c.get<boolean>('limitContentWidth', true),
     stickyTableHeader: c.get<boolean>('stickyTableHeader', true),
+    tableTreeHighlight: c.get<boolean>('tableTreeHighlight', true),
   };
 }
 

@@ -47,6 +47,7 @@ md-design-doc export docs -o site
 | `--no-heading-numbers` | 紐付いた見出しの先頭に矢印の番号（`autonumber`）を表示しない |
 | `--no-front-matter` | YAML front matter（メタ情報の表、`type: design_doc` ではヘッダ）を表示しない |
 | `--no-sticky-table-header` | 長い表のヘッダ行をスクロール中に上端に固定しない |
+| `--no-table-tree-highlight` | ツリーとして表示する表（表のオプションの `level=`）で、マウスを乗せた行の親と子をハイライトしない |
 | `--chrome <path>` | 図の描画に使う Chrome か Chromium |
 | `--strict` | 警告（壊れた `@ref` や置き場所の誤ったマーカーなどの紐付けの警告、適用できない表のオプション）があれば失敗にする。紐付いていないだけの矢印・見出しでは失敗しない |
 | `--index` | 書き出した文書の一覧を `--out-dir`（必須）の `index.html` にも書き出す。フォルダごとの表に、タイトル（リンク）・ファイル名と、front matter の `version`・`product`・`status`・`updated` を載せる |
