@@ -2,7 +2,7 @@
 
 This changelog covers the extension and the command line. The desktop app has its own version and [changelog](desktop/CHANGELOG.md).
 
-## Unreleased
+## 1.1.0
 
 - `Show Design Docs` lists the design documents of the workspace (`type: design_doc` in their front matter) in a table of their titles, file names, versions, products, statuses and update dates, by folder, with a search box and sortable columns. Clicking a title opens its preview, and the list follows the files added, changed and deleted. The **Design Docs** view of the Explorer shows them as a tree of their titles, with their version and status.
 - The command line's `--index-design-docs` lists only the design documents in `index.html`, and `index.html` has the same search box and sortable columns.
