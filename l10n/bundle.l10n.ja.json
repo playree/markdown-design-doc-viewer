@@ -115,7 +115,7 @@
   "Remote Branches": "リモートのブランチ",
   "Detached HEAD ({0})": "切り離された HEAD（{0}）",
   "Detached HEAD": "切り離された HEAD",
-  "{0} is not in this branch.": "このブランチには {0} がありません。",
+  "{0} was not found. It may not be in the branch checked out.": "{0} が見つかりません。今のブランチにはないのかもしれません。",
   "Switch the repository of {0} to the branch {1}?": "{0} のリポジトリをブランチ {1} に切り替えますか？",
   "Switch the repository of {0} to a new branch that tracks {1}?": "{1} を追跡するブランチを作り、{0} のリポジトリをそのブランチに切り替えますか？",
   "Switch": "切り替える",

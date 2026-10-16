@@ -79,7 +79,8 @@ let comparison: { path: string; hash: string; label: string; source: string } | 
 /** Whether the window shows the list of the design documents of the folder (View > Design Docs) in place of a document. */
 let listShown = false;
 /**
- * The document of the window, when it is missing: not in the branch its repository was switched to. It stays the
+ * The document of the window, when it is missing: not in the branch its repository was switched to (here, or
+ * elsewhere, which removed it). It stays the
  * document of the window, so that the branch can be switched back, and is shown again once it is read again.
  */
 let missing: string | undefined;
@@ -129,7 +130,7 @@ async function renderNow(): Promise<void> {
     return;
   }
   if (missing === doc.path) {
-    post({ type: 'update', uri: doc.path, html: `<p>${escapeHtml(t('{0} is not in this branch.', doc.name))}</p>`, ...SETTINGS });
+    post({ type: 'update', uri: doc.path, html: `<p>${escapeHtml(t('{0} was not found. It may not be in the branch checked out.', doc.name))}</p>`, ...SETTINGS });
     return;
   }
   const fragment = pendingFragment?.path === doc.path ? pendingFragment.fragment : undefined;
@@ -233,6 +234,8 @@ async function openNow(path: string, fragment: string | undefined, keepFolder: b
 
 /** The error of `open_document` and `read_document` when the file is not there (`FILE_NOT_FOUND` in lib.rs). */
 const FILE_NOT_FOUND = 'The file was not found.';
+/** How long a document gone after a change may take to come back before it is told missing. */
+const MISSING_DELAY_MS = 500;
 
 /**
  * Opens the document of the window again, in order with the documents being opened: read and watched again (its
@@ -300,6 +303,20 @@ async function reload(report: boolean): Promise<void> {
       render();
     }
   } catch (error) {
+    if (error === FILE_NOT_FOUND) {
+      // Removed, e.g. by git switching the branch in another window or a terminal: told missing, unless it is back
+      // meanwhile (an editor that saves it by replacing the file).
+      if (!report) {
+        await new Promise((resolve) => setTimeout(resolve, MISSING_DELAY_MS));
+      }
+      if (current?.path === path) {
+        await reopen(path);
+        if (missing === path) {
+          void loadHistory(true);
+        }
+      }
+      return;
+    }
     if (report) {
       await showError(t('Could not open {0}.', path), error);
     }
@@ -595,7 +612,7 @@ async function loadRevisions(doc: OpenedDocument, force: boolean): Promise<void>
     // Read once it is back.
     historyOf = undefined;
     ++historySeq;
-    sidebar.setHistory(doc.name, t('{0} is not in this branch.', doc.name));
+    sidebar.setHistory(doc.name, t('{0} was not found. It may not be in the branch checked out.', doc.name));
     return;
   }
   if (!force && historyOf === doc.path) {
@@ -663,14 +680,23 @@ async function loadBranches(doc: OpenedDocument, force: boolean): Promise<void> 
   }
 }
 
-/** Runs a git command that changes the repository, one at a time, telling `text` meanwhile. Gives its error if it failed. */
-async function changeRepository<T>(text: string, run: () => Promise<T>): Promise<{ value: T } | { error: unknown }> {
+/**
+ * Runs a git command that changes the repository, then `after` once it succeeded (the document and its history read
+ * again), one at a time, telling `text` meanwhile: the branches cannot be used until they are read again. Gives the
+ * error of the command if it failed.
+ */
+async function changeRepository<T>(text: string, run: () => Promise<T>, after: () => Promise<void>): Promise<{ value: T } | { error: unknown }> {
   gitBusy = true;
   sidebar.setBranchStatus(text, true);
   try {
-    return { value: await run() };
-  } catch (error) {
-    return { error };
+    let value: T;
+    try {
+      value = await run();
+    } catch (error) {
+      return { error };
+    }
+    await after();
+    return { value };
   } finally {
     gitBusy = false;
     sidebar.setBranchStatus(undefined);
@@ -696,17 +722,21 @@ async function switchBranch(name: string, remote: boolean): Promise<void> {
   if (!agreed || current?.path !== doc.path || gitBusy) {
     return;
   }
-  const result = await changeRepository(t('Switching to {0}...', name), () => invoke('git_switch', { name, remote }));
+  const result = await changeRepository(
+    t('Switching to {0}...', name),
+    () => invoke('git_switch', { name, remote }),
+    async () => {
+      // Another version of the document: no longer compared with a commit of the other branch. Unless another
+      // document was opened meanwhile, which stays as it is (its history and branches are read again).
+      if (current?.path === doc.path) {
+        stopComparing(false);
+      }
+      await reopenAfterGit(doc.path);
+    },
+  );
   if ('error' in result) {
     await message(`${t('Could not switch to {0}.', name)}\n${gitErrorText(result.error, doc.name)}`, { title: APP_NAME, kind: 'error' });
-    return;
   }
-  // Another version of the document: no longer compared with a commit of the other branch. Unless another document
-  // was opened meanwhile, which stays as it is (its history and branches are read again below).
-  if (current?.path === doc.path) {
-    stopComparing(false);
-  }
-  await reopenAfterGit(doc.path);
 }
 
 /** Pulls the branch of the repository of the document (fast-forward only), and tells whether it was up to date. */
@@ -715,7 +745,8 @@ async function pull(): Promise<void> {
   if (!doc || gitBusy) {
     return;
   }
-  const result = await changeRepository(t('Pulling...'), () => invoke<{ updated: boolean }>('git_pull'));
+  // Still compared with the same commit, if it is.
+  const result = await changeRepository(t('Pulling...'), () => invoke<{ updated: boolean }>('git_pull'), () => reopenAfterGit(doc.path));
   if ('error' in result) {
     await message(`${t('Could not pull.')}\n${gitErrorText(result.error, doc.name)}`, { title: APP_NAME, kind: 'error' });
     return;
@@ -724,8 +755,6 @@ async function pull(): Promise<void> {
   if (current?.path === doc.path) {
     sidebar.setBranchStatus(result.value.updated ? t('Pulled the latest changes.') : t('Already up to date.'));
   }
-  // Still compared with the same commit, if it is.
-  await reopenAfterGit(doc.path);
 }
 
 /** Shows the document again after git changed the files (`reopen`), then its folder, history and branches. */
