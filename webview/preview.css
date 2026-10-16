@@ -37,6 +37,10 @@ body[data-seqnotes-theme="light"]:not(.vscode-light, .vscode-high-contrast-light
   --vscode-sash-hoverBorder: #005fb8;
   --vscode-inputValidation-warningBackground: #f6f5d2;
   --vscode-inputValidation-warningBorder: #b89500;
+  --vscode-input-background: #ffffff;
+  --vscode-input-foreground: #3b3b3b;
+  --vscode-input-border: #cecece;
+  --vscode-input-placeholderForeground: #767676;
   --vscode-charts-blue: #1a85ff;
   --vscode-charts-green: #388a34;
   --vscode-charts-purple: #652d90;
@@ -82,6 +86,10 @@ body[data-seqnotes-theme="dark"]:is(.vscode-light, .vscode-high-contrast-light) 
   --vscode-sash-hoverBorder: #0078d4;
   --vscode-inputValidation-warningBackground: #352a05;
   --vscode-inputValidation-warningBorder: #b89500;
+  --vscode-input-background: #313131;
+  --vscode-input-foreground: #cccccc;
+  --vscode-input-border: #3c3c3c;
+  --vscode-input-placeholderForeground: #989898;
   --vscode-charts-blue: #3794ff;
   --vscode-charts-green: #89d185;
   --vscode-charts-purple: #b180d7;
@@ -356,6 +364,7 @@ body.seqnotes-sticky-table-header thead th {
   border: 1px solid var(--vscode-input-border, var(--seqnotes-border));
   border-radius: 2px;
 }
+.seqnotes-index-filter input::placeholder { color: var(--vscode-input-placeholderForeground, var(--seqnotes-muted)); }
 .seqnotes-index-filter input:focus { outline: 1px solid var(--vscode-focusBorder, #0078d4); outline-offset: -1px; }
 .seqnotes-index-count, .seqnotes-index-empty { color: var(--seqnotes-muted); }
 /* The header of a column is a button that sorts by it, with an arrow for the order */
