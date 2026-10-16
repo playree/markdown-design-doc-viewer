@@ -1,6 +1,7 @@
 //! The Rust side of the desktop app: reads the Markdown files, follows their changes, lists the Markdown files of a
-//! folder for the sidebar, lets the webview load their images, opens the links, saves the HTML exports, and reads the
-//! git history of the documents. The documents are rendered in the webview (desktop/host.ts).
+//! folder for the sidebar, lets the webview load their images, opens the links, saves the HTML exports, reads the git
+//! history of the documents, and switches the branch of their repository or pulls it. The documents are rendered in
+//! the webview (desktop/host.ts).
 //!
 //! One process shows the documents, each in its window: the files given to another launch (Windows and Linux) or
 //! by the Finder (macOS, `RunEvent::Opened`) open in a new window (`open_paths`).
@@ -12,9 +13,10 @@ use std::collections::{HashMap, HashSet};
 use std::ffi::{OsStr, OsString};
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Child, Command, Output, Stdio};
+use std::sync::mpsc::{self, Receiver};
 use std::sync::{Mutex, PoisonError};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use notify::event::ModifyKind;
 use notify::{EventKind, RecommendedWatcher, RecursiveMode};
@@ -97,6 +99,18 @@ struct History {
     file: String,
     /// Its commits, each with the path of the document in it, from the root of the repository.
     revisions: HashSet<(String, String)>,
+}
+
+/// The branches of the repository of the document of each window, by window label, as `git_branches` last listed
+/// them: `git_switch` switches only to one of them.
+#[derive(Default)]
+struct BranchLists(Mutex<HashMap<String, ListedBranches>>);
+
+struct ListedBranches {
+    /// The document whose repository has them.
+    file: String,
+    local: HashSet<String>,
+    remote: HashSet<String>,
 }
 
 /// A document read by `open_document` or `read_document`.
@@ -286,9 +300,20 @@ async fn read_document(path: String) -> Result<Document, String> {
     read(&path)
 }
 
+/// The error of `read` when the file is not there (`FILE_NOT_FOUND` in desktop/host.ts).
+const FILE_NOT_FOUND: &str = "The file was not found.";
+
 fn read(path: &str) -> Result<Document, String> {
     // dunce: without the \\?\ prefix std::fs::canonicalize adds on Windows.
-    let path = dunce::canonicalize(path).map_err(|e| e.to_string())?;
+    // A text the webview tells apart (a document not in the branch switched to) and translates, unlike the error of
+    // the system.
+    let path = dunce::canonicalize(path).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            FILE_NOT_FOUND.to_string()
+        } else {
+            e.to_string()
+        }
+    })?;
     let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
     let mut text = String::from_utf8(bytes).map_err(|_| "The file is not UTF-8 text.".to_string())?;
     if text.starts_with('\u{feff}') {
@@ -725,7 +750,7 @@ enum GitErrorKind {
     Failed,
 }
 
-/// The error of `git_log` and `git_show`: its message is an English text of git or of the app.
+/// The error of the git commands (`git_log`…): its message is an English text of git or of the app.
 #[derive(Serialize)]
 struct GitError {
     kind: GitErrorKind,
@@ -755,8 +780,21 @@ fn git_program() -> PathBuf {
     PathBuf::from("git")
 }
 
+/// How long `git pull` may take: it is stopped after that, e.g. when ssh waits for a passphrase nobody can type.
+const GIT_PULL_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// The arguments of a git command.
+fn git_args(args: &[&str]) -> Vec<OsString> {
+    args.iter().map(OsString::from).collect()
+}
+
 /// Runs git in `dir`, without a shell (nor a console window on Windows), and returns what it writes.
 async fn run_git(dir: PathBuf, args: Vec<OsString>) -> Result<Vec<u8>, GitError> {
+    run_git_with(dir, args, None).await
+}
+
+/// `run_git`, stopping git after `timeout` when given.
+async fn run_git_with(dir: PathBuf, args: Vec<OsString>, timeout: Option<Duration>) -> Result<Vec<u8>, GitError> {
     tauri::async_runtime::spawn_blocking(move || {
         let mut command = Command::new(git_program());
         command
@@ -766,14 +804,19 @@ async fn run_git(dir: PathBuf, args: Vec<OsString>) -> Result<Vec<u8>, GitError>
             .args(&args)
             .current_dir(&dir)
             // The messages in English, which are told apart below.
-            .env("LC_ALL", "C");
+            .env("LC_ALL", "C")
+            // No prompt for a user name or a password (`git pull`), which nobody would answer.
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
             const CREATE_NO_WINDOW: u32 = 0x0800_0000;
             command.creation_flags(CREATE_NO_WINDOW);
         }
-        let output = command.output().map_err(|error| GitError {
+        let child = command.spawn().map_err(|error| GitError {
             // Not when the folder is missing (the document's folder deleted or renamed), which fails the same way.
             kind: if error.kind() == std::io::ErrorKind::NotFound && dir.is_dir() {
                 GitErrorKind::NotFound
@@ -782,10 +825,21 @@ async fn run_git(dir: PathBuf, args: Vec<OsString>) -> Result<Vec<u8>, GitError>
             },
             message: error.to_string(),
         })?;
+        let output = match timeout {
+            Some(timeout) => wait_until(child, timeout)?,
+            None => child.wait_with_output().map_err(|error| GitError::failed(error.to_string()))?,
+        };
         if output.status.success() {
             return Ok(output.stdout);
         }
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        // Without the hints on the commands to run instead (`git pull` diverging), which the user does not run here.
+        let stderr = String::from_utf8_lossy(&output.stderr)
+            .lines()
+            .filter(|line| !line.starts_with("hint:"))
+            .collect::<Vec<_>>()
+            .join("\n")
+            .trim()
+            .to_string();
         if stderr.to_ascii_lowercase().contains("not a git repository") {
             return Err(GitError { kind: GitErrorKind::NotRepository, message: stderr });
         }
@@ -793,6 +847,43 @@ async fn run_git(dir: PathBuf, args: Vec<OsString>) -> Result<Vec<u8>, GitError>
     })
     .await
     .map_err(|error| GitError::failed(error.to_string()))?
+}
+
+/// Reads all of a pipe of a child process on another thread.
+fn read_pipe(pipe: Option<impl Read + Send + 'static>) -> Receiver<Vec<u8>> {
+    let (sender, receiver) = mpsc::channel();
+    std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        if let Some(mut pipe) = pipe {
+            let _ = pipe.read_to_end(&mut bytes);
+        }
+        let _ = sender.send(bytes);
+    });
+    receiver
+}
+
+/// Waits for git to end, and kills it after `timeout`.
+fn wait_until(mut child: Child, timeout: Duration) -> Result<Output, GitError> {
+    let failed = |error: std::io::Error| GitError::failed(error.to_string());
+    // Read while it runs, so that it does not wait for its pipes to be read.
+    let stdout = read_pipe(child.stdout.take());
+    let stderr = read_pipe(child.stderr.take());
+    let deadline = Instant::now() + timeout;
+    let status = loop {
+        if let Some(status) = child.try_wait().map_err(failed)? {
+            break status;
+        }
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            // Without waiting for the pipes, which a program started by git (ssh) may keep open.
+            return Err(GitError::failed("Git did not finish in time."));
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    };
+    // A program started by git may still hold them for a moment.
+    let read = |receiver: Receiver<Vec<u8>>| receiver.recv_timeout(Duration::from_secs(5)).unwrap_or_default();
+    Ok(Output { status, stdout: read(stdout), stderr: read(stderr) })
 }
 
 /// Lists the commits of the window's document with `git log` (the output of `GIT_LOG_ARGS`, which the webview
@@ -804,7 +895,7 @@ async fn git_log(window: Window, windows: State<'_, Windows>, histories: State<'
     let (Some(dir), Some(name)) = (path.parent(), path.file_name()) else {
         return Err(GitError::failed("The file has no folder."));
     };
-    let mut args: Vec<OsString> = GIT_LOG_ARGS.iter().map(OsString::from).collect();
+    let mut args = git_args(GIT_LOG_ARGS);
     args.push(name.to_owned());
     let output = String::from_utf8_lossy(&run_git(dir.to_path_buf(), args).await?).into_owned();
     let history = History { file: file.clone(), revisions: logged_revisions(&output) };
@@ -870,6 +961,161 @@ async fn git_show(
     Ok(text)
 }
 
+/// The branches of the repository of a document, for the History tab (`git_branches`).
+#[derive(Serialize, Debug, PartialEq)]
+struct BranchList {
+    /// The branch checked out: none when HEAD is detached.
+    current: Option<String>,
+    /// The short hash of the commit checked out when HEAD is detached.
+    detached: Option<String>,
+    /// The local branches, with the current one, also before its first commit.
+    local: Vec<String>,
+    /// The branches of the remotes (`origin/feature`) that have no local branch of the same name yet: switching to
+    /// one creates it.
+    remote: Vec<String>,
+}
+
+/// The folder git runs in for the document `file`: its folder, or the nearest one above it that is there (after
+/// switching to a branch without it), so that its repository can be switched back.
+fn git_dir(file: &str) -> Result<PathBuf, GitError> {
+    Path::new(file)
+        .ancestors()
+        .skip(1)
+        .find(|dir| dir.is_dir())
+        .map(Path::to_path_buf)
+        .ok_or_else(|| GitError::failed("The file has no folder."))
+}
+
+/// The arguments of `git for-each-ref` listing the branches, each on a line, after `*` for the one checked out (else
+/// a space), which `parse_branches` reads.
+const GIT_BRANCHES_ARGS: &[&str] = &["for-each-ref", "--format=%(HEAD)%(refname)", "refs/heads", "refs/remotes"];
+
+/// The branch checked out in the output of `git for-each-ref` with `GIT_BRANCHES_ARGS`: none when HEAD is detached,
+/// or before the first commit of the branch.
+fn checked_out(refs: &str) -> Option<String> {
+    refs.lines().find_map(|line| line.strip_prefix("*refs/heads/")).map(str::to_string)
+}
+
+/// The branches of the output of `git for-each-ref` with `GIT_BRANCHES_ARGS`, given the names of the remotes
+/// (`git remote`) and the branch checked out.
+fn parse_branches(refs: &str, remotes: &str, current: Option<String>, detached: Option<String>) -> BranchList {
+    let remotes: Vec<&str> = remotes.lines().map(str::trim).filter(|remote| !remote.is_empty()).collect();
+    let mut local: Vec<String> = Vec::new();
+    let mut remote: Vec<(String, String)> = Vec::new();
+    for line in refs.lines() {
+        let refname = line.get(1..).unwrap_or_default();
+        if let Some(name) = refname.strip_prefix("refs/heads/") {
+            local.push(name.to_string());
+        } else if let Some(name) = refname.strip_prefix("refs/remotes/") {
+            // Without the longest remote it starts with: a remote may have a `/` in its name.
+            let branch = remotes
+                .iter()
+                .filter_map(|remote| name.strip_prefix(remote).and_then(|rest| rest.strip_prefix('/')))
+                .min_by_key(|branch| branch.len());
+            // Not `origin/HEAD`, which points to another branch of the remote.
+            if let Some(branch) = branch.filter(|branch| *branch != "HEAD") {
+                remote.push((name.to_string(), branch.to_string()));
+            }
+        }
+    }
+    if let Some(current) = current.as_ref().filter(|current| !local.contains(current)) {
+        local.push(current.clone());
+        local.sort();
+    }
+    let remote = remote.into_iter().filter(|(_, branch)| !local.contains(branch)).map(|(name, _)| name).collect();
+    BranchList { detached: if current.is_none() { detached } else { None }, current, local, remote }
+}
+
+/// What git writes, without the line break at its end.
+fn git_text(bytes: Vec<u8>) -> String {
+    String::from_utf8_lossy(&bytes).trim().to_string()
+}
+
+/// Lists the branches of the repository of the window's document, and keeps them for `git_switch`.
+#[tauri::command]
+async fn git_branches(
+    window: Window,
+    windows: State<'_, Windows>,
+    lists: State<'_, BranchLists>,
+) -> Result<BranchList, GitError> {
+    let file = shown_document(&window, &windows).ok_or_else(|| GitError::failed("The window shows no document."))?;
+    let dir = git_dir(&file)?;
+    let refs = String::from_utf8_lossy(&run_git(dir.clone(), git_args(GIT_BRANCHES_ARGS)).await?).into_owned();
+    let remotes = run_git(dir.clone(), git_args(&["remote"])).await?;
+    let mut current = checked_out(&refs);
+    let mut detached = None;
+    if current.is_none() {
+        // A branch without commits yet, which has no ref, else a detached HEAD (empty).
+        let branch = git_text(run_git(dir.clone(), git_args(&["branch", "--show-current"])).await?);
+        if branch.is_empty() {
+            detached = run_git(dir, git_args(&["rev-parse", "--short", "HEAD"])).await.ok().map(git_text);
+        } else {
+            current = Some(branch);
+        }
+    }
+    let list = parse_branches(&refs, &String::from_utf8_lossy(&remotes), current, detached);
+    // Unless the window opened another document meanwhile.
+    if shown_document(&window, &windows).as_ref() == Some(&file) {
+        let listed = ListedBranches {
+            file,
+            local: list.local.iter().cloned().collect(),
+            remote: list.remote.iter().cloned().collect(),
+        };
+        lists.0.lock().unwrap_or_else(PoisonError::into_inner).insert(window.label().to_string(), listed);
+    }
+    Ok(list)
+}
+
+/// Switches the repository of the window's document to one of the branches listed by `git_branches`: a local one,
+/// or a branch of a remote (`remote`), for which a local branch that tracks it is created. git fails and changes
+/// nothing when the changes not committed would be lost.
+#[tauri::command]
+async fn git_switch(
+    window: Window,
+    windows: State<'_, Windows>,
+    lists: State<'_, BranchLists>,
+    name: String,
+    remote: bool,
+) -> Result<(), GitError> {
+    let file = shown_document(&window, &windows).ok_or_else(|| GitError::failed("The window shows no document."))?;
+    let listed = lists.0.lock().unwrap_or_else(PoisonError::into_inner).get(window.label()).is_some_and(|list| {
+        list.file == file && if remote { list.remote.contains(&name) } else { list.local.contains(&name) }
+    });
+    // Not an option either, though git does not let a branch start with `-`.
+    if !listed || name.starts_with('-') {
+        return Err(GitError::failed("Not a branch of the repository of the document."));
+    }
+    let mut args = git_args(&["switch"]);
+    if remote {
+        args.push("--track".into());
+    }
+    args.push(name.into());
+    run_git(git_dir(&file)?, args).await.map(drop)
+}
+
+/// What `git_pull` returns.
+#[derive(Serialize)]
+struct Pulled {
+    /// Whether commits were pulled: false when the branch was up to date.
+    updated: bool,
+}
+
+/// Pulls the branch of the repository of the window's document, only when it can be fast-forwarded: git fails when
+/// the branch has commits of its own, has no upstream, or when the changes not committed would be lost.
+#[tauri::command]
+async fn git_pull(window: Window, windows: State<'_, Windows>) -> Result<Pulled, GitError> {
+    let file = shown_document(&window, &windows).ok_or_else(|| GitError::failed("The window shows no document."))?;
+    let dir = git_dir(&file)?;
+    let head = || run_git(dir.clone(), git_args(&["rev-parse", "HEAD"]));
+    let before = head().await.ok();
+    // Not a rebase either, whatever the config of the repository (`pull.rebase`). Quiet: only the errors, without the
+    // progress of the fetch.
+    let args = git_args(&["pull", "--quiet", "--no-rebase", "--ff-only"]);
+    run_git_with(dir.clone(), args, Some(GIT_PULL_TIMEOUT)).await?;
+    let after = head().await.ok();
+    Ok(Pulled { updated: before != after })
+}
+
 /// Runs the app (src/main.rs).
 pub fn run() {
     tauri::Builder::default()
@@ -894,6 +1140,7 @@ pub fn run() {
         .manage(Windows::default())
         .manage(ExportTargets::default())
         .manage(Histories::default())
+        .manage(BranchLists::default())
         .setup(|app| {
             let cwd = std::env::current_dir().unwrap_or_default();
             open_paths(app.handle(), arg_paths(std::env::args_os().skip(1), &cwd));
@@ -916,7 +1163,10 @@ pub fn run() {
             open_export,
             read_image,
             git_log,
-            git_show
+            git_show,
+            git_branches,
+            git_switch,
+            git_pull
         ])
         .on_window_event(|window, event| {
             if let WindowEvent::Destroyed = event {
@@ -925,6 +1175,7 @@ pub fn run() {
                 window.state::<FolderWatches>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
                 window.state::<ExportTargets>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
                 window.state::<Histories>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
+                window.state::<BranchLists>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
                 let windows = window.state::<Windows>();
                 let mut state = windows.0.lock().unwrap_or_else(PoisonError::into_inner);
                 state.started.remove(label);
@@ -978,6 +1229,37 @@ mod tests {
         let (a, b, c) = ("a".repeat(40), "b".repeat(40), "c".repeat(40));
         let output = record(&a, None) + &record(&b, Some("old.md")) + &record(&c, None);
         assert_eq!(logged_revisions(&output), HashSet::from([pair(&a, "old.md"), pair(&b, "old.md"), pair(&c, "old.md")]));
+    }
+
+    fn names(names: &[&str]) -> Vec<String> {
+        names.iter().map(|name| name.to_string()).collect()
+    }
+
+    #[test]
+    fn parse_branches_lists_the_remote_branches_without_a_local_one() {
+        let refs = " refs/heads/feature/a\n*refs/heads/main\n refs/remotes/origin/HEAD\n refs/remotes/origin/feature/a\n \
+                    refs/remotes/origin/feature/b\n refs/remotes/origin/main\n refs/remotes/team/x/fix\n";
+        assert_eq!(checked_out(refs).as_deref(), Some("main"));
+        let list = parse_branches(refs, "origin\nteam/x\n", checked_out(refs), None);
+        assert_eq!(
+            list,
+            BranchList {
+                current: Some("main".to_string()),
+                detached: None,
+                local: names(&["feature/a", "main"]),
+                remote: names(&["origin/feature/b", "team/x/fix"]),
+            }
+        );
+    }
+
+    #[test]
+    fn parse_branches_tell_a_detached_head_and_a_branch_without_commits() {
+        assert_eq!(checked_out(" refs/heads/main\n"), None);
+        let detached = parse_branches(" refs/heads/main\n", "", None, Some("abc1234".to_string()));
+        assert_eq!((detached.current, detached.detached, detached.local), (None, Some("abc1234".to_string()), names(&["main"])));
+        // A new repository: its branch has no ref yet.
+        let unborn = parse_branches("", "", Some("main".to_string()), Some("ignored".to_string()));
+        assert_eq!((unborn.current, unborn.detached, unborn.local), (Some("main".to_string()), None, names(&["main"])));
     }
 
     #[test]

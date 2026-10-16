@@ -153,6 +153,37 @@ body.desktop-sidebar-shown { padding-left: calc(var(--desktop-sidebar-width) + 2
 /* The files line up with the names of the folders, after their chevron. */
 .desktop-tree-file { padding-left: calc(26px + var(--desktop-tree-depth, 0) * 12px); }
 
+/* The branch of the repository of the document, the button that pulls it, and below them what is being done. */
+.desktop-history-branch {
+  padding: 6px 6px 6px 12px;
+  border-bottom: 1px solid var(--seqnotes-border);
+}
+.desktop-history-branch[hidden] { display: none; }
+.desktop-history-branch-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.desktop-history-branch-select {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 4px;
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 2px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  font: inherit;
+}
+.desktop-history-branch-select:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
+.desktop-history-branch-select:disabled { opacity: 0.6; }
+.desktop-history-branch-status {
+  margin: 4px 0 0;
+  color: var(--seqnotes-muted);
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* The commits of the history, a line between each. */
 .desktop-history-list > li + li { border-top: 1px solid var(--seqnotes-border); }
 
