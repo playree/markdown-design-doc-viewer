@@ -1025,6 +1025,7 @@ window.addEventListener('storage', (event) => {
 /** The files opened recently, kept for the next launch and shared by the windows. */
 const RECENT_KEY = 'mdDesignDoc.recentFiles';
 
+/** The list saved, or an empty one when it cannot be read. */
 function savedRecentFiles(): string[] {
   try {
     return parseRecentFiles(localStorage.getItem(RECENT_KEY));
@@ -1052,22 +1053,24 @@ function setRecentFiles(list: string[]): void {
   showRecentFiles();
 }
 
-/** Puts a file opened first in the list. */
+/**
+ * Puts a file opened first in the list. From the list shown, which has the changes of the other windows (`storage`
+ * event), rather than from the one saved, which may be older if it could not be saved.
+ */
 function rememberFile(path: string): void {
-  // As saved, with the changes of the other windows.
-  setRecentFiles(addRecentFile(savedRecentFiles(), path));
+  setRecentFiles(addRecentFile(recentFiles, path));
 }
 
 /** Removes a file from the list. Returns whether it was there. */
 function forgetFile(path: string): boolean {
-  const list = savedRecentFiles();
-  if (!list.includes(path)) {
+  if (!recentFiles.includes(path)) {
     return false;
   }
-  setRecentFiles(removeRecentFile(list, path));
+  setRecentFiles(removeRecentFile(recentFiles, path));
   return true;
 }
 
+/** Opens a file of the list, which puts it first again. */
 function openRecentFile(path: string): void {
   void openDocument(path, { remember: true });
 }
@@ -1128,6 +1131,7 @@ function renderRecentList(): void {
   );
 }
 
+/** Shows the list on the screen and in the menu. */
 function showRecentFiles(): void {
   renderRecentList();
   updateRecentMenu();

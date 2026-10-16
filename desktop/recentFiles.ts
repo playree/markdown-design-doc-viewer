@@ -27,6 +27,7 @@ export function addRecentFile(list: readonly string[], path: string): string[] {
   return [path, ...list.filter((other) => other !== path)].slice(0, MAX_RECENT_FILES);
 }
 
+/** The list without `path`. */
 export function removeRecentFile(list: readonly string[], path: string): string[] {
   return list.filter((other) => other !== path);
 }
