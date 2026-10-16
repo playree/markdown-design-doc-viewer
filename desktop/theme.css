@@ -121,7 +121,7 @@ html:has(> body.vscode-dark) {
   display: none;
 }
 /* Its button, and the one of the sidebar without a folder (sidebar.css). */
-.desktop-empty button,
+.desktop-empty > button,
 .desktop-sidebar-button {
   padding: 6px 14px;
   border: 1px solid var(--vscode-focusBorder);
@@ -130,4 +130,71 @@ html:has(> body.vscode-dark) {
   background: var(--vscode-focusBorder);
   font: inherit;
   cursor: pointer;
+}
+
+/* The files opened recently, below its button: each with its folder, the full path in its tooltip. */
+.desktop-recent {
+  width: min(40em, 100%);
+  margin-top: 16px;
+  text-align: left;
+}
+.desktop-recent[hidden] {
+  display: none;
+}
+.desktop-recent h2 {
+  margin: 0 0 6px;
+  padding: 0 8px;
+  border: none;
+  color: var(--vscode-foreground);
+  font-size: 1em;
+  font-weight: 600;
+}
+.desktop-recent ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.desktop-recent li button {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  color: inherit;
+  background: none;
+  font: inherit;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+}
+.desktop-recent li button:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+.desktop-recent li button:focus-visible,
+.desktop-recent-clear:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+.desktop-recent-name {
+  color: var(--vscode-textLink-foreground);
+}
+.desktop-recent-dir {
+  overflow: hidden;
+  font-size: 0.9em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.desktop-recent-clear {
+  margin: 6px 0 0;
+  padding: 2px 8px;
+  border: none;
+  color: var(--vscode-textLink-foreground);
+  background: none;
+  font: inherit;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+.desktop-recent-clear:hover {
+  text-decoration: underline;
 }

@@ -60,6 +60,13 @@ export function resolveDocumentPath(dir: string, path: string): string {
   return root + parts.join(windows ? '\\' : '/');
 }
 
+/** The name of the file of an absolute path, and its folder (the root with its separator: `C:\`, `/`). */
+export function splitPath(path: string): { name: string; dir: string } {
+  const { windows, root, parts } = parsePath(path);
+  const name = parts.pop() ?? '';
+  return { name, dir: root + parts.join(windows ? '\\' : '/') };
+}
+
 /** The `file:` URL of an absolute path. */
 export function fileUrl(path: string): string {
   const { windows, root, parts } = parsePath(path);
