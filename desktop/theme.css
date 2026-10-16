@@ -37,6 +37,10 @@ body.vscode-light {
   --vscode-sash-hoverBorder: #005fb8;
   --vscode-inputValidation-warningBackground: #f6f5d2;
   --vscode-inputValidation-warningBorder: #b89500;
+  --vscode-input-background: #ffffff;
+  --vscode-input-foreground: #3b3b3b;
+  --vscode-input-border: #cecece;
+  --vscode-input-placeholderForeground: #767676;
   --vscode-charts-blue: #1a85ff;
   --vscode-charts-green: #388a34;
   --vscode-charts-purple: #652d90;
@@ -74,6 +78,10 @@ body.vscode-dark {
   --vscode-sash-hoverBorder: #0078d4;
   --vscode-inputValidation-warningBackground: #352a05;
   --vscode-inputValidation-warningBorder: #b89500;
+  --vscode-input-background: #313131;
+  --vscode-input-foreground: #cccccc;
+  --vscode-input-border: #3c3c3c;
+  --vscode-input-placeholderForeground: #989898;
   --vscode-charts-blue: #3794ff;
   --vscode-charts-green: #89d185;
   --vscode-charts-purple: #b180d7;

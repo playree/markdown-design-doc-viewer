@@ -5,6 +5,7 @@ This changelog covers the extension and the command line. The desktop app has it
 ## Unreleased
 
 - The margin at the top of the preview, above the box of the document header, is no longer scrolled out of view when the editor is scrolled to the top.
+- The title bar of the design doc list (`Show Design Docs`) has the light / dark button too, and its search box takes the colors of the theme chosen with it instead of VS Code's.
 
 ## 1.1.0
 
