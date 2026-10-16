@@ -2,7 +2,7 @@
 
 The desktop app has its own version, apart from the extension and the command line (their changes are in [CHANGELOG.md](../CHANGELOG.md)). Its installers are attached to the [releases of the desktop app](https://github.com/playree/markdown-design-doc-viewer/releases?q=desktop&expanded=true) (tagged `desktop-vX.Y.Z`).
 
-## Unreleased
+## 0.2.0
 
 - **View** > **Design Docs** (Ctrl+Shift+D, ⌘⇧D) lists the design documents of the sidebar's folder (`type: design_doc` in their front matter) in place of the document: a table of their titles, file names, versions, products, statuses and update dates, by folder, with a search box and sortable columns. Clicking a title opens the document.
 - The installers add the app to the apps that open `.md` and `.markdown` files (Open with in the Explorer and the Finder), without making it their default app.
