@@ -70,6 +70,15 @@ The **History** tab compares the document with its Git history, like the extensi
 - The history is read when the tab is shown, when another document is opened, with **File** > **Reload** and with the reload button of the tab. Git does not run until the tab is shown.
 - It needs Git on the PATH. On macOS, the Git of Homebrew (`/opt/homebrew/bin/git` or `/usr/local/bin/git`) is used first; else that of the Command Line Tools, which the system offers to install if they are missing. The tab tells when Git is not found or the document is not in a Git repository.
 
+Above the history, the tab shows the branch of the document's repository, to switch to another branch or to pull the latest commits without a terminal:
+
+- The list has the local branches, and in a group the branches of the remotes that have no local branch yet (such as `origin/feature`). When HEAD is detached, the list says so.
+- Choosing another branch asks first, then switches the repository to it (`git switch`). Choosing a branch of a remote creates a local branch that tracks it (`git switch --track`). The document, the **Files** tab and the history then show the files of that branch, and the document is no longer compared with a commit. When the document is not in that branch, the preview says so, also when the branch is switched elsewhere (in a terminal or another window); switching back shows it again.
+- The pull button pulls the branch at once, only when it can be fast-forwarded (`git pull --ff-only`), and tells whether it pulled commits or was already up to date. A comparison with a commit goes on.
+- When Git fails, a dialog tells why, and the repository stays as it was: for example when the changes not committed would be overwritten, when the branch has commits of its own that the remote does not have (diverged), or when it has no upstream branch.
+- Git does not ask for a user name, a password or a passphrase in a terminal. Pulling from a remote that needs them works with a credential helper (whose sign-in window may open, such as that of Git Credential Manager) or an ssh agent; otherwise it fails. A pull that takes more than two minutes is stopped.
+- The branches are read with the history: to list a branch created elsewhere, use the reload button. When the document came back after it was missing (the branch switched back elsewhere), **File** > **Reload** shows it.
+
 **View** > **Design Docs** (Ctrl+Shift+D, ⌘⇧D) shows, in place of the document, the list of the design documents (`type: design_doc` in their front matter) of the folder of the sidebar and of its subfolders, like the extension's **Show Design Docs**:
 
 - It is a table for each folder of their title, file name, `version`, `product`, `status` and `updated`. The search box filters them (by title, file name or metadata), and clicking a column header sorts them by that column.

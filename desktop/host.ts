@@ -10,7 +10,7 @@ import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu } from '@tauri-apps/api/menu';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { message, open } from '@tauri-apps/plugin-dialog';
+import { ask, message, open } from '@tauri-apps/plugin-dialog';
 import { renderDiff } from '../src/diffRender';
 import { documentInfo, indexBody, NO_DESIGN_DOCS, type IndexEntry } from '../src/exportIndex';
 import { documentTitle, exportFileName, exportPage, imageType, renderForExport, stripSourceMap } from '../src/exportPage';
@@ -20,7 +20,7 @@ import { createMarkdown, escapeHtml, renderDocument, type RenderEnv } from '../s
 import type { FolderTree } from './folderTree';
 import { lang, t } from './l10n';
 import { isInside, isMarkdownPath, linkTarget, relativeLink, resourcePath } from './paths';
-import { createSidebar } from './sidebar';
+import { createSidebar, type Branches } from './sidebar';
 
 const APP_NAME = 'Markdown Design Doc Viewer';
 
@@ -78,6 +78,12 @@ let rendering: Promise<void> = Promise.resolve();
 let comparison: { path: string; hash: string; label: string; source: string } | undefined;
 /** Whether the window shows the list of the design documents of the folder (View > Design Docs) in place of a document. */
 let listShown = false;
+/**
+ * The document of the window, when it is missing: not in the branch its repository was switched to (here, or
+ * elsewhere, which removed it). It stays the
+ * document of the window, so that the branch can be switched back, and is shown again once it is read again.
+ */
+let missing: string | undefined;
 
 export function onWebviewMessage(message: FromWebview): void {
   switch (message.type) {
@@ -121,6 +127,10 @@ async function renderNow(): Promise<void> {
   const doc = current;
   // Rendered when the webview is ready.
   if (!ready || !doc) {
+    return;
+  }
+  if (missing === doc.path) {
+    post({ type: 'update', uri: doc.path, html: `<p>${escapeHtml(t('{0} was not found. It may not be in the branch checked out.', doc.name))}</p>`, ...SETTINGS });
     return;
   }
   const fragment = pendingFragment?.path === doc.path ? pendingFragment.fragment : undefined;
@@ -197,6 +207,7 @@ async function openNow(path: string, fragment: string | undefined, keepFolder: b
     shownSeq = seq;
     current = doc;
   }
+  missing = undefined;
   listShown = false;
   // Another document: shown alone, with its own history.
   const compared = pendingRevision ?? comparison;
@@ -221,10 +232,64 @@ async function openNow(path: string, fragment: string | undefined, keepFolder: b
   void loadHistory();
 }
 
+/** The error of `open_document` and `read_document` when the file is not there (`FILE_NOT_FOUND` in lib.rs). */
+const FILE_NOT_FOUND = 'The file was not found.';
+/** How long a document gone after a change may take to come back before it is told missing. */
+const MISSING_DELAY_MS = 500;
+
+/**
+ * Opens the document of the window again, in order with the documents being opened: read and watched again (its
+ * folder may have been removed and added back by git), or else told missing (not in the branch switched to). The
+ * reads started before do not replace it.
+ */
+function reopen(path: string): Promise<void> {
+  opening = opening
+    .then(async () => {
+      if (current?.path !== path) {
+        return;
+      }
+      const seq = ++readSeq;
+      let doc: OpenedDocument | undefined;
+      let failure: unknown;
+      try {
+        doc = await invoke<OpenedDocument>('open_document', { path });
+      } catch (error) {
+        failure = error;
+      }
+      if (current?.path !== path || seq <= shownSeq) {
+        return;
+      }
+      shownSeq = seq;
+      if (doc) {
+        current = doc;
+        missing = undefined;
+      } else if (failure === FILE_NOT_FOUND) {
+        // The Rust side still shows it for the window, and follows its folder if it is there.
+        missing = path;
+      } else if (failure !== undefined) {
+        // Shown as it was.
+        await showError(t('Could not open {0}.', path), failure);
+        return;
+      }
+      updateExportItem();
+      render();
+    })
+    .catch((error: unknown) => console.error(error));
+  return opening;
+}
+
 /** Reads the document again: when it changed (`report` false: a file being saved may be missing for a moment), or from the menu. */
 async function reload(report: boolean): Promise<void> {
   const path = current?.path;
   if (!path) {
+    return;
+  }
+  if (missing === path) {
+    // Back in the folder (the branch switched back elsewhere)? Watched again: its folder may have been removed.
+    await reopen(path);
+    if (missing !== path) {
+      void loadHistory(true);
+    }
     return;
   }
   const seq = ++readSeq;
@@ -238,6 +303,20 @@ async function reload(report: boolean): Promise<void> {
       render();
     }
   } catch (error) {
+    if (error === FILE_NOT_FOUND) {
+      // Removed, e.g. by git switching the branch in another window or a terminal: told missing, unless it is back
+      // meanwhile (an editor that saves it by replacing the file).
+      if (!report) {
+        await new Promise((resolve) => setTimeout(resolve, MISSING_DELAY_MS));
+      }
+      if (current?.path === path) {
+        await reopen(path);
+        if (missing === path) {
+          void loadHistory(true);
+        }
+      }
+      return;
+    }
     if (report) {
       await showError(t('Could not open {0}.', path), error);
     }
@@ -288,6 +367,8 @@ const sidebar = createSidebar({
   onTabChange: () => void loadHistory(),
   onSelectRevision: (revision) => void compareWith(revision),
   onReloadHistory: () => void loadHistory(true),
+  onSwitchBranch: switchBranch,
+  onPull: () => void pull(),
 });
 sidebar.setShown(sidebarShown);
 
@@ -505,9 +586,9 @@ function gitErrorText(error: unknown, name: string): string {
 }
 
 /**
- * Reads the history of the document into the sidebar, while its History tab is shown: again when `force`, else
- * unless it shows that of the document. git runs only then, never on a launch: on macOS without the Command Line
- * Tools, it asks to install them.
+ * Reads the history of the document and the branches of its repository into the sidebar, while its History tab is
+ * shown: again when `force`, else unless it shows those of the document. git runs only then, never on a launch: on
+ * macOS without the Command Line Tools, it asks to install them.
  */
 async function loadHistory(force = false): Promise<void> {
   if (!sidebarShown || sidebar.tab() !== 'history') {
@@ -516,7 +597,22 @@ async function loadHistory(force = false): Promise<void> {
   const doc = current;
   if (!doc) {
     historyOf = undefined;
+    branchesOf = undefined;
+    ++branchesSeq;
+    sidebar.setBranches(undefined);
     sidebar.setHistory(undefined, t('Open a Markdown file to compare it with its Git history.'));
+    return;
+  }
+  await Promise.all([loadBranches(doc, force), loadRevisions(doc, force)]);
+}
+
+/** The commits of the document, for `loadHistory`. */
+async function loadRevisions(doc: OpenedDocument, force: boolean): Promise<void> {
+  if (missing === doc.path) {
+    // Read once it is back.
+    historyOf = undefined;
+    ++historySeq;
+    sidebar.setHistory(doc.name, t('{0} was not found. It may not be in the branch checked out.', doc.name));
     return;
   }
   if (!force && historyOf === doc.path) {
@@ -544,6 +640,130 @@ async function loadHistory(force = false): Promise<void> {
     sidebar.setHistory(doc.name, history);
   }
 }
+
+/** The document whose branches the sidebar shows or is reading, so that they are not read again for nothing. */
+let branchesOf: string | undefined;
+/** Numbers the reads of the branches, so that an older answer does not replace a newer one. */
+let branchesSeq = 0;
+/** Whether the repository is being switched to another branch or pulled: one at a time. */
+let gitBusy = false;
+
+/**
+ * The branches of the repository of the document, above its history, for `loadHistory`. Hidden when they cannot be
+ * read (not in a repository, no git), which the history tells.
+ */
+async function loadBranches(doc: OpenedDocument, force: boolean): Promise<void> {
+  if (!force && branchesOf === doc.path) {
+    return;
+  }
+  const seq = ++branchesSeq;
+  if (branchesOf !== doc.path) {
+    sidebar.setBranches(undefined);
+    // Unless git is still running, which ends with it.
+    if (!gitBusy) {
+      sidebar.setBranchStatus(undefined);
+    }
+  }
+  branchesOf = doc.path;
+  let branches: Branches | undefined;
+  try {
+    // Of the document the Rust side shows for the window, as `git_log`.
+    branches = await invoke<Branches>('git_branches');
+  } catch {
+    if (seq === branchesSeq) {
+      // Read again with the history.
+      branchesOf = undefined;
+    }
+  }
+  if (seq === branchesSeq) {
+    sidebar.setBranches(branches);
+  }
+}
+
+/**
+ * Runs a git command that changes the repository, then `after` once it succeeded (the document and its history read
+ * again), one at a time, telling `text` meanwhile: the branches cannot be used until they are read again. Gives the
+ * error of the command if it failed.
+ */
+async function changeRepository<T>(text: string, run: () => Promise<T>, after: () => Promise<void>): Promise<{ value: T } | { error: unknown }> {
+  gitBusy = true;
+  sidebar.setBranchStatus(text, true);
+  try {
+    let value: T;
+    try {
+      value = await run();
+    } catch (error) {
+      return { error };
+    }
+    await after();
+    return { value };
+  } finally {
+    gitBusy = false;
+    sidebar.setBranchStatus(undefined);
+  }
+}
+
+/**
+ * Switches the repository of the document to another branch chosen in the sidebar, once the user agrees: then shows
+ * the document, its folder, history and branches as they are in that branch, the document alone.
+ */
+async function switchBranch(name: string, remote: boolean): Promise<void> {
+  const doc = current;
+  if (!doc || gitBusy) {
+    return;
+  }
+  // What was done before (pulled) is no longer the point.
+  sidebar.setBranchStatus(undefined);
+  const question = remote
+    ? t('Switch the repository of {0} to a new branch that tracks {1}?', doc.name, name)
+    : t('Switch the repository of {0} to the branch {1}?', doc.name, name);
+  const agreed = await ask(question, { title: APP_NAME, kind: 'warning', okLabel: t('Switch'), cancelLabel: t('Cancel') });
+  // Unless another document was opened meanwhile.
+  if (!agreed || current?.path !== doc.path || gitBusy) {
+    return;
+  }
+  const result = await changeRepository(
+    t('Switching to {0}...', name),
+    () => invoke('git_switch', { name, remote }),
+    async () => {
+      // Another version of the document: no longer compared with a commit of the other branch. Unless another
+      // document was opened meanwhile, which stays as it is (its history and branches are read again).
+      if (current?.path === doc.path) {
+        stopComparing(false);
+      }
+      await reopenAfterGit(doc.path);
+    },
+  );
+  if ('error' in result) {
+    await message(`${t('Could not switch to {0}.', name)}\n${gitErrorText(result.error, doc.name)}`, { title: APP_NAME, kind: 'error' });
+  }
+}
+
+/** Pulls the branch of the repository of the document (fast-forward only), and tells whether it was up to date. */
+async function pull(): Promise<void> {
+  const doc = current;
+  if (!doc || gitBusy) {
+    return;
+  }
+  // Still compared with the same commit, if it is.
+  const result = await changeRepository(t('Pulling...'), () => invoke<{ updated: boolean }>('git_pull'), () => reopenAfterGit(doc.path));
+  if ('error' in result) {
+    await message(`${t('Could not pull.')}\n${gitErrorText(result.error, doc.name)}`, { title: APP_NAME, kind: 'error' });
+    return;
+  }
+  // Not below the branches of another document opened meanwhile.
+  if (current?.path === doc.path) {
+    sidebar.setBranchStatus(result.value.updated ? t('Pulled the latest changes.') : t('Already up to date.'));
+  }
+}
+
+/** Shows the document again after git changed the files (`reopen`), then its folder, history and branches. */
+async function reopenAfterGit(path: string): Promise<void> {
+  await reopen(path);
+  listFolder(true);
+  await loadHistory(true);
+}
+
 
 /** Shows the differences of the document from a commit of its history, or the document alone if it is compared with it already. */
 async function compareWith(revision: Revision): Promise<void> {
@@ -613,7 +833,7 @@ let exporting = false;
 let exportItem: MenuItem | undefined;
 
 function canExport(): boolean {
-  return ready && current !== undefined && !exporting;
+  return ready && current !== undefined && missing !== current.path && !exporting;
 }
 
 function updateExportItem(): void {

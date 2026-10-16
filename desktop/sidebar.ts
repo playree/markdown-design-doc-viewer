@@ -1,6 +1,7 @@
 /**
  * The sidebar of the desktop app, in two tabs: the Markdown files of a folder and of its subfolders, to switch between
- * the documents, and the git history of the document, to compare it with one of its commits. Fixed at the left of
+ * the documents, and the git history of the document, to compare it with one of its commits, with the branch of its
+ * repository, to switch to another one or pull it. Fixed at the left of
  * the window; the body makes room for it (desktop/sidebar.css), and the webview lays out the preview in the width left
  * (`data-seqnotes-inset-left`).
  */
@@ -9,6 +10,17 @@ import type { Translate } from '../src/l10n';
 import { foldersOf, sortFolder, type FolderNode, type FolderTree } from './folderTree';
 
 export type SidebarTab = 'files' | 'history';
+
+/** The branches of the repository of the document (`git_branches` in lib.rs). */
+export interface Branches {
+  /** The branch checked out: null when HEAD is detached. */
+  current: string | null;
+  /** The short hash of the commit checked out when HEAD is detached. */
+  detached: string | null;
+  local: string[];
+  /** The branches of the remotes (`origin/feature`) without a local branch of the same name. */
+  remote: string[];
+}
 
 /** The width chosen by dragging the edge of the sidebar, kept for the next launch. */
 const WIDTH_KEY = 'mdDesignDoc.sidebarWidth';
@@ -29,6 +41,13 @@ export interface SidebarOptions {
   onSelectRevision: (revision: Revision) => void;
   /** The button to read the history again. */
   onReloadHistory: () => void;
+  /**
+   * Another branch chosen: a local one, or one of a remote (`remote`). Once it is done, the branch checked out is
+   * chosen again in the list: the one switched to, if it was (`setBranches`).
+   */
+  onSwitchBranch: (name: string, remote: boolean) => Promise<void>;
+  /** The button to pull the branch. */
+  onPull: () => void;
 }
 
 export interface Sidebar {
@@ -48,6 +67,10 @@ export interface Sidebar {
   setHistory(name: string | undefined, history: Revision[] | string): void;
   /** The commit the document is compared with, marked in the history. */
   setComparedRevision(hash: string | undefined): void;
+  /** The branches of the repository of the document, above its history: hidden without them (not in a repository). */
+  setBranches(branches: Branches | undefined): void;
+  /** A text below the branches (what is being done, or what was done), and whether they cannot be used meanwhile. */
+  setBranchStatus(text: string | undefined, busy?: boolean): void;
 }
 
 /** The width chosen for the sidebar, or the default one. */
@@ -87,6 +110,8 @@ function icon(d: string): SVGSVGElement {
 const FOLDER_ICON = 'M1.5 3.5h4.5l1.5 1.5h7v8h-13z';
 /** A circular arrow, for the button that reads the history again. */
 const RELOAD_ICON = 'M13 8a5 5 0 1 1-1.5-3.5M13 2.5v3h-3';
+/** An arrow down to a line, for the button that pulls the branch. */
+const PULL_ICON = 'M8 2v9M4.5 7.5 8 11l3.5-3.5M3 14h10';
 
 /** A button of a header, with an icon and its title. */
 function headerButton(title: string, d: string, onClick: () => void): HTMLButtonElement {
@@ -111,7 +136,17 @@ function header(button: HTMLButtonElement): { element: HTMLElement; title: HTMLE
 }
 
 /** Adds the sidebar to the page, hidden until `setShown(true)`. */
-export function createSidebar({ t, lang, onOpenFile, onChooseFolder, onTabChange, onSelectRevision, onReloadHistory }: SidebarOptions): Sidebar {
+export function createSidebar({
+  t,
+  lang,
+  onOpenFile,
+  onChooseFolder,
+  onTabChange,
+  onSelectRevision,
+  onReloadHistory,
+  onSwitchBranch,
+  onPull,
+}: SidebarOptions): Sidebar {
   const body = document.body;
   const nav = document.createElement('nav');
   nav.className = 'desktop-sidebar';
@@ -153,6 +188,23 @@ export function createSidebar({ t, lang, onOpenFile, onChooseFolder, onTabChange
   const historyHeader = header(reloadButton);
   const history = tabPanel('history', t('History'), historyHeader.element);
 
+  // Below the header of the history: the branch checked out, to choose another one, the button that pulls it, and
+  // below them what is being done or was done.
+  const branchBox = document.createElement('div');
+  branchBox.className = 'desktop-history-branch';
+  const branchLine = document.createElement('div');
+  branchLine.className = 'desktop-history-branch-line';
+  const branchSelect = document.createElement('select');
+  branchSelect.className = 'desktop-history-branch-select';
+  branchSelect.setAttribute('aria-label', t('Branch'));
+  const pullButton = headerButton(t('Pull'), PULL_ICON, onPull);
+  branchLine.append(branchSelect, pullButton);
+  const branchStatus = document.createElement('p');
+  branchStatus.className = 'desktop-history-branch-status';
+  branchStatus.setAttribute('role', 'status');
+  branchBox.append(branchLine, branchStatus);
+  historyHeader.element.after(branchBox);
+
   const tabs: Record<SidebarTab, { tab: HTMLButtonElement; panel: HTMLElement }> = { files, history };
   // Left and right go from one tab to the other.
   tabList.addEventListener('keydown', (e) => {
@@ -185,6 +237,8 @@ export function createSidebar({ t, lang, onOpenFile, onChooseFolder, onTabChange
   let revisions: Revision[] | string = '';
   /** The commit compared with. */
   let compared: string | undefined;
+  /** The branches of the repository of the document. */
+  let branches: Branches | undefined;
 
   /** Shows the tab `name`, and tells it when it is another one. */
   function selectTab(name: SidebarTab): void {
@@ -405,8 +459,53 @@ export function createSidebar({ t, lang, onOpenFile, onChooseFolder, onTabChange
     history.content.scrollTop = scrollTop;
   }
 
+  /** The value of a branch in the list: local or of a remote, and its name. */
+  const branchValue = (name: string, remote: boolean) => `${remote ? 'remote' : 'local'}:${name}`;
+
+  function branchOption(text: string, value: string): HTMLOptionElement {
+    const option = document.createElement('option');
+    option.textContent = text;
+    option.value = value;
+    return option;
+  }
+
+  /** Shows the branches, the one checked out chosen (or the detached HEAD), the remote ones in a group. */
+  function renderBranches(): void {
+    branchBox.hidden = branches === undefined;
+    if (!branches) {
+      branchSelect.replaceChildren();
+      return;
+    }
+    const options: HTMLElement[] = [];
+    if (branches.current === null) {
+      const detached = branchOption(branches.detached ? t('Detached HEAD ({0})', branches.detached) : t('Detached HEAD'), '');
+      detached.disabled = true;
+      options.push(detached);
+    }
+    options.push(...branches.local.map((name) => branchOption(name, branchValue(name, false))));
+    if (branches.remote.length > 0) {
+      const group = document.createElement('optgroup');
+      group.label = t('Remote Branches');
+      group.append(...branches.remote.map((name) => branchOption(name, branchValue(name, true))));
+      options.push(group);
+    }
+    branchSelect.replaceChildren(...options);
+    const chosen = branches.current === null ? '' : branchValue(branches.current, false);
+    branchSelect.selectedIndex = [...branchSelect.options].findIndex((option) => option.value === chosen);
+    branchSelect.title = branches.current ?? branches.detached ?? '';
+  }
+
+  branchSelect.addEventListener('change', () => {
+    const [kind, ...name] = branchSelect.value.split(':');
+    void onSwitchBranch(name.join(':'), kind === 'remote')
+      .catch((error: unknown) => console.error(error))
+      .finally(renderBranches);
+  });
+
   render();
   renderHistory();
+  renderBranches();
+  branchStatus.hidden = true;
 
   return {
     setShown(value) {
@@ -431,6 +530,16 @@ export function createSidebar({ t, lang, onOpenFile, onChooseFolder, onTabChange
         compared = hash;
         renderHistory();
       }
+    },
+    setBranches(value) {
+      branches = value;
+      renderBranches();
+    },
+    setBranchStatus(text, busy = false) {
+      branchStatus.textContent = text ?? '';
+      branchStatus.hidden = text === undefined;
+      branchSelect.disabled = busy;
+      pullButton.disabled = busy;
     },
     setTree(value) {
       const sorted = { ...value, root: sortFolder(value.root, lang) };

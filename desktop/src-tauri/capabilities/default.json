@@ -10,6 +10,7 @@
     "core:window:allow-close",
     "core:webview:default",
     "dialog:allow-open",
-    "dialog:allow-message"
+    "dialog:allow-message",
+    "dialog:allow-ask"
   ]
 }
