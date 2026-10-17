@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fileUrl, isInside, linkTarget, relativeLink, resolveDocumentPath, resourcePath } from '../desktop/paths';
+import { fileUrl, isInside, linkTarget, relativeLink, resolveDocumentPath, resourcePath, splitPath } from '../desktop/paths';
 
 describe('resolveDocumentPath', () => {
   it('resolves a path relative to the folder of the document', () => {
@@ -81,6 +81,20 @@ describe('relativeLink', () => {
     expect(relativeLink('C:\\out\\a.html', '\\\\server\\share\\docs\\a.png')).toBe('file://server/share/docs/a.png');
     expect(relativeLink('\\\\server\\share\\out\\a.html', '\\\\server\\share\\docs\\a.png')).toBe('../docs/a.png');
     expect(relativeLink('\\\\server\\one\\a.html', '\\\\server\\two\\a.png')).toBe('file://server/two/a.png');
+  });
+});
+
+describe('splitPath', () => {
+  it('splits the paths of each system into the name of the file and its folder', () => {
+    expect(splitPath('/home/me/docs/login.md')).toEqual({ name: 'login.md', dir: '/home/me/docs' });
+    expect(splitPath('/home/me/a\\b.md')).toEqual({ name: 'a\\b.md', dir: '/home/me' });
+    expect(splitPath('C:\\Users\\me\\docs\\login.md')).toEqual({ name: 'login.md', dir: 'C:\\Users\\me\\docs' });
+  });
+
+  it('keeps the separator of a root', () => {
+    expect(splitPath('/login.md')).toEqual({ name: 'login.md', dir: '/' });
+    expect(splitPath('C:\\login.md')).toEqual({ name: 'login.md', dir: 'C:\\' });
+    expect(splitPath('\\\\server\\share\\login.md')).toEqual({ name: 'login.md', dir: '\\\\server\\share\\' });
   });
 });
 

@@ -2,7 +2,8 @@
  * The desktop app's side of the preview, in place of the extension host (Preview in src/previewPanel.ts): opens a
  * Markdown file through the Rust commands (src-tauri/src/lib.rs), renders it with `renderDocument` and sends it to
  * the webview, and follows its changes. Also the sidebar of the files of its folder and of its git history, with
- * which it is compared (`renderDiff`) (sidebar.ts), the menu, the dropped files, the theme and the HTML export.
+ * which it is compared (`renderDiff`) (sidebar.ts), the menu, the files opened recently, the dropped files, the theme
+ * and the HTML export.
  *
  * Each window of the app runs its own copy: the app opens a window for each file given to it while it runs.
  */
@@ -19,7 +20,8 @@ import type { DiffView, FromWebview, PreviewTheme, ToWebview } from '../src/prot
 import { createMarkdown, escapeHtml, renderDocument, type RenderEnv } from '../src/render';
 import type { FolderTree } from './folderTree';
 import { lang, t } from './l10n';
-import { isInside, isMarkdownPath, linkTarget, relativeLink, resourcePath } from './paths';
+import { isInside, isMarkdownPath, linkTarget, relativeLink, resourcePath, splitPath } from './paths';
+import { addRecentFile, menuText, parseRecentFiles, removeRecentFile } from './recentFiles';
 import { createSidebar, type Branches } from './sidebar';
 
 const APP_NAME = 'Markdown Design Doc Viewer';
@@ -171,9 +173,9 @@ function reason(error: unknown): string {
   return t(error instanceof Error ? error.message : String(error));
 }
 
-/** Shows an error: `text`, and its reason. */
-async function showError(text: string, error: unknown): Promise<void> {
-  await message(`${text}\n${reason(error)}`, { title: APP_NAME, kind: 'error' });
+/** Shows an error: `text`, its reason, and `note` when given. */
+async function showError(text: string, error: unknown, note?: string): Promise<void> {
+  await message([text, reason(error), ...(note ? [note] : [])].join('\n'), { title: APP_NAME, kind: 'error' });
 }
 
 /** Opens one document at a time: in order, so that the last one opened is shown and watched. */
@@ -183,24 +185,42 @@ let readSeq = 0;
 /** The number of the read shown. */
 let shownSeq = 0;
 
+/** How a document is opened (`openDocument`). */
+interface OpenOptions {
+  /** The heading to scroll to on its first render: the fragment of the link that opened it. */
+  fragment?: string;
+  /** The sidebar keeps its folder: a file chosen in it. */
+  keepFolder?: boolean;
+  /**
+   * Added to the files opened recently: a file opened from outside the documents shown (a dialog, a drop, the file
+   * manager, the list itself), not from the sidebar or a link.
+   */
+  remember?: boolean;
+}
+
 /**
- * Opens a document in the window, at the heading `fragment` when given. The sidebar then lists its folder, unless it
- * lists a folder the document is in, or `keepFolder` (a file chosen in the sidebar).
+ * Opens a document in the window. The sidebar then lists its folder, unless it lists a folder the document is in, or
+ * `keepFolder`.
  */
-function openDocument(path: string, fragment?: string, keepFolder = false): Promise<void> {
-  opening = opening.then(() => openNow(path, fragment, keepFolder)).catch((error: unknown) => console.error(error));
+function openDocument(path: string, options: OpenOptions = {}): Promise<void> {
+  opening = opening.then(() => openNow(path, options)).catch((error: unknown) => console.error(error));
   return opening;
 }
 
 /** `openDocument`, once the documents opened before are. */
-async function openNow(path: string, fragment: string | undefined, keepFolder: boolean): Promise<void> {
+async function openNow(path: string, { fragment, keepFolder = false, remember = false }: OpenOptions): Promise<void> {
   const seq = ++readSeq;
   let doc: OpenedDocument;
   try {
     doc = await invoke<OpenedDocument>('open_document', { path });
   } catch (error) {
-    await showError(t('Could not open {0}.', path), error);
+    // A file of the recent ones that is gone, chosen in their list, is no longer listed.
+    const forgotten = remember && error === FILE_NOT_FOUND && forgetFile(path);
+    await showError(t('Could not open {0}.', path), error, forgotten ? t('It was removed from the recent files.') : undefined);
     return;
+  }
+  if (remember) {
+    rememberFile(doc.path);
   }
   // Unless the same file was read again meanwhile (it changed while it was being opened again).
   if (current?.path !== doc.path || seq > shownSeq) {
@@ -331,7 +351,7 @@ async function chooseDocument(): Promise<void> {
     filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
   });
   if (typeof path === 'string') {
-    await openDocument(path);
+    await openDocument(path, { remember: true });
   }
 }
 
@@ -362,7 +382,7 @@ let shownList: string | undefined;
 const sidebar = createSidebar({
   t,
   lang,
-  onOpenFile: (path) => void openDocument(path, undefined, true),
+  onOpenFile: (path) => void openDocument(path, { keepFolder: true }),
   onChooseFolder: () => void chooseFolder(),
   onTabChange: () => void loadHistory(),
   onSelectRevision: (revision) => void compareWith(revision),
@@ -488,7 +508,7 @@ async function openLink(href: string): Promise<void> {
         await invoke('open_url', { url: target.url });
         break;
       case 'document':
-        await openDocument(target.path, target.fragment);
+        await openDocument(target.path, { fragment: target.fragment });
         break;
       case 'file':
         await invoke('open_path', { path: target.path });
@@ -999,13 +1019,149 @@ window.addEventListener('storage', (event) => {
 });
 
 // ---------------------------------------------------------------------------
+// The files opened recently (File > Open Recent, and the screen of a window that shows no file): those opened from
+// outside the documents shown, as `remember` of `OpenOptions` tells.
+
+/** The files opened recently, kept for the next launch and shared by the windows. */
+const RECENT_KEY = 'mdDesignDoc.recentFiles';
+
+/** The list saved, or an empty one when it cannot be read. */
+function savedRecentFiles(): string[] {
+  try {
+    return parseRecentFiles(localStorage.getItem(RECENT_KEY));
+  } catch {
+    return [];
+  }
+}
+
+let recentFiles = savedRecentFiles();
+/** File > Open Recent. */
+let recentMenu: Submenu | undefined;
+/** Updates the menu one at a time, so that it ends with the last list. */
+let recentMenuUpdate: Promise<void> = Promise.resolve();
+const recentSection = empty.querySelector<HTMLElement>('.desktop-recent')!;
+const recentList = recentSection.querySelector('ul')!;
+
+/** Keeps the list, for the other windows (`storage` event) and the next launch too, and shows it. */
+function setRecentFiles(list: string[]): void {
+  recentFiles = list;
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(list));
+  } catch {
+    // Not kept for the next launch.
+  }
+  showRecentFiles();
+}
+
+/**
+ * Puts a file opened first in the list. From the list shown, which has the changes of the other windows (`storage`
+ * event), rather than from the one saved, which may be older if it could not be saved.
+ */
+function rememberFile(path: string): void {
+  setRecentFiles(addRecentFile(recentFiles, path));
+}
+
+/** Removes a file from the list. Returns whether it was there. */
+function forgetFile(path: string): boolean {
+  if (!recentFiles.includes(path)) {
+    return false;
+  }
+  setRecentFiles(removeRecentFile(recentFiles, path));
+  return true;
+}
+
+/** Opens a file of the list, which puts it first again. */
+function openRecentFile(path: string): void {
+  void openDocument(path, { remember: true });
+}
+
+/** The items of File > Open Recent: the files, then the item that clears the list. */
+async function recentMenuItems(): Promise<(MenuItem | PredefinedMenuItem)[]> {
+  const files = recentFiles;
+  const items: (MenuItem | PredefinedMenuItem)[] = await Promise.all(
+    files.map((path) => MenuItem.new({ text: menuText(path), action: () => openRecentFile(path) })),
+  );
+  if (files.length === 0) {
+    items.push(await MenuItem.new({ text: t('No Recent Files'), enabled: false }));
+  }
+  items.push(await PredefinedMenuItem.new({ item: 'Separator' }));
+  items.push(await MenuItem.new({ text: label('&Clear Recently Opened'), enabled: files.length > 0, action: () => setRecentFiles([]) }));
+  return items;
+}
+
+/** Shows the list in File > Open Recent, once the menu is set up. */
+function updateRecentMenu(): void {
+  const menu = recentMenu;
+  if (!menu) {
+    return;
+  }
+  recentMenuUpdate = recentMenuUpdate
+    .then(async () => {
+      const items = await recentMenuItems();
+      for (const item of await menu.items()) {
+        await menu.remove(item);
+        await item.close();
+      }
+      await menu.append(items);
+    })
+    .catch((error: unknown) => console.error(error));
+}
+
+/** Shows the list on the screen of a window that shows no file: hidden when it is empty. */
+function renderRecentList(): void {
+  recentSection.hidden = recentFiles.length === 0;
+  recentList.replaceChildren(
+    ...recentFiles.map((path) => {
+      const { name, dir } = splitPath(path);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.title = path;
+      const nameText = document.createElement('span');
+      nameText.className = 'desktop-recent-name';
+      nameText.textContent = name;
+      const dirText = document.createElement('span');
+      dirText.className = 'desktop-recent-dir';
+      dirText.textContent = dir;
+      button.append(nameText, dirText);
+      button.addEventListener('click', () => openRecentFile(path));
+      const item = document.createElement('li');
+      item.append(button);
+      return item;
+    }),
+  );
+}
+
+/** Shows the list on the screen and in the menu. */
+function showRecentFiles(): void {
+  renderRecentList();
+  updateRecentMenu();
+}
+
+recentSection.querySelector('h2')!.textContent = t('Recent Files');
+const clearRecentButton = recentSection.querySelector<HTMLButtonElement>('.desktop-recent-clear')!;
+clearRecentButton.textContent = t('Clear');
+clearRecentButton.addEventListener('click', () => setRecentFiles([]));
+renderRecentList();
+// Changed in another window (or all the storage cleared: no key).
+window.addEventListener('storage', (event) => {
+  if (event.key === RECENT_KEY || event.key === null) {
+    recentFiles = savedRecentFiles();
+    showRecentFiles();
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Menu
+
+const mac = navigator.userAgent.includes('Mac');
+
+/** The text of a menu item. The access keys (`&File`, `ファイル(&F)`) are for Windows and Linux: macOS menus have none. */
+function label(text: string): string {
+  return mac ? t(text).replace(/\(&\w\)/, '').replace(/&/g, '') : t(text);
+}
 
 /** The menu of the window (of the app on macOS): File, View, and on macOS the app and Edit menus. */
 async function setUpMenu(): Promise<void> {
-  const mac = navigator.userAgent.includes('Mac');
-  // The access keys (`&File`, `ファイル(&F)`) are for Windows and Linux: macOS menus have none.
-  const label = (text: string) => (mac ? t(text).replace(/\(&\w\)/, '').replace(/&/g, '') : t(text));
   const setTheme = (value: PreviewTheme) => {
     theme = value;
     try {
@@ -1021,12 +1177,19 @@ async function setUpMenu(): Promise<void> {
   }
   const separator = () => PredefinedMenuItem.new({ item: 'Separator' });
   exportItem = await MenuItem.new({ text: label('&Export as HTML...'), enabled: canExport(), action: () => void exportHtml() });
+  const listed = recentFiles;
+  recentMenu = await Submenu.new({ text: label('Open Recen&t'), items: await recentMenuItems() });
+  if (recentFiles !== listed) {
+    // Changed meanwhile, before the menu could be updated.
+    updateRecentMenu();
+  }
 
   const file = await Submenu.new({
     text: label('&File'),
     items: [
       await MenuItem.new({ text: label('&Open...'), accelerator: 'CmdOrCtrl+O', action: () => void chooseDocument() }),
       await MenuItem.new({ text: label('Open &Folder...'), action: () => void chooseFolder() }),
+      recentMenu,
       await MenuItem.new({
         text: label('&Reload'),
         accelerator: 'CmdOrCtrl+R',
@@ -1119,7 +1282,7 @@ void getCurrentWebview().onDragDropEvent((event) => {
     const { paths } = event.payload;
     const path = paths.find(isMarkdownPath);
     if (path) {
-      void openDocument(path);
+      void openDocument(path, { remember: true });
     } else if (paths.length === 1) {
       void dropFolder(paths[0]);
     }
@@ -1135,9 +1298,10 @@ openButton.addEventListener('click', () => void chooseDocument());
 async function start(): Promise<void> {
   await setUpMenu().catch((error: unknown) => console.error(error));
   // Before asking for the first file: a file given to the running app opens here when this window shows nothing.
-  await appWindow.listen<string>('open-document', (event) => void openDocument(event.payload));
+  await appWindow.listen<string>('open-document', (event) => void openDocument(event.payload, { remember: true }));
   // Also after a reload of the page (F5): a file given to the window just before it is still to be opened.
-  let path = await invoke<string | null>('initial_path');
+  const given = await invoke<string | null>('initial_path');
+  let path = given;
   try {
     // The sidebar keeps its folder if the document is in it.
     folder = sessionStorage.getItem(FOLDER_KEY) ?? undefined;
@@ -1146,7 +1310,8 @@ async function start(): Promise<void> {
     // The file given to the window only.
   }
   if (path) {
-    await openDocument(path);
+    // Not the document shown before a reload of the page, which is not opened anew.
+    await openDocument(path, { remember: path === given });
   }
   if (!current) {
     empty.hidden = false;

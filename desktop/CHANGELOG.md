@@ -2,6 +2,10 @@
 
 The desktop app has its own version, apart from the extension and the command line (their changes are in [CHANGELOG.md](../CHANGELOG.md)). Its installers are attached to the [releases of the desktop app](https://github.com/playree/markdown-design-doc-viewer/releases?q=desktop&expanded=true) (tagged `desktop-vX.Y.Z`).
 
+## Unreleased
+
+- **File** > **Open Recent** and the screen shown when no file is open list the files opened recently (up to 10, the last one first), to open them again. The files opened from the sidebar or a link are not listed. A file no longer found is removed from the list when it is chosen, and the list can be cleared.
+
 ## 0.2.0
 
 - **View** > **Design Docs** (Ctrl+Shift+D, ⌘⇧D) lists the design documents of the sidebar's folder (`type: design_doc` in their front matter) in place of the document: a table of their titles, file names, versions, products, statuses and update dates, by folder, with a search box and sortable columns. Clicking a title opens the document.
