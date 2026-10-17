@@ -2,8 +2,8 @@
  * The desktop app's side of the preview, in place of the extension host (Preview in src/previewPanel.ts): opens a
  * Markdown file through the Rust commands (src-tauri/src/lib.rs), renders it with `renderDocument` and sends it to
  * the webview, and follows its changes. Also the sidebar of the files of its folder and of its git history, with
- * which it is compared (`renderDiff`) (sidebar.ts), the menu, the files opened recently, the dropped files, the theme
- * and the HTML export.
+ * which it is compared (`renderDiff`) (sidebar.ts), the menu, the files opened recently, the dropped files, the theme,
+ * the settings (settingsDialog.ts) and the HTML export.
  *
  * Each window of the app runs its own copy: the app opens a window for each file given to it while it runs.
  */
@@ -22,6 +22,8 @@ import type { FolderTree } from './folderTree';
 import { lang, t } from './l10n';
 import { isInside, isMarkdownPath, linkTarget, relativeLink, resourcePath, splitPath } from './paths';
 import { addRecentFile, menuText, parseRecentFiles, removeRecentFile } from './recentFiles';
+import { parseSettings, SETTINGS_KEY, type DesktopSettings } from './settings';
+import { createSettingsDialog } from './settingsDialog';
 import { createSidebar, type Branches } from './sidebar';
 
 const APP_NAME = 'Markdown Design Doc Viewer';
@@ -36,27 +38,11 @@ interface OpenedDocument {
   text: string;
 }
 
-/** The settings of the extension, at their defaults. The theme is chosen with the body class (`applyTheme`). */
-const SETTINGS = {
-  splitMinWidth: 1000,
-  // No editor to follow.
-  syncEditor: false,
-  toc: true,
-  diagramLook: 'neo',
-  theme: 'auto',
-  limitContentWidth: true,
-  stickyTableHeader: true,
-  tableTreeHighlight: true,
-} as const;
-
 /** What `read_design_docs` returns: the Markdown files of a folder that start with a front matter. */
 interface FileHeads {
   files: { path: string; name: string; folder: string; head: string }[];
   truncated: boolean;
 }
-
-/** The settings of the extension that apply to the rendering of the documents, at their defaults. */
-const RENDER_SETTINGS = { frontMatter: true, headingNumbers: true } as const;
 
 /** The document of the window, kept across reloads of the page (F5) in the session. */
 const DOCUMENT_KEY = 'mdDesignDoc.document';
@@ -86,6 +72,38 @@ let listShown = false;
  * document of the window, so that the branch can be switched back, and is shown again once it is read again.
  */
 let missing: string | undefined;
+
+/** The settings saved, or the defaults when they cannot be read. */
+function savedSettings(): DesktopSettings {
+  try {
+    return parseSettings(localStorage.getItem(SETTINGS_KEY));
+  } catch {
+    return parseSettings(null);
+  }
+}
+
+/** The settings (View > Settings...), kept for the next launch and shared by the windows. */
+let settings = savedSettings();
+
+/** The settings of an update of the webview. The theme is chosen with the body class (`applyTheme`). */
+function viewSettings() {
+  return {
+    splitMinWidth: settings.splitMinWidth,
+    // No editor to follow.
+    syncEditor: false,
+    toc: settings.toc,
+    diagramLook: settings.diagramLook,
+    theme: 'auto',
+    limitContentWidth: settings.limitContentWidth,
+    stickyTableHeader: settings.stickyTableHeader,
+    tableTreeHighlight: settings.tableTreeHighlight,
+  } as const;
+}
+
+/** The settings that apply to the rendering of the documents. */
+function renderSettings(): Pick<RenderEnv, 'frontMatter' | 'headingNumbers'> {
+  return { frontMatter: settings.frontMatter, headingNumbers: settings.headingNumbers };
+}
 
 export function onWebviewMessage(message: FromWebview): void {
   switch (message.type) {
@@ -132,7 +150,7 @@ async function renderNow(): Promise<void> {
     return;
   }
   if (missing === doc.path) {
-    post({ type: 'update', uri: doc.path, html: `<p>${escapeHtml(t('{0} was not found. It may not be in the branch checked out.', doc.name))}</p>`, ...SETTINGS });
+    post({ type: 'update', uri: doc.path, html: `<p>${escapeHtml(t('{0} was not found. It may not be in the branch checked out.', doc.name))}</p>`, ...viewSettings() });
     return;
   }
   const fragment = pendingFragment?.path === doc.path ? pendingFragment.fragment : undefined;
@@ -140,7 +158,7 @@ async function renderNow(): Promise<void> {
   const images: string[] = [];
   const env: RenderEnv = {
     t,
-    ...RENDER_SETTINGS,
+    ...renderSettings(),
     resolveResource: (src) => {
       const path = resourcePath(doc.dir, src);
       if (path === undefined) {
@@ -165,7 +183,7 @@ async function renderNow(): Promise<void> {
     // The asset protocol serves only the files allowed by the app.
     await invoke('allow_images', { paths: images }).catch((error: unknown) => console.error(error));
   }
-  post({ type: 'update', uri: doc.path, html, ...SETTINGS, ...(fragment ? { fragment } : {}), ...(diff ? { diff } : {}) });
+  post({ type: 'update', uri: doc.path, html, ...viewSettings(), ...(fragment ? { fragment } : {}), ...(diff ? { diff } : {}) });
 }
 
 /** The reason of an error: an English text of the Rust commands, translated, or one of the system. */
@@ -575,7 +593,7 @@ async function renderDesignDocs(): Promise<void> {
   }
   // Unless the list was left meanwhile. Another folder chosen meanwhile is rendered next (`setFolder`).
   if (listShown) {
-    post({ type: 'update', uri: DESIGN_DOCS_URI, html, ...SETTINGS });
+    post({ type: 'update', uri: DESIGN_DOCS_URI, html, ...viewSettings() });
   }
 }
 
@@ -874,7 +892,7 @@ function renderInWebview(html: string): Promise<string> {
       fn();
     };
     pendingExports.set(id, { resolve: (body) => done(() => resolve(body)), reject: (error) => done(() => reject(error)) });
-    post({ type: 'export', id, html, diagramLook: SETTINGS.diagramLook });
+    post({ type: 'export', id, html, diagramLook: settings.diagramLook });
   });
 }
 
@@ -938,9 +956,9 @@ async function writeExport(doc: OpenedDocument): Promise<string | undefined> {
   if (!target) {
     return undefined;
   }
-  const html = await renderForExport(md, doc.text, { t, ...RENDER_SETTINGS }, (src) => exportedImage(doc.dir, src, target));
+  const html = await renderForExport(md, doc.text, { t, ...renderSettings() }, (src) => exportedImage(doc.dir, src, target));
   const [body, style, exportStyle, script] = await Promise.all([renderInWebview(html), readAsset('webview.css'), readAsset('export.css'), readAsset('export.js')]);
-  const page = exportPage({ lang, title: documentTitle(md, doc.text, doc.name), body, styles: [style, exportStyle], script, settings: SETTINGS });
+  const page = exportPage({ lang, title: documentTitle(md, doc.text, doc.name), body, styles: [style, exportStyle], script, settings });
   await invoke('write_export', { html: page });
   return target;
 }
@@ -1008,13 +1026,51 @@ function applyTheme(): void {
   themeItems.forEach((item, i) => void item.setChecked(THEMES[i][0] === theme));
 }
 
+/** Chooses the theme (View > Theme, or the settings), for the next launch too. */
+function setTheme(value: PreviewTheme): void {
+  theme = value;
+  try {
+    // Also for the other windows (`storage` event).
+    localStorage.setItem(THEME_KEY, value);
+  } catch {
+    // Not kept for the next launch.
+  }
+  applyTheme();
+  settingsDialog.update();
+}
+
 applyTheme();
 systemDark.addEventListener('change', applyTheme);
-// Chosen in another window.
+
+// ---------------------------------------------------------------------------
+// Settings (View > Settings...): those of the extension, in a dialog whose changes apply at once.
+
+/** Uses the settings changed, for the other windows (`storage` event) and the next launch too. */
+function setSettings(next: DesktopSettings): void {
+  settings = next;
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+  } catch {
+    // Not kept for the next launch.
+  }
+  render();
+}
+
+const settingsDialog = createSettingsDialog({ t, themes: THEMES, settings: () => settings, theme: () => theme, onChange: setSettings, onThemeChange: setTheme });
+
+// The theme or the settings changed in another window (or all the storage cleared: no key).
 window.addEventListener('storage', (event) => {
-  if (event.key === THEME_KEY) {
+  const cleared = event.key === null;
+  if (cleared || event.key === THEME_KEY) {
     theme = savedTheme();
     applyTheme();
+  }
+  if (cleared || event.key === SETTINGS_KEY) {
+    settings = savedSettings();
+    render();
+  }
+  if (cleared || event.key === THEME_KEY || event.key === SETTINGS_KEY) {
+    settingsDialog.update();
   }
 });
 
@@ -1162,16 +1218,6 @@ function label(text: string): string {
 
 /** The menu of the window (of the app on macOS): File, View, and on macOS the app and Edit menus. */
 async function setUpMenu(): Promise<void> {
-  const setTheme = (value: PreviewTheme) => {
-    theme = value;
-    try {
-      // Also for the other windows (`storage` event).
-      localStorage.setItem(THEME_KEY, value);
-    } catch {
-      // Not kept for the next launch.
-    }
-    applyTheme();
-  };
   for (const [value, text] of THEMES) {
     themeItems.push(await CheckMenuItem.new({ text: t(text), checked: value === theme, action: () => setTheme(value) }));
   }
@@ -1216,6 +1262,7 @@ async function setUpMenu(): Promise<void> {
     checked: sidebarShown,
     action: () => setSidebarShown(!sidebarShown),
   });
+  const settingsItem = await MenuItem.new({ text: label('S&ettings...'), accelerator: 'CmdOrCtrl+,', action: () => settingsDialog.open() });
   const view = await Submenu.new({
     text: label('&View'),
     items: [
@@ -1223,6 +1270,8 @@ async function setUpMenu(): Promise<void> {
       await MenuItem.new({ text: label('&Design Docs'), accelerator: 'CmdOrCtrl+Shift+D', action: () => void showDesignDocs() }),
       await separator(),
       await Submenu.new({ text: label('&Theme'), items: themeItems }),
+      // On macOS in the app menu, where its settings are.
+      ...(mac ? [] : [settingsItem]),
     ],
   });
   const items = [file, view];
@@ -1231,6 +1280,8 @@ async function setUpMenu(): Promise<void> {
       text: APP_NAME,
       items: [
         await PredefinedMenuItem.new({ item: { About: null } }),
+        await separator(),
+        settingsItem,
         await separator(),
         await PredefinedMenuItem.new({ item: 'Hide' }),
         await PredefinedMenuItem.new({ item: 'HideOthers' }),
