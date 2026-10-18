@@ -1,6 +1,7 @@
 /**
  * Shows the differences of the document from a revision (`renderDiff` in diffRender.ts): the words changed in each
- * changed block, the diagram of the revision under a changed diagram, and a bar to go from one change to the next.
+ * changed block, and the diagram of the revision under a changed diagram. The bar to go from one change to the next is
+ * in diffBar.ts.
  */
 import type { DiffView } from '../src/protocol';
 import { diffWordLists, groupChanges, splitWords, wordSegmenter } from '../src/textDiff';
@@ -18,12 +19,6 @@ const HIDDEN = '.seqnotes-cell-hidden';
 const MERGED = '.seqnotes-cell-sub';
 /** Beyond this many words, a changed block is only marked as a whole. */
 const MAX_WORDS = 20_000;
-/** Where a change is put on the screen when the bar's buttons go to it (also `scroll-margin` in preview.css). */
-const FOCUS_RATIO = 0.25;
-const FOCUS_MS = 1500;
-
-/** Fills in the `{0}` of a text from the body's data attributes. */
-const format = (text: string | undefined, value: number): string => (text ?? '{0}').replace('{0}', String(value));
 
 /** Marks the changes in `content` (the sanitized HTML of `renderDiff`), before its diagrams are rendered. */
 export function markChanges(content: HTMLElement, diff: DiffView, sanitize: (html: string) => DocumentFragment): void {
@@ -186,113 +181,4 @@ function markWords(after: HTMLElement, before: HTMLElement, skipped: string, onl
     fragment.append(node.data.slice(pos));
     node.replaceWith(fragment);
   }
-}
-
-// ---------------------------------------------------------------------------
-// Bar
-
-const CHEVRON_UP = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3.5 10l4.5-4.5 4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
-const CHEVRON_DOWN = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3.5 6l4.5 4.5 4.5-4.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
-
-export interface DiffBar {
-  /** Shows the bar for the differences rendered in the root, or hides it without. */
-  show(diff: DiffView | undefined): void;
-}
-
-/** Sets up the bar for the changes in `root`. `onClose` is called by its close button. */
-export function setupDiffBar(root: HTMLElement, onClose: () => void): DiffBar {
-  const bar = document.createElement('div');
-  bar.className = 'seqnotes-diff-bar';
-  bar.setAttribute('role', 'toolbar');
-  bar.hidden = true;
-  const label = document.createElement('span');
-  label.className = 'seqnotes-diff-label';
-  const counts = document.createElement('span');
-  counts.className = 'seqnotes-diff-counts';
-  const buttons = document.createElement('span');
-  buttons.className = 'seqnotes-diff-buttons';
-  const button = (content: string, title: string | undefined, onClick: () => void): HTMLButtonElement => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.innerHTML = content;
-    b.title = title ?? '';
-    b.setAttribute('aria-label', b.title);
-    b.addEventListener('click', onClick);
-    return b;
-  };
-  const previous = button(CHEVRON_UP, titles.seqnotesDiffPreviousTitle, () => go(-1));
-  const next = button(CHEVRON_DOWN, titles.seqnotesDiffNextTitle, () => go(1));
-  buttons.append(previous, next, button('&times;', titles.seqnotesDiffCloseTitle, onClose));
-  bar.append(label, counts, buttons);
-  // Outside the root, so the arrow / heading handlers on it do not see the clicks.
-  document.body.append(bar);
-
-  let current: HTMLElement | undefined;
-  /** Where the page was scrolled to by going to `current`. */
-  let currentScroll: number | undefined;
-  let focusTimer: ReturnType<typeof setTimeout> | undefined;
-
-  /** The changed blocks displayed, in document order. */
-  const targets = (): HTMLElement[] =>
-    Array.from(root.querySelectorAll<HTMLElement>('[data-seqnotes-diff]')).filter((el) => el.getClientRects().length > 0);
-
-  function go(direction: 1 | -1): void {
-    const list = targets();
-    if (list.length === 0) {
-      return;
-    }
-    const line = window.innerHeight * FOCUS_RATIO;
-    const index = current ? list.indexOf(current) : -1;
-    let target: HTMLElement | undefined;
-    // From the one gone to last while the page stays where it went (which may not be at `line` near the end of the
-    // page); else from what is on the screen.
-    if (index >= 0 && currentScroll !== undefined && Math.abs(window.scrollY - currentScroll) < 2) {
-      target = list[(index + direction + list.length) % list.length];
-    } else if (direction > 0) {
-      target = list.find((el) => el.getBoundingClientRect().top > line + 1) ?? list[0];
-    } else {
-      target = [...list].reverse().find((el) => el.getBoundingClientRect().top < line - 1) ?? list[list.length - 1];
-    }
-    current?.classList.remove('seqnotes-diff-focus');
-    current = target;
-    target.classList.add('seqnotes-diff-focus');
-    target.scrollIntoView({ block: 'start' });
-    currentScroll = window.scrollY;
-    clearTimeout(focusTimer);
-    focusTimer = setTimeout(() => target.classList.remove('seqnotes-diff-focus'), FOCUS_MS);
-  }
-
-  return {
-    show(diff) {
-      bar.hidden = !diff;
-      current = undefined;
-      currentScroll = undefined;
-      if (!diff) {
-        return;
-      }
-      label.textContent = diff.label;
-      label.title = diff.label;
-      const { added, changed, deleted } = diff.stats;
-      const items: [string, number, string | undefined][] = [
-        ['added', added, titles.seqnotesDiffAdded],
-        ['changed', changed, titles.seqnotesDiffChanged],
-        ['deleted', deleted, titles.seqnotesDiffDeleted],
-      ];
-      counts.replaceChildren(
-        ...items
-          .filter(([, count]) => count > 0)
-          .map(([kind, count, text]) => {
-            const span = document.createElement('span');
-            span.className = 'seqnotes-diff-count';
-            span.dataset.kind = kind;
-            span.textContent = format(text, count);
-            return span;
-          }),
-      );
-      if (added + changed + deleted === 0) {
-        counts.textContent = titles.seqnotesDiffNoChanges ?? '';
-      }
-      previous.disabled = next.disabled = added + changed + deleted === 0;
-    },
-  };
 }

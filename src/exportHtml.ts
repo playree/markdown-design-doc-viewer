@@ -1,7 +1,8 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { documentTitle, exportFileName, exportPage, imagePath, imageType, renderForExport, stripSourceMap } from './exportPage';
-import { readSettings, resolveDocumentPath, type PreviewManager, type Settings } from './previewPanel';
+import { documentTitle, exportDiff, exportFileName, exportPage, imagePath, imageType, renderDiffForExport, renderForExport, stripSourceMap } from './exportPage';
+import { readSettings, resolveDocumentPath, type Comparison, type PreviewManager, type Settings } from './previewPanel';
+import type { DiffView } from './protocol';
 import { createMarkdown } from './render';
 
 /** A link to `image` from the exported file: relative to it when possible, so that it works next to it. */
@@ -26,10 +27,21 @@ function embeddableFolders(document: vscode.Uri): vscode.Uri[] {
   return [vscode.Uri.joinPath(document, '..'), ...(vscode.workspace.workspaceFolders ?? []).map((f) => f.uri)];
 }
 
-/** Renders the document for the exported file, with its local images embedded as data URIs. */
-function renderWithImages(md: ReturnType<typeof createMarkdown>, source: string, uri: vscode.Uri, target: vscode.Uri, settings: Settings): Promise<string> {
+/**
+ * Renders the document for the exported file, with its local images embedded as data URIs; with its differences from
+ * the revision of `comparison`, if any.
+ */
+async function renderWithImages(
+  md: ReturnType<typeof createMarkdown>,
+  source: string,
+  uri: vscode.Uri,
+  target: vscode.Uri,
+  settings: Settings,
+  comparison: Comparison | undefined,
+): Promise<{ html: string; diff?: DiffView }> {
   const folders = embeddableFolders(uri);
-  return renderForExport(md, source, { t: vscode.l10n.t, frontMatter: settings.frontMatter, headingNumbers: settings.headingNumbers }, async (src) => {
+  const env = { t: vscode.l10n.t, frontMatter: settings.frontMatter, headingNumbers: settings.headingNumbers };
+  const resolveImage = async (src: string): Promise<string> => {
     const image = resolveDocumentPath(uri, imagePath(src));
     const type = imageType(image.path);
     try {
@@ -42,7 +54,12 @@ function renderWithImages(md: ReturnType<typeof createMarkdown>, source: string,
     // An image of an unknown type, outside those folders or that cannot be read is linked instead,
     // which works as long as the files stay where they are.
     return linkFrom(target, image);
-  });
+  };
+  if (!comparison) {
+    return { html: await renderForExport(md, source, env, resolveImage) };
+  }
+  const { html, old, stats } = await renderDiffForExport(md, comparison.source, source, env, resolveImage);
+  return { html, diff: { label: comparison.label, old, stats } };
 }
 
 async function readDist(extensionUri: vscode.Uri, name: string): Promise<string> {
@@ -62,8 +79,12 @@ function defaultTarget(uri: vscode.Uri): vscode.Uri | undefined {
 /**
  * Exports the document to a single HTML file: the diagrams as rendered by the preview (light theme),
  * the images embedded, and a small script for the side-by-side layout and the arrow ⇔ step highlighting.
+ * While the preview compares the document with a revision, its differences are exported with it.
  */
 export async function exportHtml(manager: PreviewManager, extensionUri: vscode.Uri, uri: vscode.Uri): Promise<void> {
+  // The preview it was run from, rather than another one of the same document.
+  const active = manager.activePreview();
+  const shown = active?.uri.toString() === uri.toString() ? active : undefined;
   const target = await vscode.window.showSaveDialog({
     defaultUri: defaultTarget(uri),
     filters: { HTML: ['html', 'htm'] },
@@ -80,10 +101,11 @@ export async function exportHtml(manager: PreviewManager, extensionUri: vscode.U
         const md = createMarkdown();
         const settings = readSettings();
         const source = (await vscode.workspace.openTextDocument(uri)).getText();
-        const html = await renderWithImages(md, source, uri, target, settings);
-        const preview = await manager.readyPreview(uri);
+        // Another one if it was closed meanwhile, with the differences it showed.
+        const preview = shown && !shown.closed ? shown : await manager.readyPreview(uri);
+        const { html, diff } = await renderWithImages(md, source, uri, target, settings, (shown ?? preview).comparison);
         const [body, style, exportStyle, script] = await Promise.all([
-          preview.renderForExport(html, settings.diagramLook),
+          preview.renderForExport(html, settings.diagramLook, diff),
           readDist(extensionUri, 'webview.css'),
           readDist(extensionUri, 'export.css'),
           readDist(extensionUri, 'export.js'),
@@ -95,6 +117,7 @@ export async function exportHtml(manager: PreviewManager, extensionUri: vscode.U
           styles: [style, exportStyle],
           script,
           settings,
+          ...(diff ? { diff: exportDiff(diff, vscode.l10n.t) } : {}),
         });
         await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(page));
       },

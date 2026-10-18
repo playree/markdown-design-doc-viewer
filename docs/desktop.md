@@ -99,7 +99,7 @@ Links:
 
 Images are looked up from the folder of the document, also with a leading `/` (there is no workspace folder as in VS Code).
 
-**File** > **Export as HTML...** saves the document to a single HTML file, chosen in a dialog. It is the same HTML as the extension's **Export Design Doc as HTML**: the diagrams are drawn in the light theme, and the side-by-side layout and the arrow ⇔ heading highlighting work in the browser. The images in the folder of the document (or below it) are embedded in the file; the others are linked with a path relative to it. Once saved, **Open in Browser** shows it.
+**File** > **Export as HTML...** saves the document to a single HTML file, chosen in a dialog. It is the same HTML as the extension's **Export Design Doc as HTML**: the diagrams are drawn in the light theme, and the side-by-side layout and the arrow ⇔ heading highlighting work in the browser. The images in the folder of the document (or below it) are embedded in the file; the others are linked with a path relative to it. While the document is compared with a commit in the **History** tab, its differences are exported too, marked as in the window, with a bar to go from one change to the next and to hide or show them. Once saved, **Open in Browser** shows it.
 
 **View** > **Theme** shows the preview in the colors of the system (light or dark, following its changes), or always light or dark. The menus and texts are in Japanese when the language of the system is Japanese, else in English.
 

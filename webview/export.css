@@ -23,6 +23,12 @@ body.seqnotes-export.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) {
   column-gap: 24px;
 }
 
+/*
+ * The differences hidden with the bar's button (export.ts): the document as it is now. The marks of the others are
+ * left out in preview.css.
+ */
+body.seqnotes-diff-off :is([data-seqnotes-diff="deleted"], del.seqnotes-diff-del, .seqnotes-diff-old-diagram) { display: none; }
+
 @media print {
   body.seqnotes-export { max-width: none; padding: 0; }
 

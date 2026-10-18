@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { formatRevisionDate, gitLogArgs, gitShowArgs, parseGitLog } from '../src/gitLog';
+import { formatRevisionDate, gitFilesArgs, gitLogArgs, gitRevisionArgs, gitShowArgs, gitShowFileArgs, parseGitFiles, parseGitLog, parseGitRevision } from '../src/gitLog';
 
 const record = (hash: string, subject: string, path?: string): string =>
   `\x1e${hash}\x1f${hash.slice(0, 7)}\x1fAuthor\x1f2026-10-01T12:00:00+09:00\x1f${subject}\0` + (path === undefined ? '' : `\n${path}\0`);
@@ -39,6 +39,34 @@ describe('git arguments', () => {
 
   it('shows the file at its path in the commit', () => {
     expect(gitShowArgs('abc', 'docs/a.md')).toEqual(['show', 'abc:docs/a.md']);
+  });
+
+  it('never takes a revision for an option', () => {
+    const args = gitRevisionArgs('-p');
+    expect(args.slice(-3)).toEqual(['--end-of-options', '-p', '--']);
+  });
+
+  it('reads the files of the working folder in a commit', () => {
+    expect(gitFilesArgs('abc')).toEqual(['ls-tree', '-z', '--name-only', 'abc']);
+    expect(parseGitFiles('a b.md\0sub\0')).toEqual(['a b.md', 'sub']);
+    expect(gitShowFileArgs('abc', 'a b.md')).toEqual(['show', 'abc:./a b.md']);
+  });
+});
+
+describe('parseGitRevision', () => {
+  it('reads the commit of a revision', () => {
+    expect(parseGitRevision(`${'a'.repeat(40)}\x1fabc\x1fAlice\x1f2026-10-01T10:00:00+09:00\x1fRelease 1.0\n`)).toEqual({
+      hash: 'a'.repeat(40),
+      shortHash: 'abc',
+      author: 'Alice',
+      date: '2026-10-01T10:00:00+09:00',
+      subject: 'Release 1.0',
+    });
+  });
+
+  it('is undefined without a commit', () => {
+    expect(parseGitRevision('')).toBeUndefined();
+    expect(parseGitRevision('gpg: Signature made\nabc\x1fa\x1fA\x1fD\x1fS')).toBeUndefined();
   });
 });
 

@@ -5,6 +5,7 @@
  * sortable columns are added by the script of the page (webview/indexList.ts).
  */
 import type { MarkdownIt } from 'markdown-it';
+import type { DiffStats } from './diffRender';
 import { frontMatterEntries, titleOf } from './exportPage';
 import type { Translate } from './l10n';
 import { DESIGN_DOC_META, frontMatterValue, isDesignDoc } from './markdownExtras';
@@ -64,6 +65,38 @@ export interface IndexEntry extends Omit<DocumentInfo, 'designDoc'> {
   folder: string;
   /** File name of the document. */
   file: string;
+  /**
+   * Its differences from the revision the documents were compared with (`md-design-doc export --diff-base`): the
+   * blocks changed, or whether the revision did not have it.
+   */
+  changes?: { stats: DiffStats; isNew: boolean };
+}
+
+/** The cell of the changes of a document: their numbers as in the bar of the differences (webview/diffBar.ts). */
+function changesCell(changes: NonNullable<IndexEntry['changes']>, t: Translate): string {
+  const { added, changed, deleted } = changes.stats;
+  const total = added + changed + deleted;
+  let content: string;
+  if (changes.isNew) {
+    content = `<span class="seqnotes-index-new">${escapeHtml(t('New'))}</span>`;
+  } else if (total === 0) {
+    content = `<span class="seqnotes-index-unchanged">${escapeHtml(t('No changes'))}</span>`;
+  } else {
+    const counts: [string, number, string][] = [
+      ['added', added, '{0} added'],
+      ['changed', changed, '{0} changed'],
+      ['deleted', deleted, '{0} deleted'],
+    ];
+    content =
+      '<span class="seqnotes-diff-counts">' +
+      counts
+        .filter(([, count]) => count > 0)
+        .map(([kind, count, text]) => `<span class="seqnotes-diff-count" data-kind="${kind}">${escapeHtml(t(text, count))}</span>`)
+        .join('') +
+      '</span>';
+  }
+  // Sorted by the number of changes, a new document first.
+  return `<td class="seqnotes-index-changes" data-seqnotes-sort="${changes.isNew ? Number.MAX_SAFE_INTEGER : total}">${content}</td>`;
 }
 
 /** The documents by folder: the top folder first, each followed by its subfolders, and the files by name. */
@@ -78,10 +111,11 @@ export function groupByFolder<T extends { folder: string; file: string }>(entrie
  */
 export function indexBody(title: string, entries: IndexEntry[], t: Translate, empty = ''): string {
   const columns = DESIGN_DOC_META.filter(({ key }) => entries.some((entry) => key in entry.meta));
+  const changes = entries.some((entry) => entry.changes !== undefined);
   // Named for the script, which keeps the column sorted by while the columns change.
   const head =
     '<thead><tr>' +
-    [{ key: 'title', label: 'Title' }, { key: 'file', label: 'File' }, ...columns]
+    [{ key: 'title', label: 'Title' }, { key: 'file', label: 'File' }, ...columns, ...(changes ? [{ key: 'changes', label: 'Changes' }] : [])]
       .map(({ key, label }) => `<th data-seqnotes-column="${key}">${escapeHtml(t(label))}</th>`)
       .join('') +
     '</tr></thead>\n';
@@ -95,6 +129,7 @@ export function indexBody(title: string, entries: IndexEntry[], t: Translate, em
         return `<td class="seqnotes-index-${key}">${value === undefined ? '' : `<span>${escapeHtml(value)}</span>`}</td>`;
       })
       .join('') +
+    (!changes ? '' : entry.changes ? changesCell(entry.changes, t) : '<td class="seqnotes-index-changes"></td>') +
     '</tr>\n';
   const tables = groupByFolder(entries).map(
     ({ folder, entries: rows }) =>

@@ -6,6 +6,8 @@ This changelog covers the extension and the command line. The desktop app has it
 
 - The margin at the top of the preview, above the box of the document header, is no longer scrolled out of view when the editor is scrolled to the top.
 - The title bar of the design doc list (`Show Design Docs`) has the light / dark button too, and its search box takes the colors of the theme chosen with it instead of VS Code's. The search box of the exported `index.html` has the same colors as the one of the light theme.
+- `Export Design Doc as HTML` exports the differences from a Git revision while the preview is compared with it (`Compare Design Doc with Git Revision...`), marked as in the preview. A bar at the bottom of the exported page goes from one change to the next, and hides or shows them.
+- The command line's `--diff-base <rev>` exports each document with its changes since the git revision `<rev>` (a tag, a commit or a branch); a document the revision does not have is shown as all added. With `--index`, `index.html` has a column of the changes of each document (their numbers, new, or no changes).
 
 ## 1.1.0
 

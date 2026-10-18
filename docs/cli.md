@@ -19,6 +19,7 @@ The HTML is the same as the VS Code extension's `Export Design Doc as HTML` comm
 ```sh
 npx markdown-design-doc-viewer export docs -o site     # all the Markdown files under docs/ to site/docs/*.html
 npx markdown-design-doc-viewer export docs -o site --index   # plus site/index.html, a list of the documents
+npx markdown-design-doc-viewer export docs -o site --diff-base v1.0   # with their changes since the tag v1.0
 npx markdown-design-doc-viewer export README.md        # README.html next to it
 ```
 
@@ -50,6 +51,7 @@ md-design-doc export docs -o site
 | `--no-table-tree-highlight` | Do not highlight the parents and children of the row under the pointer in the tables shown as trees (`level=` of the table options). |
 | `--chrome <path>` | Chrome or Chromium to render the diagrams with. |
 | `--strict` | Fail when a document has a warning: a link warning (a broken `@ref` or a misplaced marker), or table options that cannot be applied. Arrows and headings that are only not linked do not fail. |
+| `--diff-base <rev>` | Show the changes of each document since the git revision `<rev>` (a tag, a commit or a branch), as the VS Code extension shows its differences from a revision: the blocks added, changed and deleted are marked with green, blue and red bands, the words changed are highlighted, and the old version of a changed diagram is shown folded below it. A bar at the bottom of the page goes from one change to the next, and hides or shows them. A document the revision does not have at its path (added or renamed since) is shown as all added. Requires git, and the history of the revision in the clone (see [GitHub Actions](#github-actions)). With `--index`, the list has a column of the changes of each document. |
 | `--index` | Also write `index.html` in `--out-dir` (required), a list of the exported documents: a table for each folder, with their title (linked), file name, and the `version`, `product`, `status` and `updated` of their front matter. The page has a search box that filters the documents, and its column headers sort them. |
 | `--index-title <title>` | Title of `index.html`. Default: `Design Docs` (`設計書一覧` with `--lang ja`). |
 | `--index-design-docs` | List only the design docs (`type: design_doc` in their front matter) in `index.html`. The other documents are still exported. |
@@ -58,7 +60,7 @@ md-design-doc export docs -o site
 
 Folders are searched for `*.md` and `*.markdown` files, including their subfolders, except `node_modules` and folders starting with a dot. Link warnings and the warnings of table options are written to the standard error (as annotations in GitHub Actions).
 
-The exit status is 1 when a document could not be exported or has a diagram mermaid cannot render (its HTML is written anyway), or with `--strict` a warning, and 2 for a wrong command line.
+The exit status is 1 when a document could not be exported (also when git fails with `--diff-base`, e.g. for an unknown revision) or has a diagram mermaid cannot render (its HTML is written anyway), or with `--strict` a warning, and 2 for a wrong command line.
 
 ## GitHub Actions
 
@@ -73,6 +75,15 @@ For example, to publish the documents of a repository as an artifact of each bui
   with:
     name: design-docs
     path: site
+```
+
+To show the changes since the last release with `--diff-base`, check out the history, which `actions/checkout` leaves out by default:
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0   # the tags and commits to compare with
+- run: npx markdown-design-doc-viewer export docs -o site --index --diff-base v1.0
 ```
 
 ## Writing linked documents

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { WEBVIEW_TITLES, type DiagramLook, type FromWebview, type PreviewTheme, type ToWebview, type WebviewState } from './protocol';
+import { WEBVIEW_TITLES, type DiagramLook, type DiffView, type FromWebview, type PreviewTheme, type ToWebview, type WebviewState } from './protocol';
 import { isExternalUrl, safeDecode, SCHEME_RE } from './exportPage';
 import { renderDiff } from './diffRender';
 import { createMarkdown, escapeHtml, renderDocument, type RenderEnv } from './render';
@@ -267,7 +267,7 @@ export class Preview {
   });
   private exportId = 0;
   /** The revision whose differences are shown, if any. */
-  private comparison: Comparison | undefined;
+  private compared: Comparison | undefined;
   private readonly exports = new Map<number, { resolve: (body: string) => void; reject: (error: Error) => void }>();
 
   constructor(
@@ -308,8 +308,21 @@ export class Preview {
     this.exports.clear();
   }
 
-  /** Has the webview render `html` (from `renderDocument`) for an exported file, and returns the rendered body. */
-  renderForExport(html: string, diagramLook: DiagramLook): Promise<string> {
+  /** Whether the preview was closed. */
+  get closed(): boolean {
+    return this.disposed;
+  }
+
+  /** The revision whose differences are shown, if any (exported with the document). */
+  get comparison(): Comparison | undefined {
+    return this.compared;
+  }
+
+  /**
+   * Has the webview render `html` (from `renderForExport`, or `renderDiffForExport` with `diff`) for an exported file,
+   * and returns the rendered body.
+   */
+  renderForExport(html: string, diagramLook: DiagramLook, diff?: DiffView): Promise<string> {
     if (this.disposed) {
       return Promise.reject(new Error(vscode.l10n.t('The preview was closed.')));
     }
@@ -325,7 +338,7 @@ export class Preview {
         fn();
       };
       this.exports.set(id, { resolve: (body) => done(() => resolve(body)), reject: (error) => done(() => reject(error)) });
-      this.post({ type: 'export', id, html, diagramLook });
+      this.post({ type: 'export', id, html, diagramLook, ...(diff ? { diff } : {}) });
     });
   }
 
@@ -337,7 +350,7 @@ export class Preview {
 
   /** Shows the differences of the document from a revision, or the document alone without. */
   compare(comparison: Comparison | undefined): Promise<void> {
-    this.comparison = comparison;
+    this.compared = comparison;
     return this.update();
   }
 
@@ -354,9 +367,9 @@ export class Preview {
     }
     const { frontMatter, headingNumbers, ...settings } = this.host.settings();
     const env: RenderEnv = { resolveResource: (src) => this.resolveResource(src), t: vscode.l10n.t, frontMatter, headingNumbers };
-    if (this.comparison) {
-      const { html, old, stats } = renderDiff(this.md, this.comparison.source, document.getText(), env);
-      this.post({ type: 'update', uri: this.uri.toString(), html, ...settings, diff: { label: this.comparison.label, old, stats } });
+    if (this.compared) {
+      const { html, old, stats } = renderDiff(this.md, this.compared.source, document.getText(), env);
+      this.post({ type: 'update', uri: this.uri.toString(), html, ...settings, diff: { label: this.compared.label, old, stats } });
     } else {
       this.post({ type: 'update', uri: this.uri.toString(), html: renderDocument(this.md, document.getText(), env), ...settings });
     }

@@ -29,6 +29,8 @@ Options:
                                the Playwright cache, or the Google Chrome installed on the system.
       --strict                 Fail when a document has a warning (a broken @ref, a misplaced marker, or table
                                options that cannot be applied).
+      --diff-base <rev>        Show the changes of each document since the git revision <rev> (a tag, a commit or a
+                               branch), as the preview compares a document with a revision. Requires git.
       --index                  Also write index.html, a list of the exported documents, in --out-dir.
       --index-title <title>    Title of index.html. Default: "Design Docs" in --lang.
       --index-design-docs      List only the design docs (type: design_doc in their front matter) in index.html.
@@ -53,6 +55,8 @@ export interface ExportOptions {
   settings: ExportSettings;
   chrome?: string;
   strict: boolean;
+  /** The git revision whose content each document is compared with (`--diff-base`). */
+  diffBase?: string;
   /** Write a list of the documents (`indexPath`). */
   index: boolean;
   indexTitle?: string;
@@ -82,6 +86,7 @@ export function parseCommandLine(args: string[], cwd: string): Command {
         'no-table-tree-highlight': { type: 'boolean' },
         chrome: { type: 'string' },
         strict: { type: 'boolean' },
+        'diff-base': { type: 'string' },
         index: { type: 'boolean' },
         'index-title': { type: 'string' },
         'index-design-docs': { type: 'boolean' },
@@ -118,6 +123,9 @@ export function parseCommandLine(args: string[], cwd: string): Command {
   if (!Number.isFinite(splitMinWidth) || splitMinWidth < 0) {
     throw new UsageError(`--split-min-width must be a number of pixels: ${values['split-min-width']}`);
   }
+  if (values['diff-base'] !== undefined && values['diff-base'].trim() === '') {
+    throw new UsageError('--diff-base must be a git revision.');
+  }
   if (values.index && values['out-dir'] === undefined) {
     throw new UsageError('--index requires --out-dir.');
   }
@@ -145,6 +153,7 @@ export function parseCommandLine(args: string[], cwd: string): Command {
     // A command name (without a folder) is looked up in PATH.
     chrome: values.chrome === undefined || !/[\\/]/.test(values.chrome) ? values.chrome : resolve(cwd, values.chrome),
     strict: values.strict ?? false,
+    diffBase: values['diff-base'],
     index: values.index ?? false,
     indexTitle: values['index-title'],
     indexDesignDocs: values['index-design-docs'] ?? false,

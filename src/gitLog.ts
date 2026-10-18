@@ -49,6 +49,36 @@ export function gitShowArgs(hash: string, path: string): string[] {
   return ['show', `${hash}:${path}`];
 }
 
+/**
+ * The arguments of `git log` writing the commit of `revision` (a commit, a tag or a branch), parsed by
+ * `parseGitRevision`. With `--end-of-options`, a revision is never taken for an option.
+ */
+export function gitRevisionArgs(revision: string): string[] {
+  // Without the signature of a signed commit, which `log.showSignature` would write before it.
+  return ['log', '-1', '--no-show-signature', '--format=%H%x1f%h%x1f%an%x1f%aI%x1f%s', '--end-of-options', revision, '--'];
+}
+
+/** The commit written by `git log` with `gitRevisionArgs`, without the path of a file. */
+export function parseGitRevision(output: string): Omit<Revision, 'path'> | undefined {
+  const [hash, shortHash, author, date, subject] = output.replace(/\r?\n$/, '').split(FIELD);
+  return /^[0-9a-f]{40,64}$/.test(hash) && subject !== undefined ? { hash, shortHash, author, date, subject } : undefined;
+}
+
+/** The arguments of `git ls-tree` writing the names of the files of the working folder in the commit `hash`. */
+export function gitFilesArgs(hash: string): string[] {
+  return ['ls-tree', '-z', '--name-only', hash];
+}
+
+/** The names written by `git ls-tree` with `gitFilesArgs`. */
+export function parseGitFiles(output: string): string[] {
+  return output.split(END).filter((name) => name !== '');
+}
+
+/** The arguments of `git show` writing the content of the file `fileName` of the working folder in the commit `hash`. */
+export function gitShowFileArgs(hash: string, fileName: string): string[] {
+  return ['show', `${hash}:./${fileName}`];
+}
+
 /** The date of a revision (ISO 8601) for the user, in the language `locale`. */
 export function formatRevisionDate(date: string, locale: string): string {
   const d = new Date(date);

@@ -3,7 +3,8 @@ import mermaid, { type MermaidConfig } from 'mermaid';
 import type { DiagramLook, DiffView, FromWebview, PreviewTheme, ToWebview, WebviewState } from '../src/protocol';
 import type { DiagramMeta } from '../src/render';
 import { normalizeLabel } from '../src/sequence';
-import { markChanges, setupDiffBar } from './diff';
+import { markChanges } from './diff';
+import { setupDiffBar } from './diffBar';
 import { setupFootnotePopup } from './footnotePopup';
 import { setUpIndexList } from './indexList';
 import { activeFor, isSideBySide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, type Active } from './linking';
@@ -678,7 +679,7 @@ const footnotePopup = setupFootnotePopup(root, (href) => {
 
 setupTableTree(root);
 
-const diffBar = setupDiffBar(root, () => vscode.postMessage({ type: 'closeDiff' }));
+const diffBar = setupDiffBar(root, { onClose: () => vscode.postMessage({ type: 'closeDiff' }) });
 
 function openLink(href: string): void {
   if (href.startsWith('#')) {
@@ -692,13 +693,13 @@ function openLink(href: string): void {
 // Export
 
 /**
- * Renders the HTML of an exported file (`renderDocument` with `forExport`) with the light theme,
+ * Renders the HTML of an exported file (`renderDocument` with `forExport`, or `renderDiff` with `diff`) with the light theme,
  * and returns the body without the data only the preview script uses, and the errors of the diagrams.
  */
-async function exportBody(id: number, html: string, look: DiagramLook): Promise<{ body: string; diagramErrors: string[] }> {
-  const { content } = await buildContent(html, `seqnotes-export-${id}`, false, look);
+async function exportBody(id: number, html: string, look: DiagramLook, diff: DiffView | undefined): Promise<{ body: string; diagramErrors: string[] }> {
+  const { content } = await buildContent(html, `seqnotes-export-${id}`, false, look, diff);
   content.querySelectorAll('.seqnotes-pair').forEach(wrapSections);
-  for (const attr of ['data-seqnotes-meta', 'data-seqnotes-line']) {
+  for (const attr of ['data-seqnotes-meta', 'data-seqnotes-line', 'data-seqnotes-diff-old']) {
     content.querySelectorAll(`[${attr}]`).forEach((el) => el.removeAttribute(attr));
   }
   const diagramErrors = Array.from(content.querySelectorAll('.seqnotes-error-message'), (el) => el.textContent ?? '');
@@ -1201,7 +1202,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       markLine(message.line, true);
       break;
     case 'export':
-      exportBody(message.id, message.html, message.diagramLook).then(
+      exportBody(message.id, message.html, message.diagramLook, message.diff).then(
         ({ body, diagramErrors }) => vscode.postMessage({ type: 'exported', id: message.id, body, diagramErrors }),
         (error: unknown) => vscode.postMessage({ type: 'exported', id: message.id, error: error instanceof Error ? error.message : String(error) }),
       );

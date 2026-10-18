@@ -2,6 +2,7 @@
  * Script of an exported HTML file: the side-by-side layout and the arrow ⇔ step highlighting of the preview,
  * without the parts that talk to VS Code.
  */
+import { setupDiffBar } from './diffBar';
 import { setupFootnotePopup } from './footnotePopup';
 import { setUpIndexList } from './indexList';
 import { activeFor, revealCounterpart, scrollToFragment, showActive, type Active } from './linking';
@@ -40,6 +41,16 @@ setupFootnotePopup(root, (href) => {
 });
 
 setupTableTree(root);
+
+// The differences from a revision rendered in the page (`ExportPage.diff` in src/exportPage.ts), hidden and shown by the bar.
+const { seqnotesDiffLabel: diffLabel, seqnotesDiffStats: diffStats } = document.body.dataset;
+if (diffLabel !== undefined && diffStats !== undefined) {
+  const [added = 0, changed = 0, deleted = 0] = diffStats.split(',').map(Number);
+  const onToggle = (shown: boolean): void => {
+    document.body.classList.toggle('seqnotes-diff-off', !shown);
+  };
+  setupDiffBar(root, { onToggle }).show({ label: diffLabel, stats: { added, changed, deleted } });
+}
 
 // The list of the documents (index.html).
 const index = root.querySelector<HTMLElement>('.seqnotes-index');

@@ -353,6 +353,15 @@ body.seqnotes-sticky-table-header thead th {
   border-radius: 1em;
   white-space: nowrap;
 }
+/* The changes since the revision compared with (`md-design-doc export --diff-base`), as in the bar of the differences. */
+.seqnotes-index-changes .seqnotes-diff-counts { flex-wrap: wrap; }
+.seqnotes-index-unchanged { color: var(--seqnotes-muted); }
+.seqnotes-index-new {
+  padding: 0 0.6em;
+  border: 1px solid var(--vscode-editorGutter-addedBackground, #2ea043);
+  border-radius: 1em;
+  white-space: nowrap;
+}
 .seqnotes-index-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 0 1em; }
 .seqnotes-index-filter input {
   flex: 0 1 28em;
@@ -923,20 +932,24 @@ body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-overvi
 [data-seqnotes-diff="changed"] { --seqnotes-diff-color: var(--vscode-editorGutter-modifiedBackground, #005fb8); }
 [data-seqnotes-diff="deleted"] { --seqnotes-diff-color: var(--vscode-editorGutter-deletedBackground, #f85149); }
 
+/*
+ * The marks of the changes, but those hidden in an exported file (`seqnotes-diff-off`, webview/export.css), in `:where`
+ * so as not to change which rules win.
+ */
 /* A band at the left of the block, apart from it, over a light tint of its color. */
-[data-seqnotes-diff]:not(tr) {
+[data-seqnotes-diff]:not(tr, :where(.seqnotes-diff-off *)) {
   border-radius: 2px;
   background: color-mix(in srgb, var(--seqnotes-diff-color) 8%, transparent);
   box-shadow: -4px 0 0 0 var(--vscode-editor-background, transparent), -8px 0 0 0 var(--seqnotes-diff-color);
 }
-tr[data-seqnotes-diff] > :is(td, th) { background: color-mix(in srgb, var(--seqnotes-diff-color) 10%, transparent); }
-tr[data-seqnotes-diff] > :first-child { box-shadow: inset 4px 0 0 0 var(--seqnotes-diff-color); }
+tr[data-seqnotes-diff]:not(:where(.seqnotes-diff-off *)) > :is(td, th) { background: color-mix(in srgb, var(--seqnotes-diff-color) 10%, transparent); }
+tr[data-seqnotes-diff]:not(:where(.seqnotes-diff-off *)) > :first-child { box-shadow: inset 4px 0 0 0 var(--seqnotes-diff-color); }
 /* Read as gone, while still readable. */
 [data-seqnotes-diff="deleted"] { opacity: 0.75; }
-:is(h1, h2, h3, h4, h5, h6)[data-seqnotes-diff] { padding-left: 4px; }
+:is(h1, h2, h3, h4, h5, h6)[data-seqnotes-diff]:not(:where(.seqnotes-diff-off *)) { padding-left: 4px; }
 
-ins.seqnotes-diff-ins {
-  text-decoration: none;
+ins.seqnotes-diff-ins { text-decoration: none; }
+ins.seqnotes-diff-ins:not(:where(.seqnotes-diff-off *)) {
   border-radius: 2px;
   background: var(--vscode-diffEditor-insertedTextBackground, rgba(156, 204, 44, 0.25));
   box-shadow: 0 1.5px 0 0 var(--vscode-editorGutter-addedBackground, #2ea043);

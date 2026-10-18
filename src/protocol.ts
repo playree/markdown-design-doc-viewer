@@ -26,8 +26,8 @@ export type ToWebview =
   | { type: 'scrollToLine'; line: number }
   /** Editor cursor moved: mark the element for this line. */
   | { type: 'markLine'; line: number }
-  /** Render this HTML for an exported file and send it back with `exported`. */
-  | { type: 'export'; id: number; html: string; diagramLook: DiagramLook };
+  /** Render this HTML for an exported file and send it back with `exported`. With `diff`, the HTML is that of `renderDiff`. */
+  | { type: 'export'; id: number; html: string; diagramLook: DiagramLook; diff?: DiffView };
 
 export type FromWebview =
   | { type: 'ready' }
@@ -81,5 +81,7 @@ export const WEBVIEW_TITLES: Record<string, string> = {
   'diff-previous-title': 'Previous change',
   'diff-next-title': 'Next change',
   'diff-close-title': 'Stop comparing',
+  'diff-hide-title': 'Hide changes',
+  'diff-show-title': 'Show changes',
   'diff-old-diagram': 'Diagram before the change',
 };
