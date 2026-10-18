@@ -3,8 +3,11 @@
  * and the command line (cli.ts).
  */
 import type { MarkdownIt, Token } from 'markdown-it';
+import { renderDiff, type DiffRender, type DiffStats } from './diffRender';
+import type { Translate } from './l10n';
 import { headingText } from './linker';
 import { frontMatterValue, parseFrontMatter, type FrontMatterEntry } from './markdownExtras';
+import { WEBVIEW_TITLES } from './protocol';
 import { escapeHtml, renderDocument, type RenderEnv } from './render';
 
 export const IMAGE_TYPES: Record<string, string> = {
@@ -75,6 +78,30 @@ export function exportFileName(name: string): string {
 const RESOURCE_PLACEHOLDER = 'seqnotes-export-resource:';
 const PLACEHOLDER_RE = new RegExp(`${RESOURCE_PLACEHOLDER}(\\d+)`, 'g');
 
+/** The local images of the HTML rendered with `resolveResource`, resolved by `resolveImage` (see `renderForExport`). */
+async function withImages<T>(
+  render: (resolveResource: (src: string) => string) => T,
+  resolveImage: (src: string) => Promise<string>,
+): Promise<{ result: T; resolve: (html: string) => string }> {
+  const images: string[] = [];
+  // Synchronous, so the images are only collected here and resolved below.
+  const result = render((src) => {
+    if (isExternalUrl(src)) {
+      return src;
+    }
+    images.push(src);
+    return `${RESOURCE_PLACEHOLDER}${images.length - 1}`;
+  });
+  const resolved = await Promise.all(
+    images.map(async (src) => {
+      const url = await resolveImage(src);
+      const suffix = /[?#].*$/s.exec(src)?.[0] ?? '';
+      return url.startsWith('data:') ? url : url + suffix;
+    }),
+  );
+  return { result, resolve: (html) => html.replace(PLACEHOLDER_RE, (_, i: string) => escapeHtml(resolved[Number(i)])) };
+}
+
 /**
  * Renders the document for an exported file (`forExport`). The local images (not `isExternalUrl`) are given to
  * `resolveImage`, which returns their data URI or a link to them. A link keeps the query and fragment of `src`
@@ -86,27 +113,26 @@ export async function renderForExport(
   env: Omit<RenderEnv, 'forExport' | 'resolveResource'>,
   resolveImage: (src: string) => Promise<string>,
 ): Promise<string> {
-  const images: string[] = [];
-  const html = renderDocument(md, source, {
-    ...env,
-    forExport: true,
-    // Synchronous, so the images are only collected here and resolved below.
-    resolveResource: (src) => {
-      if (isExternalUrl(src)) {
-        return src;
-      }
-      images.push(src);
-      return `${RESOURCE_PLACEHOLDER}${images.length - 1}`;
-    },
-  });
-  const resolved = await Promise.all(
-    images.map(async (src) => {
-      const url = await resolveImage(src);
-      const suffix = /[?#].*$/s.exec(src)?.[0] ?? '';
-      return url.startsWith('data:') ? url : url + suffix;
-    }),
+  const { result, resolve } = await withImages((resolveResource) => renderDocument(md, source, { ...env, forExport: true, resolveResource }), resolveImage);
+  return resolve(result);
+}
+
+/**
+ * Renders the document with its differences from a revision (`renderDiff`) for an exported file, like
+ * `renderForExport`: the images of the revision's blocks are resolved from the document's folder too.
+ */
+export async function renderDiffForExport(
+  md: MarkdownIt,
+  beforeSource: string,
+  afterSource: string,
+  env: Omit<RenderEnv, 'forExport' | 'resolveResource'>,
+  resolveImage: (src: string) => Promise<string>,
+): Promise<DiffRender> {
+  const { result, resolve } = await withImages(
+    (resolveResource) => renderDiff(md, beforeSource, afterSource, { ...env, forExport: true, resolveResource }),
+    resolveImage,
   );
-  return html.replace(PLACEHOLDER_RE, (_, i: string) => escapeHtml(resolved[Number(i)]));
+  return { html: resolve(result.html), old: result.old.map(resolve), stats: result.stats };
 }
 
 /** Removes the source map comment of a development build, as source maps are not exported. */
@@ -133,10 +159,29 @@ export interface ExportPage {
   /** dist/export.js. */
   script: string;
   settings: ExportSettings;
+  /** The differences from a revision rendered in the body (`renderDiffForExport`), shown with a bar (webview/export.ts). */
+  diff?: ExportDiff;
+}
+
+/** The differences of an exported page: what it is compared with, the number of blocks changed, and the bar's texts. */
+export interface ExportDiff {
+  label: string;
+  stats: DiffStats;
+  /** The texts of the bar (`diffTitles`). */
+  titles: Record<string, string>;
+}
+
+/** The texts of the bar of the differences (`diff-*` of `WEBVIEW_TITLES`) translated, by their attribute name. */
+export function diffTitles(t: Translate): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(WEBVIEW_TITLES)
+      .filter(([name]) => name.startsWith('diff-'))
+      .map(([name, title]) => [`data-seqnotes-${name}`, t(title)]),
+  );
 }
 
 /** The exported HTML file: a single page with its styles and script inlined. */
-export function exportPage({ lang, title, body, styles, script, settings }: ExportPage): string {
+export function exportPage({ lang, title, body, styles, script, settings, diff }: ExportPage): string {
   const classes = [
     'seqnotes-export',
     ...(settings.limitContentWidth ? ['seqnotes-limit-width'] : []),
@@ -144,6 +189,15 @@ export function exportPage({ lang, title, body, styles, script, settings }: Expo
     ...(settings.tableTreeHighlight ? ['seqnotes-table-tree-highlight'] : []),
   ];
   const splitMinWidth = Number.isFinite(Number(settings.splitMinWidth)) ? Number(settings.splitMinWidth) : 1000;
+  const diffAttrs = diff
+    ? Object.entries({
+        'data-seqnotes-diff-label': diff.label,
+        'data-seqnotes-diff-stats': `${diff.stats.added},${diff.stats.changed},${diff.stats.deleted}`,
+        ...diff.titles,
+      })
+        .map(([name, value]) => ` ${name}="${escapeHtml(value)}"`)
+        .join('')
+    : '';
   return `<!DOCTYPE html>
 <html lang="${escapeHtml(lang)}">
 <head>
@@ -154,7 +208,7 @@ export function exportPage({ lang, title, body, styles, script, settings }: Expo
 ${styles.join('\n').replace(/<\/style/gi, '<\\/style')}
 </style>
 </head>
-<body data-seqnotes-theme="light" class="${classes.join(' ')}" data-seqnotes-split-min-width="${splitMinWidth}">
+<body data-seqnotes-theme="light" class="${classes.join(' ')}" data-seqnotes-split-min-width="${splitMinWidth}"${diffAttrs}>
 <div id="seqnotes-root">${body}</div>
 <script>
 ${script.replace(/<\/script/gi, '<\\/script')}

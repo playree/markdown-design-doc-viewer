@@ -101,6 +101,28 @@ describe('indexBody', () => {
     expect(html).toMatch(/^<div class="seqnotes-index" data-seqnotes-filter-label="Filter" [^>]*data-seqnotes-count="\{1\} 件中 \{0\} 件"/);
   });
 
+  it('shows the changes of the documents when they were compared with a revision', () => {
+    const t: Translate = (message, ...args) => formatMessage(({ New: '新規', '{0} added': '追加 {0}' } as Record<string, string>)[message] ?? message, ...args);
+    const html = indexBody(
+      'Docs',
+      [
+        { ...entry('', 'a.md'), changes: { stats: { added: 1, changed: 0, deleted: 2 }, isNew: false } },
+        { ...entry('', 'b.md'), changes: { stats: { added: 3, changed: 0, deleted: 0 }, isNew: true } },
+        { ...entry('', 'c.md'), changes: { stats: { added: 0, changed: 0, deleted: 0 }, isNew: false } },
+        entry('', 'd.md'),
+      ],
+      t,
+    );
+    expect(html).toContain('<th data-seqnotes-column="changes">Changes</th>');
+    expect(html).toContain(
+      '<td class="seqnotes-index-changes" data-seqnotes-sort="3"><span class="seqnotes-diff-counts"><span class="seqnotes-diff-count" data-kind="added">追加 1</span><span class="seqnotes-diff-count" data-kind="deleted">2 deleted</span></span></td>',
+    );
+    expect(html).toContain(`data-seqnotes-sort="${Number.MAX_SAFE_INTEGER}"><span class="seqnotes-index-new">新規</span>`);
+    expect(html).toContain('data-seqnotes-sort="0"><span class="seqnotes-index-unchanged">No changes</span>');
+    expect(html).toContain('<td class="seqnotes-index-changes"></td>');
+    expect(indexBody('Docs', [entry('', 'a.md')], formatMessage)).not.toContain('Changes');
+  });
+
   it('shows a text in place of the tables without documents', () => {
     const html = indexBody('Docs', [], formatMessage, 'No <docs>.');
     expect(html).toContain('<p class="seqnotes-index-empty">No &lt;docs&gt;.</p>');

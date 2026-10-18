@@ -14,7 +14,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { ask, message, open } from '@tauri-apps/plugin-dialog';
 import { renderDiff } from '../src/diffRender';
 import { documentInfo, indexBody, NO_DESIGN_DOCS, type IndexEntry } from '../src/exportIndex';
-import { documentTitle, exportFileName, exportPage, imageType, renderForExport, stripSourceMap } from '../src/exportPage';
+import { diffTitles, documentTitle, exportFileName, exportPage, imageType, renderDiffForExport, renderForExport, stripSourceMap } from '../src/exportPage';
 import { formatRevisionDate, parseGitLog, type Revision } from '../src/gitLog';
 import type { DiffView, FromWebview, PreviewTheme, ToWebview } from '../src/protocol';
 import { createMarkdown, escapeHtml, renderDocument, type RenderEnv } from '../src/render';
@@ -878,8 +878,11 @@ function updateExportItem(): void {
   void exportItem?.setEnabled(canExport());
 }
 
-/** Has the webview render `html` (from `renderForExport`) for an exported file, and returns the rendered body. */
-function renderInWebview(html: string): Promise<string> {
+/**
+ * Has the webview render `html` (from `renderForExport`, or `renderDiffForExport` with `diff`) for an exported file,
+ * and returns the rendered body.
+ */
+function renderInWebview(html: string, diff: DiffView | undefined): Promise<string> {
   const id = ++exportId;
   return new Promise<string>((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -892,7 +895,7 @@ function renderInWebview(html: string): Promise<string> {
       fn();
     };
     pendingExports.set(id, { resolve: (body) => done(() => resolve(body)), reject: (error) => done(() => reject(error)) });
-    post({ type: 'export', id, html, diagramLook: settings.diagramLook });
+    post({ type: 'export', id, html, diagramLook: settings.diagramLook, ...(diff ? { diff } : {}) });
   });
 }
 
@@ -956,9 +959,29 @@ async function writeExport(doc: OpenedDocument): Promise<string | undefined> {
   if (!target) {
     return undefined;
   }
-  const html = await renderForExport(md, doc.text, { t, ...renderSettings() }, (src) => exportedImage(doc.dir, src, target));
-  const [body, style, exportStyle, script] = await Promise.all([renderInWebview(html), readAsset('webview.css'), readAsset('export.css'), readAsset('export.js')]);
-  const page = exportPage({ lang, title: documentTitle(md, doc.text, doc.name), body, styles: [style, exportStyle], script, settings });
+  const env = { t, ...renderSettings() };
+  const image = (src: string): Promise<string> => exportedImage(doc.dir, src, target);
+  // With the differences from the commit it is compared with, if any, as the window shows it.
+  const compared = comparison?.path === doc.path ? comparison : undefined;
+  let html: string;
+  let diff: DiffView | undefined;
+  if (compared) {
+    const result = await renderDiffForExport(md, compared.source, doc.text, env, image);
+    html = result.html;
+    diff = { label: compared.label, old: result.old, stats: result.stats };
+  } else {
+    html = await renderForExport(md, doc.text, env, image);
+  }
+  const [body, style, exportStyle, script] = await Promise.all([renderInWebview(html, diff), readAsset('webview.css'), readAsset('export.css'), readAsset('export.js')]);
+  const page = exportPage({
+    lang,
+    title: documentTitle(md, doc.text, doc.name),
+    body,
+    styles: [style, exportStyle],
+    script,
+    settings,
+    ...(diff ? { diff: { label: diff.label, stats: diff.stats, titles: diffTitles(t) } } : {}),
+  });
   await invoke('write_export', { html: page });
   return target;
 }

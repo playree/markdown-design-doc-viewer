@@ -6,7 +6,8 @@ import { existsSync, globSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright-core';
-import type { DiagramLook, FromWebview, ToWebview } from './protocol';
+import { formatMessage, type Translate } from './l10n';
+import { WEBVIEW_TITLES, type DiagramLook, type DiffView, type FromWebview, type ToWebview } from './protocol';
 import { escapeHtml } from './render';
 
 /** An exported document is given up after this long. */
@@ -76,15 +77,17 @@ export class HeadlessRenderer {
     private readonly browser: Browser,
     private readonly dist: string,
     private readonly lang: string,
+    private readonly t: Translate,
   ) {}
 
   /**
    * Opens the webview with the styles of an exported file, so that the diagrams are measured with its fonts.
-   * `dist` is the folder of webview.js, webview.css and export.css; `lang` the language of the documents.
+   * `dist` is the folder of webview.js, webview.css and export.css; `lang` the language of the documents, and `t` that
+   * of the texts the webview adds (e.g. above the diagram before a change).
    */
-  static async open(dist: string, options: { lang: string; chrome?: string }): Promise<HeadlessRenderer> {
+  static async open(dist: string, options: { lang: string; chrome?: string; t?: Translate }): Promise<HeadlessRenderer> {
     const browser = await launchChrome(options.chrome);
-    const renderer = new HeadlessRenderer(browser, dist, options.lang);
+    const renderer = new HeadlessRenderer(browser, dist, options.lang, options.t ?? formatMessage);
     try {
       await renderer.openPage();
     } catch (error) {
@@ -114,10 +117,13 @@ export class HeadlessRenderer {
           this.onExported(message);
         }
       });
+      const titles = Object.entries(WEBVIEW_TITLES)
+        .map(([name, title]) => ` data-seqnotes-${name}="${escapeHtml(this.t(title))}"`)
+        .join('');
       await page.setContent(`<!DOCTYPE html>
 <html lang="${escapeHtml(this.lang)}">
 <head><meta charset="UTF-8"></head>
-<body class="vscode-light" data-seqnotes-theme="light">
+<body class="vscode-light" data-seqnotes-theme="light"${titles}>
 <div id="seqnotes-root"></div>
 <script>${vscodeApiStub('mdDesignDocPost')}</script>
 </body>
@@ -135,8 +141,8 @@ export class HeadlessRenderer {
     this.page = page;
   }
 
-  /** Renders `html` (from `renderForExport`) like the preview does for the export command. */
-  render(html: string, diagramLook: DiagramLook): Promise<ExportedBody> {
+  /** Renders `html` (from `renderForExport`, or `renderDiffForExport` with `diff`) like the preview does for the export command. */
+  render(html: string, diagramLook: DiagramLook, diff?: DiffView): Promise<ExportedBody> {
     const id = ++this.nextId;
     return new Promise<ExportedBody>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -157,7 +163,7 @@ export class HeadlessRenderer {
         fn();
       };
       this.pending.set(id, { resolve: (body) => done(() => resolve(body)), reject: (error) => done(() => reject(error)) });
-      const message: ToWebview = { type: 'export', id, html, diagramLook };
+      const message: ToWebview = { type: 'export', id, html, diagramLook, ...(diff ? { diff } : {}) };
       this.page.evaluate((m) => window.postMessage(m, '*'), message).catch((error: unknown) => this.pending.get(id)?.reject(error instanceof Error ? error : new Error(String(error))));
     });
   }

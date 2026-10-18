@@ -19,6 +19,7 @@
 ```sh
 npx markdown-design-doc-viewer export docs -o site     # docs/ 以下の Markdown をすべて site/docs/*.html に
 npx markdown-design-doc-viewer export docs -o site --index   # 加えて文書の一覧を site/index.html に
+npx markdown-design-doc-viewer export docs -o site --diff-base v1.0   # タグ v1.0 からの差分付きで
 npx markdown-design-doc-viewer export README.md        # 隣に README.html を
 ```
 
@@ -50,6 +51,7 @@ md-design-doc export docs -o site
 | `--no-table-tree-highlight` | ツリーとして表示する表（表のオプションの `level=`）で、マウスを乗せた行の親と子をハイライトしない |
 | `--chrome <path>` | 図の描画に使う Chrome か Chromium |
 | `--strict` | 警告（壊れた `@ref` や置き場所の誤ったマーカーなどの紐付けの警告、適用できない表のオプション）があれば失敗にする。紐付いていないだけの矢印・見出しでは失敗しない |
+| `--diff-base <rev>` | 各文書の、git のリビジョン `<rev>`（タグ・コミット・ブランチ）からの差分を表示する。VS Code 拡張の履歴との比較と同じく、追加・変更・削除したブロックに緑・青・赤の帯を付け、変わった語を強調し、変更した図には変更前の図を折りたたんで添える。ページ下部のバーで前後の変更へ移動したり、差分を隠したり表示したりできる。そのリビジョンの同じパスにない文書（その後に追加・名前を変更したもの）は全体を追加として表示する。git と、クローンにそのリビジョンまでの履歴が必要（[GitHub Actions](#github-actions) を参照）。`--index` と使うと、一覧に各文書の差分の列が付く |
 | `--index` | 書き出した文書の一覧を `--out-dir`（必須）の `index.html` にも書き出す。フォルダごとの表に、タイトル（リンク）・ファイル名と、front matter の `version`・`product`・`status`・`updated` を載せる。ページの検索欄で文書を絞り込め、列見出しで並べ替えられる |
 | `--index-title <title>` | `index.html` のタイトル。既定は `Design Docs`（`--lang ja` では `設計書一覧`） |
 | `--index-design-docs` | `index.html` に設計書（front matter に `type: design_doc`）だけを載せる。ほかの文書もエクスポートはする |
@@ -58,7 +60,7 @@ md-design-doc export docs -o site
 
 フォルダはサブフォルダも含めて `*.md` と `*.markdown` を探します（`node_modules` とドットで始まるフォルダは除く）。紐付けの警告と表のオプションの警告は標準エラーに出します（GitHub Actions では注釈になります）。
 
-文書を書き出せなかったとき、mermaid が描画できない図があったとき（HTML は書き出します）、`--strict` で警告があったときは終了コード 1、コマンドラインの誤りは 2 で終わります。
+文書を書き出せなかったとき（`--diff-base` で、不明なリビジョンなどで git が失敗したときも）、mermaid が描画できない図があったとき（HTML は書き出します）、`--strict` で警告があったときは終了コード 1、コマンドラインの誤りは 2 で終わります。
 
 ## GitHub Actions
 
@@ -73,6 +75,15 @@ md-design-doc export docs -o site
   with:
     name: design-docs
     path: site
+```
+
+`--diff-base` で前回のリリースからの差分を表示するには、`actions/checkout` が既定では取得しない履歴も取得します。
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0   # 比較するタグやコミット
+- run: npx markdown-design-doc-viewer export docs -o site --index --diff-base v1.0
 ```
 
 ## 書き方

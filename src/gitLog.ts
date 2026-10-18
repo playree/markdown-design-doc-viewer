@@ -49,6 +49,28 @@ export function gitShowArgs(hash: string, path: string): string[] {
   return ['show', `${hash}:${path}`];
 }
 
+/**
+ * The arguments of `git log` writing the commit of `revision` (a commit, a tag or a branch), parsed by
+ * `parseGitRevision`. With `--end-of-options`, a revision is never taken for an option.
+ */
+export function gitRevisionArgs(revision: string): string[] {
+  return ['log', '-1', '--format=%H%x1f%h%x1f%an%x1f%aI%x1f%s', '--end-of-options', revision, '--'];
+}
+
+/** The commit written by `git log` with `gitRevisionArgs`, without the path of a file. */
+export function parseGitRevision(output: string): Omit<Revision, 'path'> | undefined {
+  const [hash, shortHash, author, date, subject] = output.replace(/\r?\n$/, '').split(FIELD);
+  return hash && subject !== undefined ? { hash, shortHash, author, date, subject } : undefined;
+}
+
+/**
+ * The object of the file `fileName` of the working folder in the commit `hash` (`<hash>:./<name>`): with
+ * `git cat-file -e`, which tells whether the commit has it, and with `git show`, which writes its content.
+ */
+export function gitObjectName(hash: string, fileName: string): string {
+  return `${hash}:./${fileName}`;
+}
+
 /** The date of a revision (ISO 8601) for the user, in the language `locale`. */
 export function formatRevisionDate(date: string, locale: string): string {
   const d = new Date(date);

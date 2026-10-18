@@ -82,7 +82,11 @@ export function setUpIndexList(index: HTMLElement, state: IndexListState = { que
       // The columns of all the tables are the same. A column gone (no document has that entry any longer) sorts nothing.
       const column = sort ? buttons[i].findIndex((button) => button.parentElement!.dataset.seqnotesColumn === sort.column) : -1;
       if (sort && column >= 0) {
-        const key = (row: HTMLTableRowElement): string => row.cells[column]?.textContent?.trim() ?? '';
+        // A cell may give the value it is sorted by (e.g. the number of changes).
+        const key = (row: HTMLTableRowElement): string => {
+          const cell = row.cells[column];
+          return cell?.dataset.seqnotesSort ?? cell?.textContent?.trim() ?? '';
+        };
         rows.sort((a, b) => {
           const [x, y] = [key(a), key(b)];
           // The rows without the value last, in both orders.

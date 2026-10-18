@@ -50,6 +50,11 @@ describe('parseCommandLine', () => {
     });
   });
 
+  it('reads the revision to compare with', () => {
+    expect(parseCommandLine(['export', 'a.md', '--diff-base', 'v1.0'], cwd)).toMatchObject({ diffBase: 'v1.0' });
+    expect(parseCommandLine(['export', 'a.md'], cwd)).toMatchObject({ diffBase: undefined });
+  });
+
   it('keeps a command name given to --chrome', () => {
     expect(parseCommandLine(['export', 'a.md', '--chrome', 'google-chrome'], cwd)).toMatchObject({ chrome: 'google-chrome' });
   });
@@ -69,6 +74,7 @@ describe('parseCommandLine', () => {
     [['export', 'a.md', '--index']],
     [['export', 'a.md', '-o', 'out', '--index-title', 'Docs']],
     [['export', 'a.md', '-o', 'out', '--index-design-docs']],
+    [['export', 'a.md', '--diff-base', ' ']],
   ])('rejects %j', (args) => {
     expect(() => parseCommandLine(args, cwd)).toThrow(UsageError);
   });

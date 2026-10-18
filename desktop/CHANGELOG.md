@@ -6,6 +6,7 @@ The desktop app has its own version, apart from the extension and the command li
 
 - **View** > **Settings...** (Ctrl+,; on macOS in the app menu, ⌘,) opens the settings of the extension (`mdDesignDoc.*`) in the app: the theme, the diagram look, the width for the side-by-side layout, the table of contents, the heading numbers, the front matter, the text width, the sticky table headers and the highlight of table trees. A change applies at once to all the windows, and is kept for the next launch. Before, the app used the defaults of the extension.
 - **File** > **Open Recent** and the screen shown when no file is open list the files opened recently (up to 10, the last one first), to open them again. The files opened from the sidebar or a link are not listed. A file no longer found is removed from the list when it is chosen, and the list can be cleared.
+- **File** > **Export as HTML...** exports the differences from the commit the document is compared with in the **History** tab, marked as in the window, with a bar to go from one change to the next and to hide or show them.
 
 ## 0.2.0
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { documentTitle, exportFileName, exportPage, imagePath, imageType, isExternalUrl, renderForExport, stripSourceMap } from '../src/exportPage';
+import { diffTitles, documentTitle, exportFileName, exportPage, imagePath, imageType, isExternalUrl, renderDiffForExport, renderForExport, stripSourceMap } from '../src/exportPage';
+import type { Translate } from '../src/l10n';
 import { createMarkdown } from '../src/render';
 
 const md = createMarkdown();
@@ -71,6 +72,25 @@ describe('renderForExport', () => {
   });
 });
 
+describe('renderDiffForExport', () => {
+  it('resolves the images of the document and of the blocks of the revision', async () => {
+    const { html, old, stats } = await renderDiffForExport(md, 'Old text with ![a](old.png) here.', 'New text with ![a](new.png) here.', {}, async (src) => `data:${src}`);
+    expect(stats).toEqual({ added: 0, changed: 1, deleted: 0 });
+    expect(html).toContain('src="data:new.png"');
+    expect(html).toContain('data-seqnotes-diff="changed"');
+    expect(old).toHaveLength(1);
+    expect(old[0]).toContain('src="data:old.png"');
+    expect([html, ...old].join('')).not.toContain('seqnotes-export-resource');
+  });
+
+  it('renders without the source lines, and marks nothing without changes', async () => {
+    const { html, stats } = await renderDiffForExport(md, '# Title', '# Title', {}, async (src) => src);
+    expect(stats).toEqual({ added: 0, changed: 0, deleted: 0 });
+    expect(html).not.toContain('data-line');
+    expect(html).not.toContain('data-seqnotes-diff');
+  });
+});
+
 describe('stripSourceMap', () => {
   it('removes the source map comment at the end', () => {
     expect(stripSourceMap('code();\n//# sourceMappingURL=webview.js.map\n')).toBe('code();');
@@ -90,6 +110,17 @@ describe('exportPage', () => {
     expect(html).toContain('a{}\nb{}<\\/style>');
     expect(html).toContain('x("<\\/script>")');
     expect(html).toContain('<div id="seqnotes-root"><p>body</p></div>');
+  });
+
+  it('gives the differences and the texts of their bar to the script', () => {
+    const settings = { limitContentWidth: true, stickyTableHeader: true, tableTreeHighlight: true, splitMinWidth: 1000 };
+    const t: Translate = (message) => ({ 'Hide changes': '差分を隠す' })[message] ?? message;
+    const diff = { label: 'v1 "a" & b', stats: { added: 1, changed: 2, deleted: 3 }, titles: diffTitles(t) };
+    const html = exportPage({ lang: 'ja', title: 'A', body: '', styles: [], script: '', settings, diff });
+    expect(html).toContain(' data-seqnotes-diff-label="v1 &quot;a&quot; &amp; b" data-seqnotes-diff-stats="1,2,3"');
+    expect(html).toContain(' data-seqnotes-diff-hide-title="差分を隠す"');
+    expect(html).toContain(' data-seqnotes-diff-added="{0} added"');
+    expect(page()).not.toContain('data-seqnotes-diff');
   });
 
   it('applies the settings to the body', () => {
