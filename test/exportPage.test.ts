@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diffTitles, documentTitle, exportFileName, exportPage, imagePath, imageType, isExternalUrl, renderDiffForExport, renderForExport, stripSourceMap } from '../src/exportPage';
+import { documentTitle, exportDiff, exportFileName, exportPage, imagePath, imageType, isExternalUrl, renderDiffForExport, renderForExport, stripSourceMap } from '../src/exportPage';
 import type { Translate } from '../src/l10n';
 import { createMarkdown } from '../src/render';
 
@@ -115,11 +115,13 @@ describe('exportPage', () => {
   it('gives the differences and the texts of their bar to the script', () => {
     const settings = { limitContentWidth: true, stickyTableHeader: true, tableTreeHighlight: true, splitMinWidth: 1000 };
     const t: Translate = (message) => ({ 'Hide changes': '差分を隠す' })[message] ?? message;
-    const diff = { label: 'v1 "a" & b', stats: { added: 1, changed: 2, deleted: 3 }, titles: diffTitles(t) };
+    const diff = exportDiff({ label: 'v1 "a" & b', old: ['<p>x</p>'], stats: { added: 1, changed: 2, deleted: 3 } }, t);
     const html = exportPage({ lang: 'ja', title: 'A', body: '', styles: [], script: '', settings, diff });
     expect(html).toContain(' data-seqnotes-diff-label="v1 &quot;a&quot; &amp; b" data-seqnotes-diff-stats="1,2,3"');
     expect(html).toContain(' data-seqnotes-diff-hide-title="差分を隠す"');
     expect(html).toContain(' data-seqnotes-diff-added="{0} added"');
+    expect(html).not.toContain('data-seqnotes-diff-close-title');
+    expect(html).not.toContain('&lt;p&gt;x');
     expect(page()).not.toContain('data-seqnotes-diff');
   });
 

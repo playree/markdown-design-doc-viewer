@@ -120,7 +120,7 @@ webview は `src/protocol.ts`（メッセージ型）、`src/render.ts`（`Diagr
 
 ## テスト
 
-vitest のテストは VS Code API を使わない純粋なモジュール（`sequence.ts`, `flowchart.ts`, `linker.ts`, `render.ts` など）だけを対象にしている。拡張ホストと webview の挙動は F5 で手動確認する。
+vitest のテストは VS Code API を使わない純粋なモジュール（`sequence.ts`, `flowchart.ts`, `linker.ts`, `render.ts` など）だけを対象にしている（`gitCli.ts` のテストは一時フォルダのリポジトリで git を実行する）。拡張ホストと webview の挙動は F5 で手動確認する。
 
 ## その他の注意
 

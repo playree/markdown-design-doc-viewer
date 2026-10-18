@@ -1,7 +1,7 @@
 /** Runs git for the history of a file (extension host; no dependency on vscode). */
 import { execFile } from 'node:child_process';
 import * as path from 'node:path';
-import { gitLogArgs, gitObjectName, gitRevisionArgs, gitShowArgs, parseGitLog, parseGitRevision, type Revision } from './gitLog';
+import { gitFilesArgs, gitLogArgs, gitRevisionArgs, gitShowArgs, gitShowFileArgs, parseGitFiles, parseGitLog, parseGitRevision, type Revision } from './gitLog';
 
 /** Why git could not give the history. */
 export type GitErrorKind = 'notFound' | 'notRepository' | 'failed';
@@ -54,21 +54,15 @@ export async function gitRevision(git: string, dir: string, revision: string): P
   return commit;
 }
 
+/** The names of the files of the folder `dir` in the commit `hash` (from `gitRevision`): empty when it had no such folder. */
+export async function gitFilesAt(git: string, dir: string, hash: string): Promise<Set<string>> {
+  return new Set(parseGitFiles((await run(git, gitFilesArgs(hash), dir)).toString()));
+}
+
 /**
- * The content of the file in the commit `hash` (from `gitRevision`), at its current path: bytes, to be decoded like
- * the document. undefined when the commit does not have it (e.g. added since).
+ * The content of the file in the commit `hash`, which has it at its current path (`gitFilesAt`): bytes, to be decoded
+ * like the document.
  */
-export async function gitShowAt(git: string, file: string, hash: string): Promise<Uint8Array | undefined> {
-  const dir = path.dirname(file);
-  const object = gitObjectName(hash, path.basename(file));
-  try {
-    await run(git, ['cat-file', '-e', object], dir);
-  } catch (error) {
-    // The commit is known: it does not have the file.
-    if (error instanceof GitError && error.kind === 'failed') {
-      return undefined;
-    }
-    throw error;
-  }
-  return run(git, ['show', object], dir);
+export function gitShowAt(git: string, file: string, hash: string): Promise<Uint8Array> {
+  return run(git, gitShowFileArgs(hash, path.basename(file)), path.dirname(file));
 }

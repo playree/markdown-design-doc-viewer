@@ -14,7 +14,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { ask, message, open } from '@tauri-apps/plugin-dialog';
 import { renderDiff } from '../src/diffRender';
 import { documentInfo, indexBody, NO_DESIGN_DOCS, type IndexEntry } from '../src/exportIndex';
-import { diffTitles, documentTitle, exportFileName, exportPage, imageType, renderDiffForExport, renderForExport, stripSourceMap } from '../src/exportPage';
+import { documentTitle, exportDiff, exportFileName, exportPage, imageType, renderDiffForExport, renderForExport, stripSourceMap } from '../src/exportPage';
 import { formatRevisionDate, parseGitLog, type Revision } from '../src/gitLog';
 import type { DiffView, FromWebview, PreviewTheme, ToWebview } from '../src/protocol';
 import { createMarkdown, escapeHtml, renderDocument, type RenderEnv } from '../src/render';
@@ -980,7 +980,7 @@ async function writeExport(doc: OpenedDocument): Promise<string | undefined> {
     styles: [style, exportStyle],
     script,
     settings,
-    ...(diff ? { diff: { label: diff.label, stats: diff.stats, titles: diffTitles(t) } } : {}),
+    ...(diff ? { diff: exportDiff(diff, t) } : {}),
   });
   await invoke('write_export', { html: page });
   return target;

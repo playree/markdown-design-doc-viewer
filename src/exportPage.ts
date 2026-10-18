@@ -7,7 +7,7 @@ import { renderDiff, type DiffRender, type DiffStats } from './diffRender';
 import type { Translate } from './l10n';
 import { headingText } from './linker';
 import { frontMatterValue, parseFrontMatter, type FrontMatterEntry } from './markdownExtras';
-import { WEBVIEW_TITLES } from './protocol';
+import { WEBVIEW_TITLES, type DiffView } from './protocol';
 import { escapeHtml, renderDocument, type RenderEnv } from './render';
 
 export const IMAGE_TYPES: Record<string, string> = {
@@ -167,17 +167,16 @@ export interface ExportPage {
 export interface ExportDiff {
   label: string;
   stats: DiffStats;
-  /** The texts of the bar (`diffTitles`). */
+  /** The texts of the bar, by their attribute name. */
   titles: Record<string, string>;
 }
 
-/** The texts of the bar of the differences (`diff-*` of `WEBVIEW_TITLES`) translated, by their attribute name. */
-export function diffTitles(t: Translate): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(WEBVIEW_TITLES)
-      .filter(([name]) => name.startsWith('diff-'))
-      .map(([name, title]) => [`data-seqnotes-${name}`, t(title)]),
-  );
+/** The texts of the bar of the differences in an exported page (webview/diffBar.ts), in `WEBVIEW_TITLES`. */
+const DIFF_TITLES = ['diff-added', 'diff-changed', 'diff-deleted', 'diff-no-changes', 'diff-previous-title', 'diff-next-title', 'diff-hide-title', 'diff-show-title'];
+
+/** The differences of an exported page, from those the webview renders, with the texts of the bar in the language of `t`. */
+export function exportDiff({ label, stats }: DiffView, t: Translate): ExportDiff {
+  return { label, stats, titles: Object.fromEntries(DIFF_TITLES.map((name) => [`data-seqnotes-${name}`, t(WEBVIEW_TITLES[name])])) };
 }
 
 /** The exported HTML file: a single page with its styles and script inlined. */

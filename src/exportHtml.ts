@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { diffTitles, documentTitle, exportFileName, exportPage, imagePath, imageType, renderDiffForExport, renderForExport, stripSourceMap } from './exportPage';
+import { documentTitle, exportDiff, exportFileName, exportPage, imagePath, imageType, renderDiffForExport, renderForExport, stripSourceMap } from './exportPage';
 import { readSettings, resolveDocumentPath, type Comparison, type PreviewManager, type Settings } from './previewPanel';
 import type { DiffView } from './protocol';
 import { createMarkdown } from './render';
@@ -101,8 +101,9 @@ export async function exportHtml(manager: PreviewManager, extensionUri: vscode.U
         const md = createMarkdown();
         const settings = readSettings();
         const source = (await vscode.workspace.openTextDocument(uri)).getText();
-        const preview = shown ?? (await manager.readyPreview(uri));
-        const { html, diff } = await renderWithImages(md, source, uri, target, settings, preview.comparison);
+        // Another one if it was closed meanwhile, with the differences it showed.
+        const preview = shown && !shown.closed ? shown : await manager.readyPreview(uri);
+        const { html, diff } = await renderWithImages(md, source, uri, target, settings, (shown ?? preview).comparison);
         const [body, style, exportStyle, script] = await Promise.all([
           preview.renderForExport(html, settings.diagramLook, diff),
           readDist(extensionUri, 'webview.css'),
@@ -116,7 +117,7 @@ export async function exportHtml(manager: PreviewManager, extensionUri: vscode.U
           styles: [style, exportStyle],
           script,
           settings,
-          ...(diff ? { diff: { label: diff.label, stats: diff.stats, titles: diffTitles(vscode.l10n.t) } } : {}),
+          ...(diff ? { diff: exportDiff(diff, vscode.l10n.t) } : {}),
         });
         await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(page));
       },

@@ -308,6 +308,11 @@ export class Preview {
     this.exports.clear();
   }
 
+  /** Whether the preview was closed. */
+  get closed(): boolean {
+    return this.disposed;
+  }
+
   /** The revision whose differences are shown, if any (exported with the document). */
   get comparison(): Comparison | undefined {
     return this.compared;

@@ -1,35 +1,43 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { devNull, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, describe, expect, it } from 'vitest';
-import { GitError, gitRevision, gitShowAt } from '../src/gitCli';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { GitError, gitFilesAt, gitRevision, gitShowAt } from '../src/gitCli';
 
+// Runs git (the command line's --diff-base), in a repository made without the user's settings (e.g. signed commits).
 describe('the revision of --diff-base', () => {
   const dir = mkdtempSync(join(tmpdir(), 'mdai-git-'));
-  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+  const docs = join(dir, 'docs');
   const git = (...args: string[]): void => {
-    execFileSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', ...args], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', ...args], {
+      cwd: dir,
+      stdio: 'ignore',
+      env: { ...process.env, GIT_CONFIG_GLOBAL: devNull, GIT_CONFIG_NOSYSTEM: '1' },
+    });
   };
-  git('init', '-q');
-  mkdirSync(join(dir, 'docs'));
-  writeFileSync(join(dir, 'docs/a.md'), '# Old\n');
-  git('add', '-A');
-  git('commit', '-q', '-m', 'First version');
-  git('tag', 'v1.0');
-  writeFileSync(join(dir, 'docs/a.md'), '# New\n');
-  writeFileSync(join(dir, 'docs/b.md'), '# Added\n');
+  beforeAll(() => {
+    git('init', '-q');
+    mkdirSync(docs);
+    writeFileSync(join(docs, 'a.md'), '# Old\n');
+    git('add', '-A');
+    git('commit', '-q', '-m', 'First version');
+    git('tag', 'v1.0');
+    writeFileSync(join(docs, 'a.md'), '# New\n');
+    writeFileSync(join(docs, 'b.md'), '# Added\n');
+  });
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
   it('finds the commit of a tag', async () => {
-    const commit = await gitRevision('git', join(dir, 'docs'), 'v1.0');
+    const commit = await gitRevision('git', docs, 'v1.0');
     expect(commit.subject).toBe('First version');
     expect(commit.hash).toMatch(/^[0-9a-f]{40}$/);
   });
 
-  it('reads a document in that commit, from its folder, or nothing when it did not have it', async () => {
-    const { hash } = await gitRevision('git', join(dir, 'docs'), 'v1.0');
-    expect(new TextDecoder().decode(await gitShowAt('git', join(dir, 'docs/a.md'), hash))).toBe('# Old\n');
-    expect(await gitShowAt('git', join(dir, 'docs/b.md'), hash)).toBeUndefined();
+  it('lists the files of a folder in that commit, and reads them from it', async () => {
+    const { hash } = await gitRevision('git', docs, 'v1.0');
+    expect([...(await gitFilesAt('git', docs, hash))]).toEqual(['a.md']);
+    expect(new TextDecoder().decode(await gitShowAt('git', join(docs, 'a.md'), hash))).toBe('# Old\n');
   });
 
   it('fails for an unknown revision', async () => {

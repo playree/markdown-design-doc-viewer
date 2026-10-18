@@ -9,8 +9,8 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import { pathToFileURL } from 'node:url';
 import { collectDocuments, indexPath, isInFolder, outputPath, parseCommandLine, UsageError, USAGE, type ExportOptions } from './cliOptions';
 import { documentInfo, indexBody, type IndexEntry } from './exportIndex';
-import { diffTitles, exportPage, imagePath, imageType, renderDiffForExport, renderForExport, stripSourceMap, type ExportDiff } from './exportPage';
-import { GitError, gitRevision, gitShowAt } from './gitCli';
+import { exportDiff, exportPage, imagePath, imageType, renderDiffForExport, renderForExport, stripSourceMap } from './exportPage';
+import { GitError, gitFilesAt, gitRevision, gitShowAt } from './gitCli';
 import { formatRevisionDate, type Revision } from './gitLog';
 import { HeadlessRenderer } from './headless';
 import { collectIssues } from './issues';
@@ -104,10 +104,7 @@ function gitErrorMessage(error: unknown): string {
 /** The differences of a document from the revision of `--diff-base`, rendered for its exported file. */
 interface DocumentDiff {
   html: string;
-  /** For the webview, which marks the words changed. */
   view: DiffView;
-  /** For the page, which shows them with a bar. */
-  page: ExportDiff;
   /** The revision did not have the document. */
   isNew: boolean;
 }
@@ -139,15 +136,15 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
   const indexEntries: IndexEntry[] = [];
   const renderer = await HeadlessRenderer.open(DIST, { lang: options.lang, chrome: options.chrome, t });
 
-  /** The commit of `--diff-base` in the repository of each folder of documents, looked up once. */
-  const baseCommits = new Map<string, Promise<Omit<Revision, 'path'>>>();
-  const baseCommit = (revision: string, dir: string): Promise<Omit<Revision, 'path'>> => {
-    let commit = baseCommits.get(dir);
-    if (!commit) {
-      commit = gitRevision(GIT, dir, revision);
-      baseCommits.set(dir, commit);
+  /** The commit of `--diff-base` and the files it has in each folder of documents, looked up once. */
+  const baseFolders = new Map<string, Promise<{ commit: Omit<Revision, 'path'>; files: Set<string> }>>();
+  const baseFolder = (revision: string, dir: string): Promise<{ commit: Omit<Revision, 'path'>; files: Set<string> }> => {
+    let folder = baseFolders.get(dir);
+    if (!folder) {
+      folder = gitRevision(GIT, dir, revision).then(async (commit) => ({ commit, files: await gitFilesAt(GIT, dir, commit.hash) }));
+      baseFolders.set(dir, folder);
     }
-    return commit;
+    return folder;
   };
   /** Renders the document with its differences from the revision `revision`. */
   const renderWithDiff = async (
@@ -160,8 +157,9 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
     let commit: Omit<Revision, 'path'>;
     let content: Uint8Array | undefined;
     try {
-      commit = await baseCommit(revision, dirname(document));
-      content = await gitShowAt(GIT, document, commit.hash);
+      const folder = await baseFolder(revision, dirname(document));
+      commit = folder.commit;
+      content = folder.files.has(basename(document)) ? await gitShowAt(GIT, document, commit.hash) : undefined;
     } catch (error) {
       throw new Error(gitErrorMessage(error));
     }
@@ -170,7 +168,7 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
     const date = formatRevisionDate(commit.date, options.lang);
     const label = content === undefined ? t('New since {0}: {1} ({2})', revision, commit.subject, date) : t('Compared with {0}: {1} ({2})', revision, commit.subject, date);
     const { html, old, stats } = await renderDiffForExport(md, before, source.replace(/^\uFEFF/, ''), env, image);
-    return { html, view: { label, old, stats }, page: { label, stats, titles: diffTitles(t) }, isNew: content === undefined };
+    return { html, view: { label, old, stats }, isNew: content === undefined };
   };
   try {
     for (const [i, document] of documents.entries()) {
@@ -192,7 +190,7 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
         }
         const file = basename(document);
         const info = documentInfo(md, source, file, options.frontMatter);
-        const page = exportPage({ lang: options.lang, title: info.title, body, styles, script, settings: options.settings, diff: diff?.page });
+        const page = exportPage({ lang: options.lang, title: info.title, body, styles, script, settings: options.settings, ...(diff ? { diff: exportDiff(diff.view, t) } : {}) });
         mkdirSync(dirname(target), { recursive: true });
         writeFileSync(target, page);
         console.log(`${display(document)} -> ${display(target)}`);
