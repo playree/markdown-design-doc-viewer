@@ -59,7 +59,7 @@ async function renderWithImages(
     return { html: await renderForExport(md, source, env, resolveImage) };
   }
   const { html, old, stats } = await renderDiffForExport(md, comparison.source, source, env, resolveImage);
-  return { html, diff: { label: comparison.label, old, stats } };
+  return { html, diff: { label: comparison.exportLabel, old, stats } };
 }
 
 async function readDist(extensionUri: vscode.Uri, name: string): Promise<string> {

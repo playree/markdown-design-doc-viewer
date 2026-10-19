@@ -244,6 +244,8 @@ export class PreviewManager implements vscode.Disposable {
 export interface Comparison {
   /** What it is compared with, for the preview (translated). */
   label: string;
+  /** What it is compared with, for the exported HTML (translated): its date, which tells more to its readers than its commit. */
+  exportLabel: string;
   /** The content of the document in the revision. */
   source: string;
 }

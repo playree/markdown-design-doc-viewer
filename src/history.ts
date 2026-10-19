@@ -73,8 +73,10 @@ export async function compareWithRevision(manager: PreviewManager, uri: vscode.U
     // Run from the editor, the preview may be in a tab behind.
     preview.panel.reveal(undefined, true);
   }
+  const date = formatRevisionDate(revision.date, vscode.env.language);
   await preview.compare({
-    label: vscode.l10n.t('Compared with {0}: {1} ({2})', revision.shortHash, revision.subject, formatRevisionDate(revision.date, vscode.env.language)),
+    label: vscode.l10n.t('Compared with {0}: {1} ({2})', revision.shortHash, revision.subject, date),
+    exportLabel: vscode.l10n.t('Compared with the version of {0}', date),
     source,
   });
 }

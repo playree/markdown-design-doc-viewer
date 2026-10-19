@@ -166,7 +166,7 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
     // Without a BOM, like the document (TextDecoder leaves it out).
     const before = content === undefined ? '' : new TextDecoder().decode(content);
     const date = formatRevisionDate(commit.date, options.lang);
-    const label = content === undefined ? t('New since {0}: {1} ({2})', revision, commit.subject, date) : t('Compared with {0}: {1} ({2})', revision, commit.subject, date);
+    const label = content === undefined ? t('New since the version of {0}', date) : t('Compared with the version of {0}', date);
     const { html, old, stats } = await renderDiffForExport(md, before, source.replace(/^\uFEFF/, ''), env, image);
     return { html, view: { label, old, stats }, isNew: content === undefined };
   };
