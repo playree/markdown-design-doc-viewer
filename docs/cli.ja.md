@@ -10,7 +10,7 @@
 
 書き出す HTML は VS Code 拡張の `設計書を HTML にエクスポート` コマンドと同じです。**mermaid のシーケンス図やフローチャートと処理概要を横並びにして**表示し、図の矢印（フローチャートではノード）と見出しが紐付いて、マウスを載せたりクリックしたりするとハイライトします。図はヘッドレス Chrome で描画し、ローカルの画像は埋め込むので、どのブラウザでも開けて、印刷から PDF にもできます。
 
-![左にシーケンス図、右に紐付いた処理概要](https://raw.githubusercontent.com/playree/markdown-design-doc-viewer/main/images/screenshot.ja.png)
+![シーケンス図の矢印にマウスを載せると右の処理概要がハイライトされ、クリックするとそこまでスクロールし、見出しにマウスを載せると矢印がハイライトされる](https://raw.githubusercontent.com/playree/markdown-design-doc-viewer/main/images/demo.ja.gif)
 
 **[サンプル](https://playree.github.io/markdown-design-doc-viewer/ja/sample/)**: このコマンドで [examples/screenshot.ja.md](https://github.com/playree/markdown-design-doc-viewer/blob/main/examples/screenshot.ja.md) から書き出した HTML です。
 
