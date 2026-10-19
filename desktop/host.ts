@@ -63,7 +63,7 @@ let pendingFragment: { path: string; fragment: string } | undefined;
 /** Renders one at a time, so that the updates reach the webview in order. */
 let rendering: Promise<void> = Promise.resolve();
 /** The commit of the document it is compared with (chosen in the History tab), whose differences are shown. */
-let comparison: { path: string; hash: string; label: string; source: string } | undefined;
+let comparison: { path: string; hash: string; label: string; exportLabel: string; source: string } | undefined;
 /** Whether the window shows the list of the design documents of the folder (View > Design Docs) in place of a document. */
 let listShown = false;
 /**
@@ -837,7 +837,13 @@ async function compareWith(revision: Revision): Promise<void> {
     return;
   }
   const date = formatRevisionDate(revision.date, lang);
-  comparison = { path: doc.path, hash: revision.hash, label: t('Compared with {0}: {1} ({2})', revision.shortHash, revision.subject, date), source };
+  comparison = {
+    path: doc.path,
+    hash: revision.hash,
+    label: t('Compared with {0}: {1} ({2})', revision.shortHash, revision.subject, date),
+    exportLabel: t('Compared with the version of {0}', date),
+    source,
+  };
   render();
 }
 
@@ -968,7 +974,7 @@ async function writeExport(doc: OpenedDocument): Promise<string | undefined> {
   if (compared) {
     const result = await renderDiffForExport(md, compared.source, doc.text, env, image);
     html = result.html;
-    diff = { label: compared.label, old: result.old, stats: result.stats };
+    diff = { label: compared.exportLabel, old: result.old, stats: result.stats };
   } else {
     html = await renderForExport(md, doc.text, env, image);
   }
