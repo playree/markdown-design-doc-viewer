@@ -10,7 +10,7 @@ The command line of [Markdown Design Doc Viewer](https://github.com/playree/mark
 
 The HTML is the same as the VS Code extension's `Export Design Doc as HTML` command writes: **mermaid sequence diagrams and flowcharts are shown side by side with their step descriptions**, and each arrow (or flowchart node) is linked to its heading, highlighted when hovered or clicked. The diagrams are rendered with headless Chrome and local images are embedded, so the file can be opened in any browser or printed to PDF.
 
-![Sequence diagram on the left, linked step descriptions on the right](https://raw.githubusercontent.com/playree/markdown-design-doc-viewer/main/images/screenshot.png)
+![Hovering an arrow of the sequence diagram highlights its step on the right, clicking it scrolls to the step, and hovering a heading highlights its arrow](https://raw.githubusercontent.com/playree/markdown-design-doc-viewer/main/images/demo.gif)
 
 **[Live sample](https://playree.github.io/markdown-design-doc-viewer/sample/)**: an HTML file written by this command from [examples/screenshot.md](https://github.com/playree/markdown-design-doc-viewer/blob/main/examples/screenshot.md).
 
