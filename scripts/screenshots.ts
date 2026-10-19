@@ -8,6 +8,7 @@
  *   pnpm screenshots               # all scenes in all languages
  *   pnpm screenshots flowchart     # only the scenes whose name is given
  *   pnpm screenshots ja header     # only the languages (en, ja) whose name is given, can be combined with scenes
+ *   pnpm screenshots demo          # the animated GIF of the README (images/demo.gif, demo.ja.gif), named like a scene
  *
  * Chrome is looked up in $CHROME_PATH, then in the Playwright browser cache (`pnpm exec playwright-core install chromium`),
  * then among the browsers installed on the system (`launchChrome` in src/headless.ts).
@@ -17,7 +18,9 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { Page } from 'playwright-core';
+import { applyPalette, GIFEncoder, quantize } from 'gifenc';
+import type { Browser, JSHandle, Page } from 'playwright-core';
+import { PNG } from 'pngjs';
 import { launchChrome } from '../src/headless';
 import { formatMessage, translatorFor, type Translate } from '../src/l10n';
 import { WEBVIEW_TITLES, type ToWebview } from '../src/protocol';
@@ -70,6 +73,8 @@ interface Names {
   linkChecks: string;
   markdown: string;
   tables: string;
+  /** The steps of the sequence diagram the animation points at: an arrow hovered, an arrow clicked and a heading hovered. */
+  demo: { hover: string; click: string; heading: string };
 }
 
 interface Locale {
@@ -102,6 +107,7 @@ const LOCALES: Locale[] = [
       linkChecks: 'Refund (draft)',
       markdown: 'Open items',
       tables: 'Request body of POST /orders',
+      demo: { hover: '1. Place order', click: '5. Authorize payment', heading: '3. Reserve stock' },
     },
   },
   {
@@ -118,6 +124,7 @@ const LOCALES: Locale[] = [
       linkChecks: '返金（草案）',
       markdown: '未決事項',
       tables: 'POST /orders のリクエスト本文',
+      demo: { hover: '1. 注文を確定', click: '5. オーソリ', heading: '3. 在庫を引き当て' },
     },
   },
 ];
@@ -197,8 +204,20 @@ const SCENES: Scene[] = [
  * With `top`, also scrolls the step to that distance from the top of the window.
  */
 async function highlight(page: Page, title: string, heading: string, top?: number): Promise<void> {
-  await page.evaluate(
-    ([title, heading, top]) => {
+  const step = await linkedStep(page, title, heading);
+  await step.evaluate(([step, item], top) => {
+    item.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    if (top !== undefined) {
+      window.scrollTo(0, step.getBoundingClientRect().top + window.scrollY - top);
+    }
+  }, top);
+  await step.dispose();
+}
+
+/** Finds the step `heading` in the diagram under the h2 `title`, and the arrow or node linked to it. */
+async function linkedStep(page: Page, title: string, heading: string): Promise<JSHandle<[Element, Element]>> {
+  return page.evaluateHandle(
+    ([title, heading]) => {
       const h2 = [...document.querySelectorAll('h2')].find((h) => h.textContent?.trim() === title);
       let pair = h2?.nextElementSibling;
       while (pair && !pair.classList.contains('seqnotes-pair')) {
@@ -218,12 +237,9 @@ async function highlight(page: Page, title: string, heading: string, top?: numbe
       if (!step || !item) {
         throw new Error(`No arrow or node linked to the heading "${heading}" under "${title}"`);
       }
-      item.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-      if (top !== undefined) {
-        window.scrollTo(0, step.getBoundingClientRect().top + window.scrollY - top);
-      }
+      return [step, item] as [Element, Element];
     },
-    [title, heading, top] as const,
+    [title, heading] as const,
   );
 }
 
@@ -254,12 +270,9 @@ async function treeRow(page: Page, title: string, name: string, action: (row: El
  */
 async function sectionClip(page: Page, title: string): Promise<Clip> {
   await page.addStyleTag({ content: '.seqnotes-toc { display: none; }' });
+  await scrollToH2(page, title);
   return page.evaluate((title) => {
-    const h2 = [...document.querySelectorAll('h2')].find((h) => h.textContent?.trim() === title);
-    if (!h2) {
-      throw new Error(`No h2 "${title}"`);
-    }
-    window.scrollTo(0, h2.getBoundingClientRect().top + window.scrollY - 24);
+    const h2 = [...document.querySelectorAll('h2')].find((h) => h.textContent?.trim() === title)!;
     let last: Element = h2;
     for (let el = h2.nextElementSibling; el && el.tagName !== 'H2' && !el.matches('.footnotes-sep, .footnotes'); el = el.nextElementSibling) {
       last = el;
@@ -270,6 +283,17 @@ async function sectionClip(page: Page, title: string): Promise<Clip> {
       throw new Error(`The section "${title}" is taller than the window. Increase the height of the scene to ${Math.ceil(bottom - top)} or more.`);
     }
     return { x: 0, y: top, width: window.innerWidth, height: bottom - top };
+  }, title);
+}
+
+/** Scrolls the h2 `title` to the top of the window, leaving the margin of the clips above it. */
+async function scrollToH2(page: Page, title: string): Promise<void> {
+  await page.evaluate((title) => {
+    const h2 = [...document.querySelectorAll('h2')].find((h) => h.textContent?.trim() === title);
+    if (!h2) {
+      throw new Error(`No h2 "${title}"`);
+    }
+    window.scrollTo(0, h2.getBoundingClientRect().top + window.scrollY - 24);
   }, title);
 }
 
@@ -295,6 +319,219 @@ async function headerClip(page: Page): Promise<Clip> {
     }
     return { x: 0, y: top, width: window.innerWidth, height: bottom - top };
   });
+}
+
+interface Animation {
+  name: string;
+  /** Output path without the extension, relative to the repository root. `Locale.suffix` and `.gif` are appended. */
+  file: string;
+  width: number;
+  height: number;
+  /** Moves the pointer in the page and records what it shows. */
+  record(recorder: Recorder, names: Names): Promise<void>;
+}
+
+const ANIMATIONS: Animation[] = [
+  {
+    // An arrow hovered (its step is highlighted), an arrow clicked (the steps scroll to it) and a heading hovered (its arrow is highlighted).
+    name: 'demo',
+    file: 'images/demo',
+    width: 1280,
+    height: 720,
+    record: async (recorder, names) => {
+      const { page } = recorder;
+      await scrollToH2(page, names.sequence);
+      await recorder.place(await stepPoint(page, names.sequence, names.demo.hover, 'below'));
+      await recorder.hold(800);
+      await recorder.moveTo(await stepPoint(page, names.sequence, names.demo.hover, 'arrow'));
+      await recorder.hold(1600);
+      await recorder.moveTo(await stepPoint(page, names.sequence, names.demo.click, 'arrow'));
+      await recorder.hold(600);
+      await recorder.click();
+      await recorder.play();
+      await recorder.hold(1400);
+      await recorder.moveTo(await stepPoint(page, names.sequence, names.demo.heading, 'heading'), 800);
+      await recorder.hold(2200);
+    },
+  },
+];
+
+/** How long a frame of a pointer movement is shown, in ms. */
+const FRAME = 40;
+/** A little longer than the highlight transitions of preview.css. */
+const TRANSITION = 200;
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+interface Frame {
+  png: Buffer;
+  /** How long the frame is shown, in ms. */
+  delay: number;
+  /** A state the animation stops at (`Recorder.hold`), rather than a step of a movement. */
+  held?: boolean;
+}
+
+/**
+ * Records the frames of an animation with a real pointer, so that the page reacts as to a user.
+ * Screenshots do not show the pointer, so it is drawn in the page (`showPointer`).
+ */
+class Recorder {
+  readonly frames: Frame[] = [];
+  private at: Point = { x: 0, y: 0 };
+
+  constructor(readonly page: Page) {}
+
+  /** Puts the pointer at `point` without recording. */
+  async place(point: Point): Promise<void> {
+    this.at = point;
+    await this.page.mouse.move(point.x, point.y);
+  }
+
+  /** Shows the page for `ms`, once the highlight transitions are done. */
+  async hold(ms: number): Promise<void> {
+    await this.page.waitForTimeout(TRANSITION);
+    this.frames.push({ png: await this.page.screenshot(), delay: ms, held: true });
+  }
+
+  /** Moves the pointer to `to` in `ms`, slow at both ends. */
+  async moveTo(to: Point, ms = 600): Promise<void> {
+    const from = this.at;
+    const steps = Math.max(1, Math.round(ms / FRAME));
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      const eased = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+      await this.place({ x: from.x + (to.x - from.x) * eased, y: from.y + (to.y - from.y) * eased });
+      this.frames.push({ png: await this.page.screenshot(), delay: FRAME });
+    }
+  }
+
+  async click(): Promise<void> {
+    await this.page.mouse.down();
+    await this.page.mouse.up();
+  }
+
+  /**
+   * Records what the page does by itself after a click (a smooth scroll) until it stops scrolling, or for `maxMs` at most.
+   * Each frame is shown as long as it was on the page: until the next one was taken.
+   */
+  async play(maxMs = 3000): Promise<void> {
+    const start = Date.now();
+    let previous: { frame: Frame; at: number; scrollY: number } | undefined;
+    for (;;) {
+      const frame: Frame = { png: await this.page.screenshot(), delay: FRAME };
+      const at = Date.now();
+      const scrollY = await this.page.evaluate(() => window.scrollY);
+      this.frames.push(frame);
+      if (previous) {
+        previous.frame.delay = Math.max(FRAME, at - previous.at);
+      }
+      // The scroll may start a little after the click.
+      if ((previous?.scrollY === scrollY && at - start > TRANSITION) || at - start > maxMs) {
+        return;
+      }
+      previous = { frame, at, scrollY };
+    }
+  }
+}
+
+/** Draws the pointer (and a ring where it clicks) in the page, following the mouse events. */
+async function showPointer(page: Page): Promise<void> {
+  await page.addStyleTag({
+    content: `
+#demo-pointer { position: fixed; left: 0; top: 0; z-index: 10000; pointer-events: none; }
+.demo-click { position: fixed; z-index: 9999; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 50%;
+  background: rgba(0, 95, 184, 0.35); pointer-events: none; animation: demo-click 0.5s ease-out forwards; }
+@keyframes demo-click { from { transform: scale(0.3); opacity: 1; } to { transform: scale(1.4); opacity: 0; } }`,
+  });
+  await page.evaluate(() => {
+    const pointer = document.createElement('div');
+    pointer.id = 'demo-pointer';
+    pointer.innerHTML =
+      '<svg width="20" height="26" viewBox="-1 -1 20 26"><path d="M0 0 V19 L4.5 14.5 L8 22 L11 20.7 L7.6 13.4 H14 Z" fill="#000" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+    document.body.append(pointer);
+    document.addEventListener('mousemove', (e) => (pointer.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`), true);
+    document.addEventListener(
+      'mousedown',
+      (e) => {
+        const ring = document.createElement('div');
+        ring.className = 'demo-click';
+        ring.style.left = `${e.clientX}px`;
+        ring.style.top = `${e.clientY}px`;
+        ring.addEventListener('animationend', () => ring.remove());
+        document.body.append(ring);
+      },
+      true,
+    );
+  });
+}
+
+/**
+ * Returns a point in the window for the step `heading` of the diagram under the h2 `title`:
+ * - `arrow`: the middle of its arrow (under the label, which the pointer would hide). Not for an arrow to itself, whose middle is off the line.
+ * - `heading`: the right of the text of its heading, so that the pointer does not hide the text.
+ * - `below`: below the diagram, where the pointer highlights nothing.
+ */
+async function stepPoint(page: Page, title: string, heading: string, side: 'arrow' | 'heading' | 'below'): Promise<Point> {
+  const step = await linkedStep(page, title, heading);
+  const point = await step.evaluate(([step, item], side) => {
+    if (side === 'arrow') {
+      const rect = item.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }
+    if (side === 'below') {
+      const rect = item.closest('.seqnotes-diagram')!.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: Math.min(rect.bottom + 32, window.innerHeight - 32) };
+    }
+    const range = document.createRange();
+    range.selectNodeContents(step);
+    const rect = range.getBoundingClientRect();
+    return { x: rect.right + 16, y: rect.top + rect.height / 2 };
+  }, side);
+  await step.dispose();
+  return point;
+}
+
+/** Encodes the frames to an animated GIF that loops, with one palette for all the frames. */
+function encodeGif(frames: Frame[]): Uint8Array {
+  // A frame the same as the previous one only makes it last longer.
+  const images: { data: Buffer; delay: number; held: boolean }[] = [];
+  for (const frame of frames) {
+    const { data } = PNG.sync.read(frame.png);
+    const previous = images.at(-1);
+    if (previous?.data.equals(data)) {
+      previous.delay += frame.delay;
+      previous.held ||= frame.held ?? false;
+    } else {
+      images.push({ data, delay: frame.delay, held: frame.held ?? false });
+    }
+  }
+  const { width, height } = PNG.sync.read(frames[0].png);
+  // The palette is made from the frames held (the states shown, with their highlights) and is the same for all the frames,
+  // so that a color does not flicker from one frame to the next. The last entry is for the pixels the same as in the previous frame.
+  const colors = quantize(Buffer.concat(images.filter((image) => image.held).map((image) => image.data)), 255);
+  // Not a color the pixels are mapped to, so that no pixel becomes transparent by chance.
+  const palette = [...colors, [255, 0, 255]];
+  const transparentIndex = colors.length;
+
+  const gif = GIFEncoder();
+  images.forEach((image, i) => {
+    const index = applyPalette(image.data, colors);
+    const previous = images[i - 1]?.data;
+    if (previous) {
+      for (let p = 0; p < index.length; p++) {
+        if (previous.readUInt32LE(p * 4) === image.data.readUInt32LE(p * 4)) {
+          index[p] = transparentIndex;
+        }
+      }
+    }
+    // Disposal 1: the next frame is drawn over this one, so its transparent pixels show what did not change.
+    gif.writeFrame(index, width, height, { palette: i === 0 ? palette : undefined, delay: image.delay, transparent: i > 0, transparentIndex, dispose: 1 });
+  });
+  gif.finish();
+  return gif.bytes();
 }
 
 function shell(update: ToWebview, locale: Locale): string {
@@ -329,19 +566,38 @@ window.acquireVsCodeApi = () => ({
 </html>`;
 }
 
+/** Opens the page in a new tab of the size of the window, once its diagrams and fonts are ready. */
+async function openTab(browser: Browser, page: string, width: number, height: number): Promise<Page> {
+  const tab = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
+  await tab.goto(pathToFileURL(page).href);
+  await tab.waitForSelector('#seqnotes-root .seqnotes-diagram svg');
+  await tab.evaluate(() => document.fonts.ready);
+  return tab;
+}
+
+/** Rethrows an error with what failed in front of its message. */
+function failed(what: string): (error: unknown) => never {
+  return (error) => {
+    throw new Error(`${what}: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+  };
+}
+
 async function main(): Promise<void> {
   const only = process.argv.slice(2);
-  const unknown = only.filter((name) => !SCENES.some((s) => s.name === name) && !LOCALES.some((l) => l.name === name));
+  const unknown = only.filter((name) => ![...SCENES, ...ANIMATIONS, ...LOCALES].some((item) => item.name === name));
   if (unknown.length > 0) {
-    throw new Error(`Unknown scene or language: ${unknown.join(', ')}. Scenes: ${SCENES.map((s) => s.name).join(', ')}. Languages: ${LOCALES.map((l) => l.name).join(', ')}`);
+    throw new Error(
+      `Unknown scene or language: ${unknown.join(', ')}. Scenes: ${[...SCENES, ...ANIMATIONS].map((s) => s.name).join(', ')}. Languages: ${LOCALES.map((l) => l.name).join(', ')}`,
+    );
   }
-  // All of them when none is named.
-  const pick = <T extends { name: string }>(items: T[]): T[] => {
-    const named = items.filter((item) => only.includes(item.name));
-    return named.length > 0 ? named : items;
+  // All of them when none is named. The scenes and the animations are named together.
+  const pick = <T extends { name: string }>(items: T[], among: { name: string }[]): T[] => {
+    const named = among.some((item) => only.includes(item.name));
+    return named ? items.filter((item) => only.includes(item.name)) : items;
   };
-  const scenes = pick(SCENES);
-  const locales = pick(LOCALES);
+  const scenes = pick(SCENES, [...SCENES, ...ANIMATIONS]);
+  const animations = pick(ANIMATIONS, [...SCENES, ...ANIMATIONS]);
+  const locales = pick(LOCALES, LOCALES);
 
   const dir = mkdtempSync(join(tmpdir(), 'mdai-screenshots-'));
   const browser = await launchChrome();
@@ -355,18 +611,25 @@ async function main(): Promise<void> {
 
       for (const scene of scenes) {
         const file = `${scene.file}${locale.suffix}.png`;
-        const tab = await browser.newPage({ viewport: { width: WIDTH, height: scene.height }, deviceScaleFactor: 1 });
-        await tab.goto(pathToFileURL(page).href);
-        await tab.waitForSelector('#seqnotes-root .seqnotes-diagram svg');
-        await tab.evaluate(() => document.fonts.ready);
-        const clip = await scene.prepare(tab, locale.names).catch((error: unknown) => {
-          throw new Error(`Scene "${scene.name}" (${locale.name}): ${error instanceof Error ? error.message : String(error)}`, { cause: error });
-        });
+        const tab = await openTab(browser, page, WIDTH, scene.height);
+        const clip = await scene.prepare(tab, locale.names).catch(failed(`Scene "${scene.name}" (${locale.name})`));
         // Let the sticky column and the highlight transitions settle.
         await tab.waitForTimeout(500);
         await tab.screenshot({ path: resolve(ROOT, file), clip });
         await tab.close();
         console.log(`${scene.name} (${locale.name}): ${file}`);
+      }
+
+      for (const animation of animations) {
+        const file = `${animation.file}${locale.suffix}.gif`;
+        const tab = await openTab(browser, page, animation.width, animation.height);
+        await showPointer(tab);
+        const recorder = new Recorder(tab);
+        await animation.record(recorder, locale.names).catch(failed(`Animation "${animation.name}" (${locale.name})`));
+        await tab.close();
+        const gif = encodeGif(recorder.frames);
+        writeFileSync(resolve(ROOT, file), gif);
+        console.log(`${animation.name} (${locale.name}): ${file} (${recorder.frames.length} frames, ${(gif.length / 1024).toFixed(0)} KB)`);
       }
     }
   } finally {

@@ -10,7 +10,7 @@
 設計書としてのMarkdownをプレビューする拡張機能（Markdown 設計書ビューア）です。主な機能として、**mermaidのシーケンス図やフローチャートと処理概要を横並びにして**表示します。
 図の矢印（フローチャートではノード）と処理概要の見出しが紐付き、相互にハイライト・スクロールできます。
 
-![左にシーケンス図、右に紐付いた処理概要](images/screenshot.ja.png)
+![シーケンス図の矢印にマウスを載せると右の処理概要がハイライトされ、クリックするとそこまでスクロールし、見出しにマウスを載せると矢印がハイライトされる](images/demo.ja.gif)
 
 **[サンプル](https://playree.github.io/markdown-design-doc-viewer/ja/sample/)**: 設計書（[examples/screenshot.ja.md](examples/screenshot.ja.md)）を HTML にエクスポートしたものです。矢印や見出しにマウスを載せて、ブラウザでハイライトを試せます。
 

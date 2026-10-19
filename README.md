@@ -10,7 +10,7 @@ English | [日本語](README.ja.md) | [Website](https://playree.github.io/markdo
 A viewer for design documents written in Markdown. Its main feature shows **mermaid sequence diagrams and flowcharts side by side with their step descriptions**.
 Each arrow (or flowchart node) in the diagram is linked to a heading in the description, so you can jump back and forth between them.
 
-![Sequence diagram on the left, linked step descriptions on the right](images/screenshot.png)
+![Hovering an arrow of the sequence diagram highlights its step on the right, clicking it scrolls to the step, and hovering a heading highlights its arrow](images/demo.gif)
 
 **[Live sample](https://playree.github.io/markdown-design-doc-viewer/sample/)**: a design document exported to HTML ([examples/screenshot.md](examples/screenshot.md)). Hover the arrows and headings to try the highlighting in your browser.
 
