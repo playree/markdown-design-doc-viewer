@@ -117,7 +117,7 @@ Images are looked up from the folder of the document, also with a leading `/` (t
 | Sticky Table Headers | on | `stickyTableHeader` |
 | Highlight Table Trees | on | `tableTreeHighlight` |
 
-They also apply to **File** > **Export as HTML...**, except the theme (an exported file is always light) and the table of contents.
+They also apply to **File** > **Export as HTML...**, except the theme (an exported file is always light).
 
 Compared with the extension, the app does not follow an editor (no scroll sync or double-click to jump to a line), and has no `syncEditor` or `diagnostics` setting. To export many documents at once, use the [command line](cli.md).
 

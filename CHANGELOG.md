@@ -2,6 +2,10 @@
 
 This changelog covers the extension and the command line. The desktop app has its own version and [changelog](desktop/CHANGELOG.md).
 
+## Unreleased
+
+- Exported HTML has the table of contents of the preview too: hover the short lines at the right edge of the page to open the headings (h1–h3) and jump to one. It follows `mdDesignDoc.toc`, can be left out with `--no-toc` on the command line, and is not printed. The `index.html` of `--index` has none.
+
 ## 1.2.0
 
 - The margin at the top of the preview, above the box of the document header, is no longer scrolled out of view when the editor is scrolled to the top.

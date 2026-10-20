@@ -16,7 +16,7 @@ import { renderDiff } from '../src/diffRender';
 import { documentInfo, indexBody, NO_DESIGN_DOCS, type IndexEntry } from '../src/exportIndex';
 import { documentTitle, exportDiff, exportFileName, exportPage, imageType, renderDiffForExport, renderForExport, stripSourceMap } from '../src/exportPage';
 import { formatRevisionDate, parseGitLog, type Revision } from '../src/gitLog';
-import type { DiffView, FromWebview, PreviewTheme, ToWebview } from '../src/protocol';
+import { WEBVIEW_TITLES, type DiffView, type FromWebview, type PreviewTheme, type ToWebview } from '../src/protocol';
 import { createMarkdown, escapeHtml, renderDocument, type RenderEnv } from '../src/render';
 import type { FolderTree } from './folderTree';
 import { lang, t } from './l10n';
@@ -986,6 +986,7 @@ async function writeExport(doc: OpenedDocument): Promise<string | undefined> {
     styles: [style, exportStyle],
     script,
     settings,
+    tocTitle: t(WEBVIEW_TITLES['toc-title']),
     ...(diff ? { diff: exportDiff(diff, t) } : {}),
   });
   await invoke('write_export', { html: page });

@@ -2,6 +2,10 @@
 
 The desktop app has its own version, apart from the extension and the command line (their changes are in [CHANGELOG.md](../CHANGELOG.md)). Its installers are attached to the [releases of the desktop app](https://github.com/playree/markdown-design-doc-viewer/releases?q=desktop&expanded=true) (tagged `desktop-vX.Y.Z`).
 
+## Unreleased
+
+- **File** > **Export as HTML...** adds the table of contents of the window to the exported page (hover its right edge), unless it is turned off in **View** > **Settings...**. It is not printed.
+
 ## 0.3.0
 
 - **View** > **Settings...** (Ctrl+,; on macOS in the app menu, ⌘,) opens the settings of the extension (`mdDesignDoc.*`) in the app: the theme, the diagram look, the width for the side-by-side layout, the table of contents, the heading numbers, the front matter, the text width, the sticky table headers and the highlight of table trees. A change applies at once to all the windows, and is kept for the next launch. Before, the app used the defaults of the extension.
