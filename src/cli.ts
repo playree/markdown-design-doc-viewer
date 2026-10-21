@@ -15,7 +15,7 @@ import { formatRevisionDate, type Revision } from './gitLog';
 import { HeadlessRenderer } from './headless';
 import { collectIssues } from './issues';
 import { formatMessage, translatorFor, type Translate } from './l10n';
-import type { DiffView } from './protocol';
+import { WEBVIEW_TITLES, type DiffView } from './protocol';
 import { createMarkdown, type RenderEnv } from './render';
 
 /** dist/, where the script runs from. */
@@ -131,6 +131,7 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
   const readDist = (name: string): string => stripSourceMap(readFileSync(join(DIST, name), 'utf8'));
   const styles = [readDist('webview.css'), readDist('export.css')];
   const script = readDist('export.js');
+  const tocTitle = t(WEBVIEW_TITLES['toc-title']);
 
   let ok = true;
   const indexEntries: IndexEntry[] = [];
@@ -190,7 +191,7 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
         }
         const file = basename(document);
         const info = documentInfo(md, source, file, options.frontMatter);
-        const page = exportPage({ lang: options.lang, title: info.title, body, styles, script, settings: options.settings, ...(diff ? { diff: exportDiff(diff.view, t) } : {}) });
+        const page = exportPage({ lang: options.lang, title: info.title, body, styles, script, settings: options.settings, tocTitle, ...(diff ? { diff: exportDiff(diff.view, t) } : {}) });
         mkdirSync(dirname(target), { recursive: true });
         writeFileSync(target, page);
         console.log(`${display(document)} -> ${display(target)}`);
@@ -212,7 +213,9 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
   if (index !== undefined && indexEntries.length > 0) {
     const title = options.indexTitle || t('Design Docs');
     mkdirSync(dirname(index), { recursive: true });
-    writeFileSync(index, exportPage({ lang: options.lang, title, body: indexBody(title, indexEntries, t), styles, script, settings: options.settings }));
+    // Its only headings are the folders of the documents.
+    const settings = { ...options.settings, toc: false };
+    writeFileSync(index, exportPage({ lang: options.lang, title, body: indexBody(title, indexEntries, t), styles, script, settings }));
     console.log(`-> ${display(index)}`);
   } else if (index !== undefined && options.indexDesignDocs) {
     console.error(`No design doc (type: design_doc) was exported: ${display(index)} is not written.`);

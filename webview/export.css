@@ -35,7 +35,7 @@ body.seqnotes-diff-off :is([data-seqnotes-diff="deleted"], del.seqnotes-diff-del
   /* In case the layout script did not run (e.g. printed without scripts). */
   body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) { display: block; }
   body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-seq-col { position: static; max-height: none; overflow: visible; }
-  .seqnotes-splitter { display: none !important; }
+  .seqnotes-splitter, .seqnotes-toc { display: none !important; }
   body.seqnotes-sticky-table-header thead th { position: static; }
 
   .seqnotes-section.seqnotes-active { background: none; border-left-color: transparent; }

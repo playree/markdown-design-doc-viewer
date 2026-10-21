@@ -20,7 +20,7 @@
   "mdDesignDoc.stickyTableHeader.description": "Keep the header row of a long table at the top of the preview while scrolling through the table. Also applies to exported HTML.",
   "mdDesignDoc.tableTreeHighlight.description": "In a table shown as a tree (`level=` of the table options), highlight the parents and children of the row under the pointer. Also applies to exported HTML.",
   "mdDesignDoc.syncEditor.description": "Synchronize the preview with the editor cursor and scroll position, and jump to the source line on double-click in the preview.",
-  "mdDesignDoc.toc.description": "Show a table of contents (headings h1-h3) that opens when hovering the right edge of the preview.",
+  "mdDesignDoc.toc.description": "Show a table of contents (headings h1-h3) that opens when hovering the right edge of the preview. Also applies to exported HTML.",
   "mdDesignDoc.headingNumbers.description": "With `autonumber`, show the arrow's number at the start of its linked heading in the preview and in exported HTML.",
   "mdDesignDoc.diagramLook.description": "Look of the mermaid diagrams in the preview and in exported HTML. A diagram can still choose its own with `config: look:` in its front matter.",
   "mdDesignDoc.diagramLook.neo": "mermaid's default look: rounder shapes, with shadows on flowchart nodes.",

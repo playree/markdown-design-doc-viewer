@@ -25,6 +25,7 @@ Options:
       --no-table-tree-highlight
                                Do not highlight the parents and children of the row under the pointer in the
                                tables shown as trees.
+      --no-toc                 Do not show the table of contents at the right edge of the page.
       --chrome <path>          Chrome or Chromium to render the diagrams with. Default: $CHROME_PATH, a Chromium of
                                the Playwright cache, or the Google Chrome installed on the system.
       --strict                 Fail when a document has a warning (a broken @ref, a misplaced marker, or table
@@ -84,6 +85,7 @@ export function parseCommandLine(args: string[], cwd: string): Command {
         'no-front-matter': { type: 'boolean' },
         'no-sticky-table-header': { type: 'boolean' },
         'no-table-tree-highlight': { type: 'boolean' },
+        'no-toc': { type: 'boolean' },
         chrome: { type: 'string' },
         strict: { type: 'boolean' },
         'diff-base': { type: 'string' },
@@ -149,6 +151,7 @@ export function parseCommandLine(args: string[], cwd: string): Command {
       stickyTableHeader: !values['no-sticky-table-header'],
       tableTreeHighlight: !values['no-table-tree-highlight'],
       splitMinWidth,
+      toc: !values['no-toc'],
     },
     // A command name (without a folder) is looked up in PATH.
     chrome: values.chrome === undefined || !/[\\/]/.test(values.chrome) ? values.chrome : resolve(cwd, values.chrome),

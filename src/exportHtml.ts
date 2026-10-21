@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { documentTitle, exportDiff, exportFileName, exportPage, imagePath, imageType, renderDiffForExport, renderForExport, stripSourceMap } from './exportPage';
 import { readSettings, resolveDocumentPath, type Comparison, type PreviewManager, type Settings } from './previewPanel';
-import type { DiffView } from './protocol';
+import { WEBVIEW_TITLES, type DiffView } from './protocol';
 import { createMarkdown } from './render';
 
 /** A link to `image` from the exported file: relative to it when possible, so that it works next to it. */
@@ -117,6 +117,7 @@ export async function exportHtml(manager: PreviewManager, extensionUri: vscode.U
           styles: [style, exportStyle],
           script,
           settings,
+          tocTitle: vscode.l10n.t(WEBVIEW_TITLES['toc-title']),
           ...(diff ? { diff: exportDiff(diff, vscode.l10n.t) } : {}),
         });
         await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(page));

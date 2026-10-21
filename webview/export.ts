@@ -7,6 +7,7 @@ import { setupFootnotePopup } from './footnotePopup';
 import { setUpIndexList } from './indexList';
 import { activeFor, revealCounterpart, scrollToFragment, showActive, type Active } from './linking';
 import { setupTableTree } from './tableTree';
+import { setupToc } from './toc';
 
 const root = document.getElementById('seqnotes-root')!;
 const width = Number(document.body.dataset.seqnotesSplitMinWidth);
@@ -41,6 +42,11 @@ setupFootnotePopup(root, (href) => {
 });
 
 setupTableTree(root);
+
+// With the `toc` setting of the export (`exportPage` in src/exportPage.ts).
+if (document.body.dataset.seqnotesToc !== undefined) {
+  setupToc(root).build(true);
+}
 
 // The differences from a revision rendered in the page (`ExportPage.diff` in src/exportPage.ts), hidden and shown by the bar.
 const { seqnotesDiffLabel: diffLabel, seqnotesDiffStats: diffStats } = document.body.dataset;

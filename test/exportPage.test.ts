@@ -100,8 +100,8 @@ describe('stripSourceMap', () => {
 });
 
 describe('exportPage', () => {
-  const page = (settings = { limitContentWidth: true, stickyTableHeader: true, tableTreeHighlight: true, splitMinWidth: 1000 }) =>
-    exportPage({ lang: 'ja', title: 'A < B', body: '<p>body</p>', styles: ['a{}', 'b{}</style>'], script: 'x("</script>")', settings });
+  const page = (settings = { limitContentWidth: true, stickyTableHeader: true, tableTreeHighlight: true, splitMinWidth: 1000, toc: false }) =>
+    exportPage({ lang: 'ja', title: 'A < B', body: '<p>body</p>', styles: ['a{}', 'b{}</style>'], script: 'x("</script>")', settings, tocTitle: '目次' });
 
   it('inlines the styles and the script, so that they cannot close their elements', () => {
     const html = page();
@@ -113,7 +113,7 @@ describe('exportPage', () => {
   });
 
   it('gives the differences and the texts of their bar to the script', () => {
-    const settings = { limitContentWidth: true, stickyTableHeader: true, tableTreeHighlight: true, splitMinWidth: 1000 };
+    const settings = { limitContentWidth: true, stickyTableHeader: true, tableTreeHighlight: true, splitMinWidth: 1000, toc: false };
     const t: Translate = (message) => ({ 'Hide changes': '差分を隠す' })[message] ?? message;
     const diff = exportDiff({ label: 'v1 "a" & b', old: ['<p>x</p>'], stats: { added: 1, changed: 2, deleted: 3 } }, t);
     const html = exportPage({ lang: 'ja', title: 'A', body: '', styles: [], script: '', settings, diff });
@@ -127,7 +127,15 @@ describe('exportPage', () => {
 
   it('applies the settings to the body', () => {
     expect(page()).toContain('class="seqnotes-export seqnotes-limit-width seqnotes-sticky-table-header seqnotes-table-tree-highlight" data-seqnotes-split-min-width="1000"');
-    expect(page({ limitContentWidth: false, stickyTableHeader: false, tableTreeHighlight: false, splitMinWidth: 800 })).toContain('class="seqnotes-export" data-seqnotes-split-min-width="800"');
-    expect(page({ limitContentWidth: false, stickyTableHeader: false, tableTreeHighlight: false, splitMinWidth: NaN })).toContain('data-seqnotes-split-min-width="1000"');
+    expect(page({ limitContentWidth: false, stickyTableHeader: false, tableTreeHighlight: false, splitMinWidth: 800, toc: false })).toContain('class="seqnotes-export" data-seqnotes-split-min-width="800">');
+    expect(page({ limitContentWidth: false, stickyTableHeader: false, tableTreeHighlight: false, splitMinWidth: NaN, toc: false })).toContain('data-seqnotes-split-min-width="1000"');
+  });
+
+  it('shows the table of contents with its title in the language of the page', () => {
+    const settings = { limitContentWidth: true, stickyTableHeader: true, tableTreeHighlight: true, splitMinWidth: 1000, toc: true };
+    expect(page(settings)).toContain('data-seqnotes-split-min-width="1000" data-seqnotes-toc data-seqnotes-toc-title="目次">');
+    const html = exportPage({ lang: 'en', title: 'A', body: '', styles: [], script: '', settings, tocTitle: 'A "B" & C' });
+    expect(html).toContain(' data-seqnotes-toc-title="A &quot;B&quot; &amp; C"');
+    expect(page()).not.toContain('data-seqnotes-toc');
   });
 });

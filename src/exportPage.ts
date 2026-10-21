@@ -146,6 +146,8 @@ export interface ExportSettings {
   stickyTableHeader: boolean;
   tableTreeHighlight: boolean;
   splitMinWidth: number;
+  /** The table of contents at the right edge of the page (webview/toc.ts). */
+  toc: boolean;
 }
 
 export interface ExportPage {
@@ -159,6 +161,8 @@ export interface ExportPage {
   /** dist/export.js. */
   script: string;
   settings: ExportSettings;
+  /** The title of the table of contents, in the language of the page (`WEBVIEW_TITLES['toc-title']`), with `settings.toc`. */
+  tocTitle?: string;
   /** The differences from a revision rendered in the body (`renderDiffForExport`), shown with a bar (webview/export.ts). */
   diff?: ExportDiff;
 }
@@ -180,7 +184,7 @@ export function exportDiff({ label, stats }: DiffView, t: Translate): ExportDiff
 }
 
 /** The exported HTML file: a single page with its styles and script inlined. */
-export function exportPage({ lang, title, body, styles, script, settings, diff }: ExportPage): string {
+export function exportPage({ lang, title, body, styles, script, settings, tocTitle, diff }: ExportPage): string {
   const classes = [
     'seqnotes-export',
     ...(settings.limitContentWidth ? ['seqnotes-limit-width'] : []),
@@ -188,6 +192,7 @@ export function exportPage({ lang, title, body, styles, script, settings, diff }
     ...(settings.tableTreeHighlight ? ['seqnotes-table-tree-highlight'] : []),
   ];
   const splitMinWidth = Number.isFinite(Number(settings.splitMinWidth)) ? Number(settings.splitMinWidth) : 1000;
+  const tocAttrs = settings.toc ? ` data-seqnotes-toc data-seqnotes-toc-title="${escapeHtml(tocTitle ?? '')}"` : '';
   const diffAttrs = diff
     ? Object.entries({
         'data-seqnotes-diff-label': diff.label,
@@ -207,7 +212,7 @@ export function exportPage({ lang, title, body, styles, script, settings, diff }
 ${styles.join('\n').replace(/<\/style/gi, '<\\/style')}
 </style>
 </head>
-<body data-seqnotes-theme="light" class="${classes.join(' ')}" data-seqnotes-split-min-width="${splitMinWidth}"${diffAttrs}>
+<body data-seqnotes-theme="light" class="${classes.join(' ')}" data-seqnotes-split-min-width="${splitMinWidth}"${tocAttrs}${diffAttrs}>
 <div id="seqnotes-root">${body}</div>
 <script>
 ${script.replace(/<\/script/gi, '<\\/script')}
