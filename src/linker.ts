@@ -1,23 +1,37 @@
 import type { Token } from 'markdown-it';
 import { formatMessage, type Translate } from './l10n';
+import type { ParsedNodeDiagram } from './diagramNodes';
+import { diagramWording } from './diagramWording';
+import { isErDiagram, parseErDiagram } from './erDiagram';
 import { isFlowchart, parseFlowchart } from './flowchart';
 import { isSequenceDiagram, normalizeLabel, parseSequence, stripStepNumber, type SequenceMessage, type StepNumber } from './sequence';
+import { isStateDiagram, parseStateDiagram } from './stateDiagram';
 
 export const END_MARKER_RE = /^\s*<!--\s*link-headings:end\s*-->\s*$/;
 
 /** The end marker before it was renamed. No longer recognized, only reported. */
 const LEGACY_END_MARKER_RE = /^\s*<!--\s*seq-notes:end\s*-->\s*$/;
 
-/** Diagrams whose items can be linked to headings: the arrows of a sequence diagram, the nodes of a flowchart. */
-export type DiagramKind = 'sequence' | 'flowchart';
+/**
+ * Diagrams whose items can be linked to headings: the arrows of a sequence diagram, the nodes of a flowchart,
+ * the entities of an ER diagram and the states of a state diagram.
+ */
+export type DiagramKind = 'sequence' | 'flowchart' | 'er' | 'state';
 
-/** An arrow of a sequence diagram or a node of a flowchart. */
+/** The diagrams whose items are nodes, with their parsers. */
+const NODE_DIAGRAMS: { kind: Exclude<DiagramKind, 'sequence'>; is: (source: string) => boolean; parse: (source: string, firstLine: number) => ParsedNodeDiagram }[] = [
+  { kind: 'flowchart', is: isFlowchart, parse: parseFlowchart },
+  { kind: 'er', is: isErDiagram, parse: parseErDiagram },
+  { kind: 'state', is: isStateDiagram, parse: parseStateDiagram },
+];
+
+/** An arrow of a sequence diagram, or a node of the other diagrams. */
 export interface LinkedMessage extends SequenceMessage {
-  /** Node id (flowcharts only). */
+  /** Node id (all but sequence diagrams). */
   nodeId?: string;
   /** false for a flowchart node without a label of its own. */
   labeled?: boolean;
-  /** false for a flowchart node that a `%% @ref` above its line would not go to (another node on the line gets it). */
+  /** false for a node that a `%% @ref` above its line would not go to (another node on the line gets it). */
   refable?: boolean;
   /** id of the heading this message is linked to. */
   target?: string;
@@ -60,7 +74,7 @@ export interface DiagramInfo {
   stepLevel?: number;
   /** true when the diagram has a `%% @link-headings` marker and is top-level, so it is laid out with its overview. */
   paired: boolean;
-  /** true when the overview is always put below the diagram instead of beside it (a horizontal flowchart). */
+  /** true when the overview is always put below the diagram instead of beside it (a horizontal diagram). */
   stacked: boolean;
 }
 
@@ -86,7 +100,7 @@ export function diagramKind(token: Token): DiagramKind | undefined {
   if (isSequenceDiagram(token.content)) {
     return 'sequence';
   }
-  return isFlowchart(token.content) ? 'flowchart' : undefined;
+  return NODE_DIAGRAMS.find((d) => d.is(token.content))?.kind;
 }
 
 /** Plain text of a heading's inline token. */
@@ -133,7 +147,7 @@ function stepLevel(linkedLevels: number[]): number | undefined {
 }
 
 /**
- * Finds sequence diagrams and flowcharts and resolves the arrow / node → heading links of the ones
+ * Finds the diagrams whose items can be linked and resolves the arrow / node → heading links of the ones
  * marked with `%% @link-headings`. Headings must already carry an `id` attribute.
  *
  * Only top-level (level 0) fences are paired, so the overview range always
@@ -147,32 +161,23 @@ export function linkDiagrams(tokens: Token[], translate: Translate = formatMessa
     .filter((d): d is { token: Token; index: number; kind: DiagramKind } => d.kind !== undefined)
     .map(({ token, index, kind }, id) => {
       const firstLine = (token.map?.[0] ?? 0) + 1;
-      const flowchart = kind === 'flowchart' ? parseFlowchart(token.content, firstLine) : undefined;
-      const { messages, markerLine, legacyMarkerLine }: { messages: LinkedMessage[]; markerLine?: number; legacyMarkerLine?: number } = flowchart
-        ? { messages: flowchart.nodes, markerLine: flowchart.markerLine, legacyMarkerLine: flowchart.legacyMarkerLine }
+      const wording = diagramWording(kind, translate);
+      const nodes = NODE_DIAGRAMS.find((d) => d.kind === kind)?.parse(token.content, firstLine);
+      const { messages, markerLine, legacyMarkerLine }: { messages: LinkedMessage[]; markerLine?: number; legacyMarkerLine?: number } = nodes
+        ? { messages: nodes.nodes, markerLine: nodes.markerLine, legacyMarkerLine: nodes.legacyMarkerLine }
         : parseSequence(token.content, firstLine);
       if (legacyMarkerLine !== undefined) {
         warnings.push({ line: legacyMarkerLine, message: translate('"%% @seq-notes" is no longer supported. Write "%% @link-headings" instead.') });
       }
       if (markerLine === undefined) {
         for (const m of messages.filter((m) => m.ref !== undefined)) {
-          warnings.push({
-            line: m.refLine ?? m.line,
-            message: flowchart
-              ? translate('@ref is ignored because the flowchart has no "%% @link-headings" marker.')
-              : translate('@ref is ignored because the sequence diagram has no "%% @link-headings" marker.'),
-          });
+          warnings.push({ line: m.refLine ?? m.line, message: wording.refWithoutMarker });
         }
       } else if (token.level !== 0) {
-        warnings.push({
-          line: markerLine,
-          message: flowchart
-            ? translate('@link-headings is ignored for a flowchart inside a list or blockquote.')
-            : translate('@link-headings is ignored for a sequence diagram inside a list or blockquote.'),
-        });
+        warnings.push({ line: markerLine, message: wording.markerNotTopLevel });
       }
       const paired = markerLine !== undefined && token.level === 0;
-      const stacked = flowchart?.horizontal ?? false;
+      const stacked = nodes?.horizontal ?? false;
       const diagram: DiagramInfo = { id, kind, fenceIndex: index, rangeEnd: index + 1, messages, unlinkedHeadings: [], headings: [], paired, stacked };
       return diagram;
     });
@@ -230,6 +235,7 @@ export function linkDiagrams(tokens: Token[], translate: Translate = formatMessa
       }
     }
 
+    const wording = diagramWording(diagram.kind, translate);
     for (const message of diagram.messages) {
       const label = normalizeLabel(message.ref ?? message.text);
       const number = message.number;
@@ -243,13 +249,7 @@ export function linkDiagrams(tokens: Token[], translate: Translate = formatMessa
           message.numberInHeading = Number(step.value) === number;
         }
       } else if (message.ref !== undefined) {
-        warnings.push({
-          line: message.refLine ?? message.line,
-          message:
-            diagram.kind === 'flowchart'
-              ? translate('@ref target heading "{0}" was not found after the flowchart.', message.ref)
-              : translate('@ref target heading "{0}" was not found after the sequence diagram.', message.ref),
-        });
+        warnings.push({ line: message.refLine ?? message.line, message: wording.refNotFound(message.ref) });
       }
     }
 

@@ -19,9 +19,11 @@ const base = doc('```mermaid', '%% @link-headings', 'sequenceDiagram', '    A->>
   '', '## 一', '', '本文', '', '## 予備');
 
 describe('linkableDiagramAt', () => {
-  it('gives the kind on the content lines of a sequence diagram or a flowchart only', () => {
+  it('gives the kind on the content lines of the diagrams that can be linked only', () => {
     expect([0, 1, 3, 6, 7, 9].map((line) => linkableDiagramAt(md, base, line))).toEqual([undefined, 'sequence', 'sequence', 'sequence', undefined, undefined]);
     expect(linkableDiagramAt(md, doc('```mermaid', 'flowchart LR', '  A --> B', '```'), 2)).toBe('flowchart');
+    expect(linkableDiagramAt(md, doc('```mermaid', 'erDiagram', '  A ||--o{ B : has', '```'), 2)).toBe('er');
+    expect(linkableDiagramAt(md, doc('```mermaid', 'stateDiagram-v2', '  A --> B', '```'), 2)).toBe('state');
     expect(linkableDiagramAt(md, doc('```mermaid', 'pie', '  "A": 1', '```'), 2)).toBeUndefined();
   });
 });
@@ -133,6 +135,17 @@ describe('quickFixes', () => {
     // A `%% @ref` above line 3 would go to S, so it is offered for neither A nor B.
     expect(quickFixes(md, flow, 3).map((f) => f.title)).toEqual(['Add heading "一" to the overview', 'Add heading "二" to the overview']);
     expect(quickFixes(md, flow, 7)).toEqual([]);
+  });
+
+  it('works on the entities of an ER diagram and the states of a state diagram', () => {
+    // Line numbers:    0             1                    2            3                                  4                5      6   7             8
+    const er = doc('```mermaid', '%% @link-headings', 'erDiagram', '    CUSTOMER ||--o{ ORDER : places', '    ORDER { int id }', '```', '', '## CUSTOMER', '## 注文テーブル');
+    expect(quickFixes(md, er, 4).map((f) => f.title)).toEqual(['Link to heading "注文テーブル" with @ref', 'Add heading "ORDER" to the overview']);
+    expect(apply(er, quickFixes(md, er, 4)[0].edit).split('\n').slice(4, 6)).toEqual(['    %% @ref 注文テーブル', '    ORDER { int id }']);
+    expect(quickFixes(md, er, 8).map((f) => f.title)).toEqual(['Link entity "ORDER" to this heading with @ref']);
+    const state = doc('```mermaid', '%% @link-headings', 'stateDiagram-v2', '    [*] --> Idle', '    Idle --> Busy', '```', '', '## Idle', '## 処理中');
+    expect(quickFixes(md, state, 8).map((f) => f.title)).toEqual(['Link state "Busy" to this heading with @ref']);
+    expect(refCandidates(md, state, 4)?.kind).toBe('state');
   });
 
   it('offers nothing for linked lines and translates the titles', () => {

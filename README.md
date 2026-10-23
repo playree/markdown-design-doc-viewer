@@ -8,7 +8,7 @@
 English | [日本語](README.ja.md) | [Website](https://playree.github.io/markdown-design-doc-viewer/)
 
 A viewer for design documents written in Markdown. Its main feature shows **mermaid sequence diagrams and flowcharts side by side with their step descriptions**.
-Each arrow (or flowchart node) in the diagram is linked to a heading in the description, so you can jump back and forth between them.
+Each arrow (or flowchart node) in the diagram is linked to a heading in the description, so you can jump back and forth between them. ER diagrams and state diagrams can be linked to their headings too.
 
 ![Hovering an arrow of the sequence diagram highlights its step on the right, clicking it scrolls to the step, and hovering a heading highlights its arrow](images/demo.gif)
 
@@ -17,7 +17,7 @@ Each arrow (or flowchart node) in the diagram is linked to a heading in the desc
 ## Features
 
 - **Side-by-side layout** — when the preview is wide enough, the diagram stays on the left (sticky) while the descriptions scroll on the right, with a line between linked steps. On narrow panes it falls back to the normal vertical layout.
-- **Arrow / node ⇔ heading links** — hover or click an arrow (or a flowchart node) to highlight its description, or click a heading to find it in the diagram.
+- **Arrow / node ⇔ heading links** — hover or click an arrow (or a flowchart node, an ER diagram entity or a state) to highlight its description, or click a heading to find it in the diagram.
 - **Editor sync** — the preview follows the editor's scroll position and cursor (an arrow or node is highlighted when the cursor is on its line). Double-click in the preview to jump to the source line.
 - **Plain Markdown** — the link syntax is made of mermaid comments and HTML comments, so the same file still renders correctly on GitHub and in the built-in Markdown preview.
 - **Design document friendly** — YAML front matter is shown as a table of the document's metadata (title, version, status...), or as a header with `type: design_doc` (see below), code blocks are syntax highlighted, and GitHub alerts (`> [!NOTE]`), task lists (`- [ ]`) and footnotes (`[^1]`, whose note pops up when hovering the reference) are rendered.
@@ -86,7 +86,7 @@ Issue a JWT valid for one hour.
 
 | Syntax | Meaning |
 |---|---|
-| `%% @link-headings` | Required. Marks the diagram (a sequence diagram or a flowchart) to be linked to and shown side by side with its descriptions. Write it anywhere inside the mermaid block. |
+| `%% @link-headings` | Required. Marks the diagram (a sequence diagram, a flowchart, an ER diagram or a state diagram) to be linked to and shown side by side with its descriptions. Write it anywhere inside the mermaid block. |
 | Arrow label equals a heading | `Auth->>DB: Fetch user` links to the heading `Fetch user` automatically. |
 | Numbered heading | `### 3. Fetch user` also links to `Fetch user` (`3.`, `3)`, `(3)`, `③`, `1.2.3` and similar prefixes are ignored when no heading matches exactly). |
 | `%% @ref <heading>` | Links the **next** arrow to `<heading>` when its label differs from the heading. |
@@ -135,6 +135,38 @@ flowchart TD
 - Horizontal flowcharts (`LR` / `RL`) are too wide to put beside their steps, so the steps are always shown below them. The links work the same.
 - Nodes without a linked heading are shown faded, and step headings without a node get a "no node" mark.
 - Flowcharts have no `autonumber`, so no numbers are shown on the headings.
+
+### ER diagrams and state diagrams
+
+ER diagrams (`erDiagram`) and state diagrams (`stateDiagram` / `stateDiagram-v2`) are linked like flowcharts, with their **entities** and **states** in place of nodes, for example to put the definition of each table or the description of each state beside the diagram:
+
+````markdown
+```mermaid
+%% @link-headings
+erDiagram
+    CUSTOMER ||--o{ ORDER : places
+    %% @ref Order lines
+    LINE_ITEM["Line item"] {
+        int line_no PK
+    }
+    ORDER ||--|{ LINE_ITEM : contains
+```
+
+## CUSTOMER
+
+## ORDER
+
+## Order lines
+````
+
+- An entity is linked to the heading with the text of its alias (`LINE_ITEM["Line item"]` → `Line item`), or of its name when it has no alias. A state is linked to the heading with its description (`state "Paid" as S2`, or `S2 : Paid`; the first one when it has several), or with its id when it has none. Unlike flowchart nodes, entities and states without a label are reported when no heading is linked to them.
+- Composite states (`state Fulfillment { … }`) and the states inside them are linked too. The start and end (`[*]`), forks, joins, choices and notes are not.
+- Relationship and transition labels are not linked.
+- `%% @ref <heading>` links the entity or state defined on the next line: the first one defined on it (with its attributes, its alias or its description, or on its own), else the first one appearing there for the first time, else its first one.
+- With `direction LR` / `RL`, the headings are always shown below the diagram, as for horizontal flowcharts.
+- Entities and states without a linked heading are shown faded, and headings without one get a "no entity" or "no state" mark.
+
+See [examples/er-diagram.md](examples/er-diagram.md) and [examples/state-diagram.md](examples/state-diagram.md).
 
 ## Design document header
 

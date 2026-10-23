@@ -1,6 +1,6 @@
 ---
 name: markdown-design-doc
-description: Write, edit, review and export design documents in the Markdown format of Markdown Design Doc Viewer, where a mermaid sequence diagram or flowchart marked with %% @link-headings is linked arrow by arrow (node by node) to the step headings after it, with type design_doc front matter. Use when writing or editing a design document or specification in Markdown (設計書, 基本設計, 詳細設計, 仕様書, シーケンス図, フローチャート, 処理概要, 処理フロー) or a table of the items of a message, a file or a screen (電文定義, 項目定義, インターフェース定義, ファイルレイアウト, 画面項目定義), when a Markdown file has type design_doc front matter or %% @link-headings, or when exporting design documents to HTML (HTML エクスポート, HTML 出力) with the markdown-design-doc-viewer or md-design-doc command line.
+description: Write, edit, review and export design documents in the Markdown format of Markdown Design Doc Viewer, where a mermaid sequence diagram, flowchart, ER diagram or state diagram marked with %% @link-headings is linked arrow by arrow (node by node) to the step headings after it, with type design_doc front matter. Use when writing or editing a design document or specification in Markdown (設計書, 基本設計, 詳細設計, 仕様書, シーケンス図, フローチャート, ER 図, 状態遷移図, 処理概要, 処理フロー) or a table of the items of a message, a file or a screen (電文定義, 項目定義, インターフェース定義, ファイルレイアウト, 画面項目定義), when a Markdown file has type design_doc front matter or %% @link-headings, or when exporting design documents to HTML (HTML エクスポート, HTML 出力) with the markdown-design-doc-viewer or md-design-doc command line.
 ---
 
 # Markdown design documents

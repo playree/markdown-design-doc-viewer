@@ -1,4 +1,5 @@
 import type { MarkdownIt } from 'markdown-it';
+import { diagramWording } from './diagramWording';
 import { formatMessage, type Translate } from './l10n';
 import { diagramKind, linkDiagrams, type DiagramInfo, type DiagramKind, type LinkedMessage, type OverviewHeading } from './linker';
 import { normalizeLabel } from './sequence';
@@ -43,7 +44,7 @@ function inFence(lines: string[], map: [number, number] | null, line: number): b
 }
 
 /**
- * The kind of the diagram `line` is inside, when it is a sequence diagram or a flowchart,
+ * The kind of the diagram `line` is inside, when it is one whose items can be linked,
  * where `%% @link-headings` and `%% @ref` can be written.
  */
 export function linkableDiagramAt(md: MarkdownIt, source: string, line: number): DiagramKind | undefined {
@@ -161,13 +162,13 @@ export function quickFixesByLine(md: MarkdownIt, source: string, lines: number[]
   return new Map(lines.map((line) => [line, fixesAt(sourceLines, tokens, diagrams, line, t)]));
 }
 
-/** false for a flowchart node whose `%% @ref`, written above its line, would go to another node of the line. */
+/** false for a node whose `%% @ref`, written above its line, would go to another node of the line. */
 const canWriteRef = (message: LinkedMessage): boolean => message.refLine !== undefined || message.refable !== false;
 
 function fixesAt(lines: string[], tokens: ReturnType<MarkdownIt['parse']>, diagrams: DiagramInfo[], line: number, t: Translate): QuickFix[] {
   const fixes: QuickFix[] = [];
   for (const diagram of diagrams) {
-    // Arrows / nodes without a heading, or the `@ref` of one. A flowchart line may define several nodes.
+    // Arrows / nodes without a heading, or the `@ref` of one. A line may define several nodes.
     const messages = diagram.messages.filter((m) => !m.target && (m.refLine === line || (m.line === line && (m.unlinked || m.ref !== undefined))));
     for (const message of messages) {
       for (const heading of canWriteRef(message) ? linkableHeadings(diagram) : []) {
@@ -183,10 +184,10 @@ function fixesAt(lines: string[], tokens: ReturnType<MarkdownIt['parse']>, diagr
     // A step heading without an arrow.
     const step = diagram.headings.find((h) => h.line === line && diagram.unlinkedHeadings.includes(h.index));
     if (step && step.text !== '' && step.refTarget) {
+      const wording = diagramWording(diagram.kind, t);
       for (const m of diagram.messages.filter((m) => m.unlinked && canWriteRef(m))) {
         const label = normalizeLabel(m.text) || `#${m.index + 1}`;
-        const title = diagram.kind === 'flowchart' ? t('Link node "{0}" to this heading with @ref', label) : t('Link arrow "{0}" to this heading with @ref', label);
-        fixes.push(linkFix(lines, m, step.text, title));
+        fixes.push(linkFix(lines, m, step.text, wording.linkItemFix(label)));
       }
     }
   }
