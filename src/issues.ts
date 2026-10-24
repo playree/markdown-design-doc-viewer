@@ -1,4 +1,5 @@
 import type { MarkdownIt } from 'markdown-it';
+import { diagramWording } from './diagramWording';
 import { formatMessage, type Translate } from './l10n';
 import { headingText, linkDiagrams } from './linker';
 import { normalizeLabel } from './sequence';
@@ -23,14 +24,12 @@ export function collectIssues(md: MarkdownIt, source: string, t: Translate = for
   for (const diagram of diagrams.filter((d) => d.paired)) {
     // Without any link, the arrows are not marked as unlinked, so the diagram is reported once instead.
     // A diagram whose only arrows have broken `@ref`s is already reported by their warnings.
-    const flowchart = diagram.kind === 'flowchart';
+    const wording = diagramWording(diagram.kind, t);
     if (diagram.messages.every((m) => !m.target)) {
       if (diagram.messages.some((m) => m.ref === undefined)) {
         issues.push({
           line: tokens[diagram.fenceIndex].map?.[0] ?? 0,
-          message: flowchart
-            ? t('No node in the flowchart is linked to a heading. Write the steps as headings after the diagram, with the same text as the nodes.')
-            : t('No arrow in the sequence diagram is linked to a heading. Write the steps as headings after the diagram, with the same text as the arrows.'),
+          message: wording.nothingLinked,
           severity: 'info',
         });
       }
@@ -41,9 +40,7 @@ export function collectIssues(md: MarkdownIt, source: string, t: Translate = for
       const label = normalizeLabel(m.text);
       issues.push({
         line: m.line,
-        message: flowchart
-          ? t('Node "{0}" is not linked to any heading. Add a heading with the same text after the diagram, or write "%% @ref <heading>" above the node.', label)
-          : t('Arrow "{0}" is not linked to any heading. Add a heading with the same text after the diagram, or write "%% @ref <heading>" above the arrow.', label),
+        message: wording.unlinkedItem(label),
         severity: 'info',
       });
     }
@@ -51,9 +48,7 @@ export function collectIssues(md: MarkdownIt, source: string, t: Translate = for
       const heading = normalizeLabel(headingText(tokens[index + 1]));
       issues.push({
         line: tokens[index].map?.[0] ?? 0,
-        message: flowchart
-          ? t('No node in the flowchart is linked to heading "{0}".', heading)
-          : t('No arrow in the sequence diagram is linked to heading "{0}".', heading),
+        message: wording.unlinkedHeading(heading),
         severity: 'info',
       });
     }

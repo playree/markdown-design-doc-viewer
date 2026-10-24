@@ -92,6 +92,18 @@ describe('collectIssues', () => {
     ]);
   });
 
+  it('reports the unlinked entities and states with their words', () => {
+    const er = doc('```mermaid', '%% @link-headings', 'erDiagram', '    CUSTOMER ||--o{ ORDER : places', '```', '', '## CUSTOMER', '## 余分');
+    expect(collectIssues(md, er).map((i) => [i.line, i.message])).toEqual([
+      [3, 'Entity "ORDER" is not linked to any heading. Add a heading with the same text after the diagram, or write "%% @ref <heading>" above the entity.'],
+      [7, 'No entity in the ER diagram is linked to heading "余分".'],
+    ]);
+    const state = doc('```mermaid', '%% @link-headings', 'stateDiagram-v2', '    [*] --> A', '    A --> B', '```', '## 別');
+    expect(collectIssues(md, state).map((i) => [i.line, i.message])).toEqual([
+      [0, 'No state in the state diagram is linked to a heading. Write a heading for each state after the diagram, with the same text as the state.'],
+    ]);
+  });
+
   it('ignores diagrams without the marker', () => {
     expect(collectIssues(md, doc('```mermaid', 'sequenceDiagram', '    A->>B: 一', '```'))).toEqual([]);
   });

@@ -1,6 +1,7 @@
 import markdownit, { type Env, type MarkdownIt, type Token } from 'markdown-it';
 import footnote from 'markdown-it-footnote';
 import { formatMessage, type Translate } from './l10n';
+import { diagramWording } from './diagramWording';
 import { isMermaidFence, linkDiagrams, type DiagramInfo, type DiagramKind } from './linker';
 import { markdownExtras } from './markdownExtras';
 import { HEADING_ID_PREFIX, slugify } from './slug';
@@ -29,7 +30,7 @@ export interface DiagramMeta {
   id: number;
   kind: DiagramKind;
   paired: boolean;
-  /** The arrows of a sequence diagram, or the nodes of a flowchart (with `nodeId`). */
+  /** The arrows of a sequence diagram, or the nodes of the other diagrams (with `nodeId`). */
   messages: { index: number; line: number; text: string; nodeId?: string; number?: number; numberInHeading?: boolean; target?: string; unlinked?: boolean }[];
 }
 
@@ -165,15 +166,12 @@ export function renderTokens(md: MarkdownIt, tokens: Token[], env: RenderEnv): s
   for (const diagram of diagrams) {
     const fence = tokens[diagram.fenceIndex];
     fence.meta = { ...fence.meta, seqNotes: diagram };
-    const flowchart = diagram.kind === 'flowchart';
+    const wording = diagramWording(diagram.kind, t);
     for (const index of env.forExport ? [] : diagram.unlinkedHeadings) {
       tokens[index].attrJoin('class', 'seqnotes-unlinked');
-      tokens[index].attrSet(
-        'title',
-        flowchart ? t('No node in the flowchart is linked to this heading.') : t('No arrow in the sequence diagram is linked to this heading.'),
-      );
+      tokens[index].attrSet('title', wording.unlinkedHeadingTitle);
       // Shown by the CSS (`content: attr(...)`).
-      tokens[index].attrSet('data-seqnotes-mark', flowchart ? t('no node') : t('no arrow'));
+      tokens[index].attrSet('data-seqnotes-mark', wording.unlinkedHeadingMark);
     }
   }
 
@@ -197,7 +195,7 @@ export function renderTokens(md: MarkdownIt, tokens: Token[], env: RenderEnv): s
       continue;
     }
     html += render(tokens.slice(pos, diagram.fenceIndex));
-    // A horizontal flowchart is too wide to be put beside its overview.
+    // A horizontal diagram is too wide to be put beside its overview.
     html += `<div class="seqnotes-pair${diagram.stacked ? ' seqnotes-pair-stacked' : ''}" data-diagram="${diagram.id}">`;
     html += `<div class="seqnotes-seq-col">${render(tokens.slice(diagram.fenceIndex, diagram.fenceIndex + 1))}</div>`;
     html += `<div class="seqnotes-overview-col">${render(tokens.slice(diagram.fenceIndex + 1, diagram.rangeEnd))}</div>`;

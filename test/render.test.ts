@@ -153,6 +153,49 @@ describe('linkDiagrams', () => {
     ]);
   });
 
+  it('links the entities of an ER diagram and the states of a state diagram', () => {
+    const src = doc(
+      '```mermaid', '%% @link-headings', 'erDiagram', '  CUSTOMER ||--o{ ORDER : places', '  %% @ref 明細テーブル', '  ITEM["明細"] {', '    int id', '  }', '```',
+      '## CUSTOMER', '## 明細テーブル', '## 予備',
+      '```mermaid', '%% @link-headings', 'stateDiagram-v2', '  direction LR', '  [*] --> Idle', '  state "実行中" as Running {', '    [*] --> 受付', '  }', '  Idle --> Running : 開始', '```',
+      '## Idle', '## 実行中',
+    );
+    const tokens = md.parse(src, {});
+    const { diagrams, warnings } = linkDiagrams(tokens);
+    expect(warnings).toEqual([]);
+    expect(diagrams.map((d) => [d.kind, d.paired, d.stacked])).toEqual([
+      ['er', true, false],
+      ['state', true, true],
+    ]);
+    const [er, state] = diagrams;
+    expect(er.messages.map((m) => [m.nodeId, m.target, m.unlinked])).toEqual([
+      ['CUSTOMER', hid('CUSTOMER'), undefined],
+      // Entities and states without a label of their own are steps too.
+      ['ORDER', undefined, true],
+      ['ITEM', hid('明細テーブル'), undefined],
+    ]);
+    expect(er.unlinkedHeadings.map((i) => tokens[i].attrGet('id'))).toEqual([hid('予備')]);
+    expect(er.rangeEnd).toBe(state.fenceIndex);
+    expect(state.messages.map((m) => [m.nodeId, m.target, m.unlinked])).toEqual([
+      ['Idle', hid('Idle'), undefined],
+      ['Running', hid('実行中'), undefined],
+      ['受付', undefined, true],
+    ]);
+  });
+
+  it('words the warnings for ER diagrams and state diagrams', () => {
+    const src = doc(
+      '```mermaid', 'erDiagram', '%% @ref x', 'A ||--o{ B : has', '```',
+      '```mermaid', '%% @link-headings', 'stateDiagram-v2', '%% @ref 無い', 'S1 --> S2', '```',
+      '- ```mermaid', '  %% @link-headings', '  erDiagram', '  A', '  ```',
+    );
+    expect(linkDiagrams(md.parse(src, {})).warnings.map((w) => w.message)).toEqual([
+      '@ref is ignored because the ER diagram has no "%% @link-headings" marker.',
+      '@ref target heading "無い" was not found after the state diagram.',
+      '@link-headings is ignored for an ER diagram inside a list or blockquote.',
+    ]);
+  });
+
   it('collects the unlinked headings at the level most linked headings have', () => {
     const src = doc(
       '```mermaid', '%% @link-headings', 'sequenceDiagram', 'A->>B: 一', 'B->>C: 二', '%% @ref 概要', 'C-->>A: 応答', 'A->>A: 無し', '```',
@@ -244,6 +287,15 @@ describe('renderDocument', () => {
     expect(html).toContain('&quot;nodeId&quot;:&quot;A&quot;');
     expect(html).toMatch(/<h2 id="sn-予備" data-line="6" class="seqnotes-unlinked" title="No node in the flowchart is linked to this heading." data-seqnotes-mark="no node">/);
     expect(renderDocument(md, doc('```mermaid', '%% @link-headings', 'graph TD', 'A[一]', '```', '## 一'))).toContain('<div class="seqnotes-pair" data-diagram="0">');
+  });
+
+  it('marks the unlinked headings of ER diagrams and state diagrams with their words', () => {
+    const er = renderDocument(md, doc('```mermaid', '%% @link-headings', 'erDiagram', 'A ||--o{ B : has', '```', '## A', '## 予備'));
+    expect(er).toContain('&quot;kind&quot;:&quot;er&quot;');
+    expect(er).toMatch(/<h2 id="sn-予備" data-line="6" class="seqnotes-unlinked" title="No entity in the ER diagram is linked to this heading." data-seqnotes-mark="no entity">/);
+    const state = renderDocument(md, doc('```mermaid', '%% @link-headings', 'stateDiagram', 'A --> B', '```', '## A', '## 予備'));
+    expect(state).toContain('&quot;kind&quot;:&quot;state&quot;');
+    expect(state).toMatch(/<h2 id="sn-予備" data-line="6" class="seqnotes-unlinked" title="No state in the state diagram is linked to this heading." data-seqnotes-mark="no state">/);
   });
 
   it('leaves out the warnings, marks and source lines for an export', () => {

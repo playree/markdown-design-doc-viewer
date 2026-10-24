@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { linkableDiagramAt, quickFixesByLine, refCandidates, type TextEdit } from './authoring';
 import { DIAGNOSTIC_SOURCE } from './diagnostics';
+import { diagramWording } from './diagramWording';
 import { createMarkdown } from './render';
 
 const SELECTOR: vscode.DocumentSelector = { language: 'markdown' };
@@ -25,20 +26,14 @@ export function registerAuthoringProviders(): vscode.Disposable {
       const ref = REF_PREFIX_RE.exec(before);
       if (ref) {
         const result = refCandidates(md, document.getText(), position.line);
-        const flowchart = result?.kind === 'flowchart';
+        const wording = result && diagramWording(result.kind, vscode.l10n.t);
         // The heading replaces the rest of the line.
         const range = new vscode.Range(position.line, ref[0].length, position.line, line.length);
         return result?.candidates.map((c, i) => {
           const item = new vscode.CompletionItem(c.text, vscode.CompletionItemKind.Reference);
           item.range = range;
           item.sortText = String(i).padStart(4, '0');
-          item.detail = flowchart
-            ? c.linked
-              ? vscode.l10n.t('Already linked to a node')
-              : vscode.l10n.t('No node linked yet')
-            : c.linked
-              ? vscode.l10n.t('Already linked to an arrow')
-              : vscode.l10n.t('No arrow linked yet');
+          item.detail = c.linked ? wording?.linkedCandidate : wording?.unlinkedCandidate;
           return item;
         });
       }
@@ -57,15 +52,8 @@ export function registerAuthoringProviders(): vscode.Disposable {
           }
           return it;
         };
-        return kind === 'flowchart'
-          ? [
-              item('@link-headings', '@link-headings', vscode.l10n.t('Show this flowchart with the step headings after it and link its nodes to them (side by side, or below a horizontal flowchart).'), false),
-              item('@ref', '@ref ', vscode.l10n.t('Link the node defined on the next line to a heading.'), true),
-            ]
-          : [
-              item('@link-headings', '@link-headings', vscode.l10n.t('Show this sequence diagram side by side with the step headings after it.'), false),
-              item('@ref', '@ref ', vscode.l10n.t('Link the next arrow to a heading.'), true),
-            ];
+        const wording = diagramWording(kind, vscode.l10n.t);
+        return [item('@link-headings', '@link-headings', wording.markerDoc, false), item('@ref', '@ref ', wording.refDoc, true)];
       }
       return undefined;
     },

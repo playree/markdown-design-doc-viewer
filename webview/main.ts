@@ -180,10 +180,10 @@ async function renderDiagrams(container: HTMLElement, idPrefix: string, dark: bo
       pre?.replaceWith(holder);
       const svgEl = holder.querySelector('svg');
       if (meta && svgEl) {
-        if (meta.kind === 'flowchart') {
-          annotateNodes(svgEl, meta);
-        } else {
+        if (meta.kind === 'sequence') {
           annotateMessages(svgEl, meta);
+        } else {
+          annotateNodes(svgEl, meta);
         }
       }
     } catch (error) {
@@ -269,21 +269,34 @@ function annotateMessages(svg: SVGSVGElement, meta: DiagramMeta): void {
   });
 }
 
-/** The node id of a flowchart node element: its `data-id`, or else the middle of its element id `<svg id>-flowchart-<node id>-<n>`. */
-function flowchartNodeId(svg: SVGSVGElement, el: Element): string | undefined {
+/** The node elements of each kind of diagram, and the node id in their element ids (without the svg id). */
+const NODE_ELEMENTS: Record<Exclude<DiagramMeta['kind'], 'sequence'>, { selector: string; id: RegExp }> = {
+  flowchart: { selector: 'g.node', id: /^flowchart-(.+)-\d+$/ },
+  er: { selector: 'g.node', id: /^entity-(.+)-\d+$/ },
+  // A composite state is a cluster, not a node.
+  state: { selector: 'g.node, g.statediagram-cluster', id: /^state-(.+)-\d+$/ },
+};
+
+/**
+ * The node id of a node element: its `data-id`, or else the middle of its element id (`<svg id>-flowchart-<node id>-<n>`).
+ * The notes of a state diagram (`state-<id>----note-<n>`) are not nodes.
+ */
+function diagramNodeId(svg: SVGSVGElement, el: Element, idRe: RegExp): string | undefined {
   const dataId = el.getAttribute('data-id');
   if (dataId !== null) {
     return dataId;
   }
   const id = el.id.startsWith(`${svg.id}-`) ? el.id.slice(svg.id.length + 1) : el.id;
-  return /^flowchart-(.+)-\d+$/.exec(id)?.[1];
+  const nodeId = idRe.exec(id)?.[1];
+  return nodeId?.includes('----') ? undefined : nodeId;
 }
 
-/** Ties the node elements of a flowchart to the parsed node data. */
+/** Ties the node elements of a flowchart, an ER diagram or a state diagram to the parsed node data. */
 function annotateNodes(svg: SVGSVGElement, meta: DiagramMeta): void {
+  const { selector, id: idRe } = NODE_ELEMENTS[meta.kind as keyof typeof NODE_ELEMENTS];
   const elements = new Map<string, Element>();
-  for (const el of Array.from(svg.querySelectorAll('g.node'))) {
-    const id = flowchartNodeId(svg, el);
+  for (const el of Array.from(svg.querySelectorAll(selector))) {
+    const id = diagramNodeId(svg, el, idRe);
     if (id !== undefined && !elements.has(id)) {
       elements.set(id, el);
     }

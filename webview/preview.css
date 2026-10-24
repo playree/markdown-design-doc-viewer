@@ -747,13 +747,16 @@ body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-overvi
   stroke-width: 3px !important;
 }
 
-/* Flowchart nodes: the outline of the shape, not what is inside the label. mermaid's own styles use ids, hence !important. */
-.seqnotes-node.seqnotes-linked .nodeLabel { text-decoration: underline dotted; }
-.seqnotes-node.seqnotes-active :is(rect, polygon, circle, ellipse, path, polyline):not(.label *) {
+/*
+ * Nodes (of flowcharts, ER diagrams and state diagrams): the outline of the shape, not what is inside the label,
+ * and of an ER entity its name, not the rows of its attributes. mermaid's own styles use ids, hence !important.
+ */
+.seqnotes-node.seqnotes-linked .nodeLabel:not([class*="attribute-"] *) { text-decoration: underline dotted; }
+.seqnotes-node.seqnotes-active :is(rect, polygon, circle, ellipse, path, polyline):not(.label *, .divider *, [class^="row-rect"] *) {
   stroke: var(--seqnotes-accent) !important;
   stroke-width: 3px !important;
 }
-.seqnotes-node.seqnotes-active .nodeLabel {
+.seqnotes-node.seqnotes-active .nodeLabel:not([class*="attribute-"] *) {
   color: var(--seqnotes-accent) !important;
   font-weight: bold;
 }
@@ -825,8 +828,10 @@ body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-overvi
 }
 .messageText.seqnotes-current { font-weight: bold; text-decoration: underline; }
 .seqnotes-msg.seqnotes-current:not(.seqnotes-hit, .messageText) { stroke-width: 3px !important; }
-.seqnotes-node.seqnotes-current :is(rect, polygon, circle, ellipse, path, polyline):not(.label *) { stroke-width: 3px !important; }
-.seqnotes-node.seqnotes-current .nodeLabel { font-weight: bold; text-decoration: underline; }
+.seqnotes-node.seqnotes-current :is(rect, polygon, circle, ellipse, path, polyline):not(.label *, .divider *, [class^="row-rect"] *) { stroke-width: 3px !important; }
+.seqnotes-node.seqnotes-current .nodeLabel:not([class*="attribute-"] *) { font-weight: bold; text-decoration: underline; }
+/* The title of a composite state is sized to its text, so a bold one would be cut. */
+.seqnotes-node.statediagram-cluster:is(.seqnotes-active, .seqnotes-current) .nodeLabel { font-weight: normal; }
 
 /* ---------------------------------------------------------------- Table of contents */
 

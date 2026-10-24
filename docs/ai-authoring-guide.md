@@ -2,7 +2,7 @@
 
 English | [日本語](ai-authoring-guide.ja.md)
 
-Follow these rules when you write a design document in Markdown. The document is previewed with the VS Code extension "Markdown Design Doc Viewer". The preview shows a mermaid sequence diagram (or flowchart) on the left and the step descriptions after it on the right. Each arrow of the diagram (each node of a flowchart) is linked to the heading with the same text. The goal is that every arrow is linked to a heading and every step heading is linked to an arrow.
+Follow these rules when you write a design document in Markdown. The document is previewed with the VS Code extension "Markdown Design Doc Viewer". The preview shows a mermaid sequence diagram (or flowchart, ER diagram or state diagram) on the left and the step descriptions after it on the right. Each arrow of the diagram (each node of a flowchart, entity of an ER diagram or state of a state diagram) is linked to the heading with the same text. The goal is that every arrow (node, entity or state) is linked to a heading and every step heading is linked to one of them. Edge, relationship and transition labels are not linked, so do not write headings for them.
 
 ## Template
 
@@ -76,7 +76,7 @@ The token's claims. It expires after 1 hour[^expiry].
 - Put the diagram at the top level of the document, not inside a list or blockquote.
 - Keep each arrow label (the text after `:`) short and unique within the diagram. It becomes the step heading.
 - `autonumber` may be used. The preview then shows the arrow's number next to its heading (unless `mdDesignDoc.headingNumbers` is off).
-- Other mermaid diagrams (ER diagrams, diagrams without `%% @link-headings`) are rendered normally. Do not put `%% @ref` in them.
+- Other mermaid diagrams (class diagrams, Gantt charts, diagrams without `%% @link-headings`…) are rendered normally. Do not put `%% @ref` in them.
 
 ## Flowchart
 
@@ -88,6 +88,17 @@ A flowchart (`flowchart TD` / `graph TD`) can be linked instead of a sequence di
 - Use `TD` (top to bottom) for flows with step descriptions. `LR` / `RL` flowcharts are shown above their steps, not beside them.
 - Edge labels (`-->|Yes|`) are not linked to headings.
 
+## ER diagram and state diagram
+
+An ER diagram (`erDiagram`) or a state diagram (`stateDiagram-v2`) can be linked the same way, with its entities or states in place of the arrows: for example a heading with the definition of each table after an ER diagram, or a heading with the description of each state after a state diagram. The rules of the step descriptions apply with "entity" or "state" for "arrow".
+
+- Put `%% @link-headings` on a line of its own inside the block, as for a sequence diagram.
+- An entity is linked to the heading with its alias (`LINE_ITEM["Line item"]`), or with its name when it has none. A state is linked to the heading with its description (`state "Paid" as S2`), or with its id when it has none. Every entity and every state needs a heading, labeled or not.
+- Composite states (`state Fulfillment { … }`) and the states inside them are linked too. `[*]`, forks, joins, choices and notes are not.
+- Relationship and transition labels are not linked to headings.
+- To link an entity or a state to a heading with another text, define it on a line of its own (`ORDER {` with its attributes, `S2 : Paid`, `state "Paid" as S2`) with `%% @ref <heading text>` on the line just before it.
+- Leave out `direction LR` / `RL` when the headings should be beside the diagram. Horizontal diagrams are shown above their headings.
+
 ## Step descriptions
 
 - Write the descriptions **after** the diagram, as headings in the order of the arrows, one heading per arrow.
@@ -95,7 +106,7 @@ A flowchart (`flowchart TD` / `graph TD`) can be linked instead of a sequence di
 - Make the heading text equal to the arrow label. Whitespace is trimmed and collapsed before comparing, and `<br/>` in a label counts as a space.
 - A heading may start with a step number: `### 3. Fetch user` links to the arrow `Fetch user`. If you number the headings, use the arrow numbers given by `autonumber`.
 - When the heading has to differ from the arrow label, write `%% @ref <heading text>` on the line just before the arrow, inside the diagram. Several arrows (for example a request and its response) may be linked to the same heading this way.
-- Do not add headings at the step level that no arrow links to. They are marked "no arrow" ("no node" for a flowchart). Write extra notes as paragraphs, as lower-level headings, or after the end marker.
+- Do not add headings at the step level that no arrow links to. They are marked "no arrow" ("no node" for a flowchart, "no entity" for an ER diagram, "no state" for a state diagram). Write extra notes as paragraphs, as lower-level headings, or after the end marker.
 - Headings inside lists or blockquotes are not steps.
 - After the last step, write `<!-- link-headings:end -->` on a line of its own at the top level. Without it, the description column extends to the next diagram with `%% @link-headings` or to the end of the document.
 

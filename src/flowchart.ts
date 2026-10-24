@@ -4,27 +4,12 @@
  * of the chart, any `%% @ref <heading>` directive attached to a node and the `%% @link-headings` marker.
  * Edges, subgraphs and styles are skipped.
  */
-import { LEGACY_MARKER_RE, LINK_HEADINGS_RE, REF_RE, skipFrontmatter, type SequenceMessage } from './sequence';
+import { headerLine, readNodes, type DiagramNode, type NodeRef, type ParsedNodeDiagram } from './diagramNodes';
+import { skipFrontmatter } from './sequence';
 
-export interface FlowchartNode extends SequenceMessage {
-  /** Node id, which mermaid puts into the `data-id` of the node's SVG element. */
-  nodeId: string;
-  /** false when the node has no label of its own and shows its id. */
-  labeled: boolean;
-  /** false when a `%% @ref` written above `line` would go to another node defined on that line. */
-  refable: boolean;
-}
+export type FlowchartNode = DiagramNode;
 
-export interface ParsedFlowchart {
-  /** Nodes in the order of their first appearance. `line` is where the label was written (else the first appearance). */
-  nodes: FlowchartNode[];
-  /** 0-based document line of the `%% @link-headings` marker, if present. */
-  markerLine?: number;
-  /** 0-based document line of an old `%% @seq-notes` marker, if present. */
-  legacyMarkerLine?: number;
-  /** true when the chart is laid out horizontally (`LR` / `RL`). */
-  horizontal: boolean;
-}
+export type ParsedFlowchart = ParsedNodeDiagram;
 
 const HEADER_RE = /^\s*(?:flowchart-elk|graph|flowchart)\b(?:\s*(TB|TD|BT|RL|LR)\b|\s*([<>^]|v\b))?\s*;?/;
 
@@ -63,11 +48,6 @@ const TEXT_LINK_RES = [
 ];
 
 const SHAPE_DATA_LABEL_RE = /\blabel\s*:\s*(?:"([^"]*)"|'([^']*)'|([^,}\n]*))/;
-
-interface NodeRef {
-  id: string;
-  label?: string;
-}
 
 /** Strips the quotes of a `"text"`, and of a markdown string `` "`text`" `` with its bold and italic marks. */
 function unquote(text: string): string {
@@ -188,21 +168,9 @@ function readStatements(line: string): NodeRef[] {
   return nodes;
 }
 
-function header(lines: string[], start: number): { index: number; match: RegExpExecArray } | undefined {
-  for (let i = start; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (line === '' || line.startsWith('%%')) {
-      continue;
-    }
-    const match = HEADER_RE.exec(lines[i]);
-    return match ? { index: i, match } : undefined;
-  }
-  return undefined;
-}
-
 export function isFlowchart(source: string): boolean {
   const lines = source.split(/\r?\n/);
-  return header(lines, skipFrontmatter(lines)) !== undefined;
+  return headerLine(lines, skipFrontmatter(lines), HEADER_RE) !== undefined;
 }
 
 /**
@@ -212,89 +180,20 @@ export function isFlowchart(source: string): boolean {
 export function parseFlowchart(source: string, firstLine: number): ParsedFlowchart {
   const lines = source.split(/\r?\n/);
   const start = skipFrontmatter(lines);
-  const head = header(lines, start);
+  const head = headerLine(lines, start, HEADER_RE);
   const direction = head?.match[1] ?? head?.match[2];
   const horizontal = direction === 'LR' || direction === 'RL' || direction === '<' || direction === '>';
 
-  const nodes = new Map<string, FlowchartNode>();
   const subgraphs = new Set<string>();
-  let markerLine: number | undefined;
-  let legacyMarkerLine: number | undefined;
-  let pendingRef: { text: string; line: number } | undefined;
-  let inAccDescr = false;
-  /** The node a `%% @ref` above the line goes to, by document line. */
-  const refTargets = new Map<number, string>();
-
-  lines.forEach((raw, i) => {
-    if (i < start) {
-      return;
-    }
-    if (inAccDescr) {
-      inAccDescr = !raw.includes('}');
-      return;
-    }
-    if (LINK_HEADINGS_RE.test(raw)) {
-      markerLine ??= firstLine + i;
-      return;
-    }
-    if (LEGACY_MARKER_RE.test(raw)) {
-      legacyMarkerLine ??= firstLine + i;
-      return;
-    }
-    const ref = REF_RE.exec(raw);
-    if (ref) {
-      pendingRef = { text: ref[1], line: firstLine + i };
-      return;
-    }
-    if (raw.trim().startsWith('%%')) {
-      return;
-    }
+  const statement = (raw: string, i: number): NodeRef[] => {
     const subgraph = SUBGRAPH_RE.exec(raw);
     if (subgraph) {
       subgraphs.add(subgraph[1]);
     }
-    if (/^\s*accDescr\s*\{/.test(raw) && !raw.includes('}')) {
-      inAccDescr = true;
-      return;
-    }
     if (NON_NODE_KEYWORDS.test(raw)) {
-      return;
+      return [];
     }
-
-    const text = i === head?.index ? raw.slice(head.match[0].length) : raw;
-    const line = firstLine + i;
-    const refs = readStatements(text);
-    // Nodes appearing for the first time on this line.
-    const added: string[] = [];
-    for (const { id, label } of refs) {
-      let node = nodes.get(id);
-      if (!node) {
-        node = { index: nodes.size, line, text: id, nodeId: id, labeled: false, refable: false };
-        nodes.set(id, node);
-        added.push(id);
-      }
-      // As in mermaid, the last label written wins.
-      if (label !== undefined) {
-        node.text = label;
-        node.labeled = true;
-        node.line = line;
-      }
-    }
-    if (refs.length === 0) {
-      return;
-    }
-    // The node the line defines: the first one labeled on it, else the first new one, else the first one.
-    const target = nodes.get(refs.find((r) => r.label !== undefined)?.id ?? added[0] ?? refs[0].id)!;
-    refTargets.set(line, target.nodeId);
-    if (pendingRef) {
-      target.ref = pendingRef.text;
-      target.refLine = pendingRef.line;
-      pendingRef = undefined;
-    }
-  });
-
-  const result = [...nodes.values()]
-    .filter((node) => !subgraphs.has(node.nodeId))
-    .map((node, index) => ({ ...node, index, refable: refTargets.get(node.line) === node.nodeId }));
-  return { nodes: result, markerLine, legacyMarkerLine, horizontal };
+    return readStatements(i === head?.index ? raw.slice(head.match[0].length) : raw);
+  };
+  return { ...readNodes(lines, start, firstLine, { firstWins: false, idIsLabel: false }, { statement, excluded: subgraphs }), horizontal };
 }
