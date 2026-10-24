@@ -32,6 +32,14 @@ describe('renderDiff', () => {
     expect(result.html).toMatch(/<h1 id="sn-a"[^>]*>A<\/h1>\n<h2 data-seqnotes-diff="deleted">Removed<\/h2>\n<h1 id="sn-b"/);
   });
 
+  it('resolves the images of a deleted block once', () => {
+    const resolveResource = (src: string): string => `res:${src}`;
+    const result = renderDiff(md, doc('# A', '', '<img src="a.png">', '', '![b](b.png)', '', '# B'), doc('# A', '', '# B'), { resolveResource });
+    expect(result.html).toContain('src="res:a.png"');
+    expect(result.html).toContain('src="res:b.png"');
+    expect(result.html).not.toContain('res:res:');
+  });
+
   it('compares the items of a list and the rows of a table inside them', () => {
     const before = doc('- a', '- b', '- c', '', '| h | i |', '|---|---|', '| 1 | 2 |', '| 3 | 4 |');
     const after = doc('- a', '- c', '- d', '', '| h | i |', '|---|---|', '| 1 | 2 |', '| 5 | 6 |', '| 3 | 4 |');

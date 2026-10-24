@@ -136,6 +136,46 @@ function mermaidFence(md: MarkdownIt): void {
   };
 }
 
+/** Set in the `meta` of an HTML token that holds HTML already rendered, whose images are resolved. */
+export const RENDERED_HTML = 'seqnotesRendered';
+
+/** An HTML comment, left as it is, or an `<img>` tag with its attributes. */
+const IMG_TAG_RE = /<!--[\s\S]*?-->|<img(?=[\s/>])((?:[^>"']|"[^"]*"|'[^']*')*)>/gi;
+/** An attribute of a tag: its name, and its value in double quotes, in single quotes or without quotes. */
+const ATTR_RE = /([^\s"'>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
+const NAMED_REFS: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+
+/** The text of an HTML attribute value: its character references decoded. */
+function decodeAttribute(value: string): string {
+  return value.replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi, (ref, dec?: string, hex?: string, name?: string) => {
+    const code = dec ? Number(dec) : hex ? parseInt(hex, 16) : undefined;
+    if (code !== undefined) {
+      return code <= 0x10ffff ? String.fromCodePoint(code) : ref;
+    }
+    return NAMED_REFS[name!] ?? ref;
+  });
+}
+
+/** Rewrites the `src` of the `<img>` tags of raw HTML with `resolve`, like the images of Markdown. */
+export function resolveHtmlImages(html: string, resolve: (src: string) => string): string {
+  return html.replace(IMG_TAG_RE, (tag, attrs?: string) => {
+    if (attrs === undefined) {
+      return tag;
+    }
+    // Only the first `src` counts, as in the browser.
+    let seen = false;
+    const resolved = attrs.replace(ATTR_RE, (attr, name: string, double?: string, single?: string, bare?: string) => {
+      if (seen || name.toLowerCase() !== 'src') {
+        return attr;
+      }
+      seen = true;
+      const src = decodeAttribute(double ?? single ?? bare ?? '');
+      return src ? `${name}="${escapeHtml(resolve(src))}"` : attr;
+    });
+    return `${tag.slice(0, 4)}${resolved}>`;
+  });
+}
+
 function resourceLinks(md: MarkdownIt): void {
   const defaultImage = md.renderer.rules.image!;
   md.renderer.rules.image = (tokens, idx, options, env: RenderEnv | undefined, self) => {
@@ -146,6 +186,15 @@ function resourceLinks(md: MarkdownIt): void {
     }
     return defaultImage(tokens, idx, options, env, self);
   };
+  for (const type of ['html_block', 'html_inline'] as const) {
+    const defaultHtml = md.renderer.rules[type]!;
+    md.renderer.rules[type] = (tokens, idx, options, env: RenderEnv | undefined, self) => {
+      const html = defaultHtml(tokens, idx, options, env, self);
+      const resolve = env?.resolveResource;
+      const rendered = (tokens[idx].meta as Record<string, unknown> | null)?.[RENDERED_HTML] === true;
+      return resolve && !rendered ? resolveHtmlImages(html, resolve) : html;
+    };
+  }
 }
 
 export function createMarkdown(): MarkdownIt {

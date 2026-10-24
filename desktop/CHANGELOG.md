@@ -6,6 +6,7 @@ The desktop app has its own version, apart from the extension and the command li
 
 - ER diagrams (`erDiagram`) and state diagrams (`stateDiagram` / `stateDiagram-v2`) marked with `%% @link-headings` are linked to the headings after them like flowcharts: each entity (by its alias, or its name) and each state (by its description, or its id; composite states included) is linked to the heading with the same text, or to the one of a `%% @ref` above the line defining it, for example to put the definition of each table or the description of each state beside the diagram. Hovering and clicking highlight and scroll both ways, entities and states without a heading are faded, headings without one get a "no entity" / "no state" mark. With `direction LR` / `RL`, the headings are shown below the diagram. See [examples/er-diagram.md](../examples/er-diagram.md) and [examples/state-diagram.md](../examples/state-diagram.md).
 - **File** > **Export as HTML...** adds the table of contents of the window to the exported page (hover its right edge), unless it is turned off in **View** > **Settings...**. It is not printed.
+- Fixed local images written as HTML `<img>` tags (for example `<img src="images/a.png" width="49%">`) not showing in the window and not being embedded in exported HTML.
 
 ## 0.3.0
 
