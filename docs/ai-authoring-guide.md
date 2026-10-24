@@ -2,7 +2,7 @@
 
 English | [日本語](ai-authoring-guide.ja.md)
 
-Follow these rules when you write a design document in Markdown. The document is previewed with the VS Code extension "Markdown Design Doc Viewer". The preview shows a mermaid sequence diagram (or flowchart, ER diagram or state diagram) on the left and the step descriptions after it on the right. Each arrow of the diagram (each node of a flowchart, entity of an ER diagram or state of a state diagram) is linked to the heading with the same text. The goal is that every arrow is linked to a heading and every step heading is linked to an arrow.
+Follow these rules when you write a design document in Markdown. The document is previewed with the VS Code extension "Markdown Design Doc Viewer". The preview shows a mermaid sequence diagram (or flowchart, ER diagram or state diagram) on the left and the step descriptions after it on the right. Each arrow of the diagram (each node of a flowchart, entity of an ER diagram or state of a state diagram) is linked to the heading with the same text. The goal is that every arrow (node, entity or state) is linked to a heading and every step heading is linked to one of them. Edge, relationship and transition labels are not linked, so do not write headings for them.
 
 ## Template
 
