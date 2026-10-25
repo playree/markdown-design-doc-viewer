@@ -331,6 +331,43 @@ describe('renderDocument', () => {
     expect(html).toContain('src="res:img/a.png"');
   });
 
+  it('rewrites the image sources of raw HTML', () => {
+    const src = doc(
+      '<p>',
+      '  <img src="docs/a.webp" alt="A" width="49%">',
+      "  <IMG alt='x > y' SRC='b.png'>",
+      '</p>',
+      '',
+      'text <img src=c.png data-src="d.png"> <a href="e.md">e</a> <img data-src="f.png">',
+      '',
+      '<img src="g.png?a=1&amp;b=&quot;2&quot;">',
+      '',
+      '<p><img alt="see src=x" src="h.png"> <img/src="i.png"> <img-card src="j.png"></img-card></p>',
+      '',
+      '<!-- <img src="k.png"> -->',
+      '',
+      '<img src="caf&eacute;\\_&#x41;.png">',
+      '',
+      '<textarea>',
+      '<img src="l.png">',
+      '</textarea>',
+      '',
+      'text <textarea><img src="m.png"></textarea> <img src="n.png">',
+    );
+    const seen: string[] = [];
+    const html = renderDocument(md, src, { resolveResource: (s) => (seen.push(s), `res:${s}`) });
+    expect(seen).toEqual(['docs/a.webp', 'b.png', 'c.png', 'g.png?a=1&b="2"', 'h.png', 'i.png', 'café\\_A.png', 'n.png']);
+    expect(html).toContain('<img src="res:docs/a.webp" alt="A" width="49%">');
+    expect(html).toContain('<IMG alt=\'x > y\' SRC="res:b.png">');
+    expect(html).toContain('<img src="res:c.png" data-src="d.png">');
+    expect(html).toContain('<a href="e.md">e</a> <img data-src="f.png">');
+    expect(html).toContain('<img src="res:g.png?a=1&amp;b=&quot;2&quot;">');
+    expect(html).toContain('<p><img alt="see src=x" src="res:h.png"> <img/src="res:i.png"> <img-card src="j.png">');
+    expect(html).toContain('<!-- <img src="k.png"> -->');
+    expect(html).toContain('<textarea>\n<img src="l.png">\n</textarea>');
+    expect(html).toContain('<textarea><img src="m.png"></textarea> <img src="res:n.png">');
+  });
+
   it('renders footnotes at the end, outside the pairs and without data-line', () => {
     const html = renderDocument(md, doc('```mermaid', '%% @link-headings', 'sequenceDiagram', 'A->>B: 一', '```', '## 一', '', '本文[^1]', '', '[^1]: 注釈', '', 'その後'));
     expect(html).toContain('<sup class="footnote-ref"><a href="#fn1" id="fnref1">[1]</a></sup>');

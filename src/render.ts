@@ -136,6 +136,66 @@ function mermaidFence(md: MarkdownIt): void {
   };
 }
 
+/** Set in the `meta` of an HTML token that holds HTML already rendered, whose images are resolved. */
+export const RENDERED_HTML = 'seqnotesRendered';
+
+/** The elements whose content is text, not HTML. */
+const RAW_TEXT = 'script|style|textarea|title';
+/**
+ * An HTML comment or an element whose content is text (to the end of the HTML when it is not closed), left as they
+ * are, or an `<img>` tag with its attributes.
+ */
+const IMG_TAG_RE = new RegExp(`<!--[\\s\\S]*?-->|<(${RAW_TEXT})(?=[\\s/>])[\\s\\S]*?(?:</\\1\\s*>|$)|<img(?=[\\s/>])((?:[^>"']|"[^"]*"|'[^']*')*)>`, 'gi');
+/** An opening or closing tag of an element whose content is text. */
+const RAW_TEXT_TAG_RE = new RegExp(`<(/?)(${RAW_TEXT})(?=[\\s/>])`, 'gi');
+/** An attribute of a tag: its name, and its value in double quotes, in single quotes or without quotes. */
+const ATTR_RE = /([^\s"'>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
+
+/**
+ * The text of an HTML attribute value: its character references decoded. `unescapeAll` also takes out the backslash
+ * escapes of Markdown, which are kept by doubling the backslashes.
+ */
+const decodeAttribute = (md: MarkdownIt, value: string): string => md.utils.unescapeAll(value.replace(/\\/g, '\\\\'));
+
+/** Rewrites the `src` of the `<img>` tags of raw HTML with `resolve`, like the images of Markdown. */
+function resolveHtmlImages(md: MarkdownIt, html: string, resolve: (src: string) => string): string {
+  return html.replace(IMG_TAG_RE, (tag, _rawText?: string, attrs?: string) => {
+    if (attrs === undefined) {
+      return tag;
+    }
+    // Only the first `src` counts, as in the browser.
+    let seen = false;
+    const resolved = attrs.replace(ATTR_RE, (attr, name: string, double?: string, single?: string, bare?: string) => {
+      if (seen || name.toLowerCase() !== 'src') {
+        return attr;
+      }
+      seen = true;
+      const src = decodeAttribute(md, double ?? single ?? bare ?? '');
+      return src ? `${name}="${escapeHtml(resolve(src))}"` : attr;
+    });
+    return `${tag.slice(0, 4)}${resolved}>`;
+  });
+}
+
+/** true when the inline HTML before `idx` leaves an element whose content is text (`<textarea>`) open. */
+function inRawText(tokens: Token[], idx: number): boolean {
+  let open: string | undefined;
+  for (const token of tokens.slice(0, idx)) {
+    if (token.type !== 'html_inline') {
+      continue;
+    }
+    for (const [, closing, name] of token.content.matchAll(RAW_TEXT_TAG_RE)) {
+      const tag = name.toLowerCase();
+      if (open === undefined && !closing) {
+        open = tag;
+      } else if (closing && tag === open) {
+        open = undefined;
+      }
+    }
+  }
+  return open !== undefined;
+}
+
 function resourceLinks(md: MarkdownIt): void {
   const defaultImage = md.renderer.rules.image!;
   md.renderer.rules.image = (tokens, idx, options, env: RenderEnv | undefined, self) => {
@@ -146,6 +206,18 @@ function resourceLinks(md: MarkdownIt): void {
     }
     return defaultImage(tokens, idx, options, env, self);
   };
+  for (const type of ['html_block', 'html_inline'] as const) {
+    const defaultHtml = md.renderer.rules[type]!;
+    md.renderer.rules[type] = (tokens, idx, options, env: RenderEnv | undefined, self) => {
+      const html = defaultHtml(tokens, idx, options, env, self);
+      const resolve = env?.resolveResource;
+      const rendered = (tokens[idx].meta as Record<string, unknown> | null)?.[RENDERED_HTML] === true;
+      if (!resolve || rendered || (type === 'html_inline' && inRawText(tokens, idx))) {
+        return html;
+      }
+      return resolveHtmlImages(md, html, resolve);
+    };
+  }
 }
 
 export function createMarkdown(): MarkdownIt {

@@ -5,7 +5,7 @@
 import { diffArrays } from 'diff';
 import markdownit, { type MarkdownIt, type Token } from 'markdown-it';
 import { isMermaidFence } from './linker';
-import { renderTokens, type RenderEnv } from './render';
+import { RENDERED_HTML, renderTokens, type RenderEnv } from './render';
 import { similarity, wordSegmenter } from './textDiff';
 
 /** `data-seqnotes-diff` of a block. A changed one has `data-seqnotes-diff-old`, the index of the revision's block in `DiffRender.old`. */
@@ -195,6 +195,8 @@ export function renderDiff(md: MarkdownIt, beforeSource: string, afterSource: st
     token.content = content;
     token.block = true;
     token.level = level;
+    // Its images, if any, are resolved by `renderBefore`.
+    token.meta = { [RENDERED_HTML]: true };
     return token;
   };
   const wrapped = (mark: DiffMark, html: string): string => `<div class="seqnotes-diff-block" data-seqnotes-diff="${mark}">\n${html}</div>\n`;

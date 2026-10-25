@@ -57,6 +57,14 @@ describe('renderForExport', () => {
     expect(html).not.toContain('seqnotes-export-resource');
   });
 
+  it('resolves the local images of raw HTML', async () => {
+    const html = await renderForExport(md, doc('<p><img src="a.png" width="49%"></p>', '', 'text <img src="https://example.com/b.png">'), {}, async (src) =>
+      src === 'a.png' ? 'data:image/png;base64,AA' : src,
+    );
+    expect(html).toContain('<img src="data:image/png;base64,AA" width="49%">');
+    expect(html).toContain('<img src="https://example.com/b.png">');
+  });
+
   it('keeps the query and fragment of a link, not of a data URI', async () => {
     const html = await renderForExport(md, '![a](icons.svg#save) ![b](a.png?v=1) ![c](c.png#x)', {}, async (src) =>
       src.startsWith('c') ? 'data:image/png;base64,AA' : `../${imagePath(src)}`,
