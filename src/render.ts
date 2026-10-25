@@ -139,26 +139,27 @@ function mermaidFence(md: MarkdownIt): void {
 /** Set in the `meta` of an HTML token that holds HTML already rendered, whose images are resolved. */
 export const RENDERED_HTML = 'seqnotesRendered';
 
-/** An HTML comment, left as it is, or an `<img>` tag with its attributes. */
-const IMG_TAG_RE = /<!--[\s\S]*?-->|<img(?=[\s/>])((?:[^>"']|"[^"]*"|'[^']*')*)>/gi;
+/** The elements whose content is text, not HTML. */
+const RAW_TEXT = 'script|style|textarea|title';
+/**
+ * An HTML comment or an element whose content is text (to the end of the HTML when it is not closed), left as they
+ * are, or an `<img>` tag with its attributes.
+ */
+const IMG_TAG_RE = new RegExp(`<!--[\\s\\S]*?-->|<(${RAW_TEXT})(?=[\\s/>])[\\s\\S]*?(?:</\\1\\s*>|$)|<img(?=[\\s/>])((?:[^>"']|"[^"]*"|'[^']*')*)>`, 'gi');
+/** An opening or closing tag of an element whose content is text. */
+const RAW_TEXT_TAG_RE = new RegExp(`<(/?)(${RAW_TEXT})(?=[\\s/>])`, 'gi');
 /** An attribute of a tag: its name, and its value in double quotes, in single quotes or without quotes. */
 const ATTR_RE = /([^\s"'>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
-const NAMED_REFS: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
 
-/** The text of an HTML attribute value: its character references decoded. */
-function decodeAttribute(value: string): string {
-  return value.replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi, (ref, dec?: string, hex?: string, name?: string) => {
-    const code = dec ? Number(dec) : hex ? parseInt(hex, 16) : undefined;
-    if (code !== undefined) {
-      return code <= 0x10ffff ? String.fromCodePoint(code) : ref;
-    }
-    return NAMED_REFS[name!] ?? ref;
-  });
-}
+/**
+ * The text of an HTML attribute value: its character references decoded. `unescapeAll` also takes out the backslash
+ * escapes of Markdown, which are kept by doubling the backslashes.
+ */
+const decodeAttribute = (md: MarkdownIt, value: string): string => md.utils.unescapeAll(value.replace(/\\/g, '\\\\'));
 
 /** Rewrites the `src` of the `<img>` tags of raw HTML with `resolve`, like the images of Markdown. */
-export function resolveHtmlImages(html: string, resolve: (src: string) => string): string {
-  return html.replace(IMG_TAG_RE, (tag, attrs?: string) => {
+function resolveHtmlImages(md: MarkdownIt, html: string, resolve: (src: string) => string): string {
+  return html.replace(IMG_TAG_RE, (tag, _rawText?: string, attrs?: string) => {
     if (attrs === undefined) {
       return tag;
     }
@@ -169,11 +170,30 @@ export function resolveHtmlImages(html: string, resolve: (src: string) => string
         return attr;
       }
       seen = true;
-      const src = decodeAttribute(double ?? single ?? bare ?? '');
+      const src = decodeAttribute(md, double ?? single ?? bare ?? '');
       return src ? `${name}="${escapeHtml(resolve(src))}"` : attr;
     });
     return `${tag.slice(0, 4)}${resolved}>`;
   });
+}
+
+/** true when the inline HTML before `idx` leaves an element whose content is text (`<textarea>`) open. */
+function inRawText(tokens: Token[], idx: number): boolean {
+  let open: string | undefined;
+  for (const token of tokens.slice(0, idx)) {
+    if (token.type !== 'html_inline') {
+      continue;
+    }
+    for (const [, closing, name] of token.content.matchAll(RAW_TEXT_TAG_RE)) {
+      const tag = name.toLowerCase();
+      if (open === undefined && !closing) {
+        open = tag;
+      } else if (closing && tag === open) {
+        open = undefined;
+      }
+    }
+  }
+  return open !== undefined;
 }
 
 function resourceLinks(md: MarkdownIt): void {
@@ -192,7 +212,10 @@ function resourceLinks(md: MarkdownIt): void {
       const html = defaultHtml(tokens, idx, options, env, self);
       const resolve = env?.resolveResource;
       const rendered = (tokens[idx].meta as Record<string, unknown> | null)?.[RENDERED_HTML] === true;
-      return resolve && !rendered ? resolveHtmlImages(html, resolve) : html;
+      if (!resolve || rendered || (type === 'html_inline' && inRawText(tokens, idx))) {
+        return html;
+      }
+      return resolveHtmlImages(md, html, resolve);
     };
   }
 }
