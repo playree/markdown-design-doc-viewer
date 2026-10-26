@@ -781,6 +781,12 @@ body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-overvi
 /* The fixed elements of the page (e.g. a header) stay in it, and what overflows it is cut, as in a window. */
 .seqnotes-wireframe-screen { transform-origin: 0 0; contain: layout paint; }
 .seqnotes-wireframe-frame:hover > .seqnotes-zoom-button { opacity: 1; }
+/* A selector of a part in the options that matches nothing (webview/wireframe.ts). */
+.seqnotes-wireframe-note {
+  margin: 6px 0 0;
+  color: var(--vscode-editorWarning-foreground, #b89500);
+  font-size: 0.9em;
+}
 .seqnotes-wireframe-missing > p {
   margin: 0;
   padding: 2em 1em;

@@ -195,8 +195,9 @@ function mermaidDiagram(token: Token, index: number, kind: MermaidKind, id: numb
 }
 
 /**
- * A diagram of the wireframe token `token`, with a part (node) per number of its `data-item`s, and the problems of its
- * file and options. The parts are written in its file, so they have the line of the wireframe.
+ * A diagram of the wireframe token `token`, with a part (node) per number of its `data-item`s and of the selectors of its
+ * options, and the problems of its file and options. The parts written in its file have the line of the wireframe, those
+ * of its options the line of the options.
  */
 function wireframeDiagram(token: Token, index: number, id: number, translate: Translate, warnings: LinkWarning[]): DiagramInfo {
   const { src, options, file, parts } = wireframeOf(token)!;
@@ -212,6 +213,12 @@ function wireframeDiagram(token: Token, index: number, id: number, translate: Tr
     } else if (!messages.some((m) => m.nodeId === String(number))) {
       // Several elements with a number are one part: e.g. the options of a radio button.
       messages.push({ index: messages.length, line, text: String(number), nodeId: String(number), ...(part.ref !== undefined ? { ref: part.ref } : {}) });
+    }
+  }
+  // The parts numbered by selectors, which the webview finds in the page: like those of the HTML, only with its file.
+  for (const { number } of file ? (options.items ?? []) : []) {
+    if (!messages.some((m) => m.nodeId === String(number))) {
+      messages.push({ index: messages.length, line: options.line ?? line, text: String(number), nodeId: String(number) });
     }
   }
   if (options.linkHeadings && token.level !== 0) {

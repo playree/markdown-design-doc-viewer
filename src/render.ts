@@ -160,6 +160,14 @@ function wireframeBlock(md: MarkdownIt): void {
     if (options.width !== undefined) {
       attrs += ` data-seqnotes-width="${options.width}"`;
     }
+    if (file && options.items) {
+      // Found in the page by the webview, which notes those it cannot find.
+      const t = env?.t ?? formatMessage;
+      const items = JSON.stringify(options.items.map(({ number, selector }) => [number, selector]));
+      attrs += ` data-seqnotes-items="${escapeHtml(items)}"`;
+      attrs += ` data-seqnotes-item-unmatched="${escapeHtml(t('No element of the wireframe matches item.{0}="{1}".'))}"`;
+      attrs += ` data-seqnotes-item-invalid="${escapeHtml(t('item.{0}="{1}" of the wireframe is not a valid CSS selector.'))}"`;
+    }
     if (alt) {
       // Its page is inert: what it shows is named by its text.
       attrs += ` role="figure" aria-label="${escapeHtml(alt)}"`;

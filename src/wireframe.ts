@@ -2,9 +2,10 @@
  * Wireframes: screen mock-ups written as HTML files and put into a document like images, with an image, a link alone in
  * its paragraph, or an image in a link (`![Login](screens/login.html)`, `[Login](screens/login.html)`,
  * `[![Login](screens/login.png)](screens/login.html)`, the image being shown elsewhere, e.g. on GitHub).
- * Their parts are numbered with `data-item="<number>"`, and an HTML comment right before them gives their options
- * (`<!-- wireframe: link-headings width=375 -->`): `link-headings` lays them out with the headings and the item table rows
- * after them, linked by the numbers (src/linker.ts).
+ * Their parts are numbered with `data-item="<number>"`, or by CSS selectors in their options (`item.1="#email"`, for the
+ * HTML of a real screen, e.g. captured by `md-design-doc capture`: src/capture.ts), and an HTML comment right before them
+ * gives their options (`<!-- wireframe: link-headings width=375 -->`): `link-headings` lays them out with the headings
+ * and the item table rows after them, linked by the numbers (src/linker.ts).
  *
  * The host reads the files (`loadWireframes`) and gives them to the render (`RenderEnv.wireframes`).
  * No dependency on vscode or Node: `partNumber` is used by the webview too.
@@ -35,6 +36,8 @@ export interface WireframeOptions {
   width?: number;
   /** The headings are put below it instead of beside it. */
   stacked: boolean;
+  /** Parts numbered by CSS selectors (`item.<number>="<selector>"`), for HTML without `data-item` (e.g. a captured page). */
+  items?: WireframeItem[];
   /** 0-based line of the options comment. */
   line?: number;
 }
@@ -49,6 +52,12 @@ export interface Wireframe {
   file?: WireframeFile | null;
   /** The parts of its file. */
   parts?: WireframePart[];
+}
+
+/** The elements of the page of a wireframe matching `selector` are part `number`. */
+export interface WireframeItem {
+  number: number;
+  selector: string;
 }
 
 /** A part of a wireframe: an element with `data-item`. */
@@ -300,6 +309,7 @@ function altOf(inline: Token): string {
 }
 
 const DIRECTIVE_RE = /^<!--\s*wireframe:([^]*?)-->\s*$/;
+const ITEM_OPTION_RE = /^item\.(.+)$/;
 const WARNINGS = 'seqNotesWireframeWarnings';
 
 /** Reads the options of a wireframe, and adds the problems to `warnings`. */
@@ -310,6 +320,15 @@ function readOptions(text: string, line: number, t: Translate, warnings: LinkWar
       options.linkHeadings = true;
     } else if (option.key === 'stacked' && option.values.length === 0) {
       options.stacked = true;
+    } else if (ITEM_OPTION_RE.test(option.key)) {
+      const number = partNumber(ITEM_OPTION_RE.exec(option.key)![1]);
+      // A selector list may be written unquoted: `item.1=#a,#b`.
+      const selector = option.values.join(', ').trim();
+      if (number === undefined || selector === '') {
+        warnings.push({ line, message: t('Write the selector of a part of the wireframe: \'item.<number>="<selector>"\'.') });
+      } else {
+        (options.items ??= []).push({ number, selector });
+      }
     } else if (option.key === 'width') {
       const width = option.values.length === 1 ? partNumber(option.values[0].replace(/px$/i, '')) : undefined;
       if (width) {
@@ -318,7 +337,7 @@ function readOptions(text: string, line: number, t: Translate, warnings: LinkWar
         warnings.push({ line, message: t('Write the width of the wireframe in pixels: "width=<number>".') });
       }
     } else {
-      warnings.push({ line, message: t('Unknown wireframe option "{0}". Write "link-headings", "width=<pixels>" or "stacked".', option.key) });
+      warnings.push({ line, message: t('Unknown wireframe option "{0}". Write "link-headings", "width=<pixels>", "stacked" or \'item.<number>="<selector>"\'.', option.key) });
     }
   }
   return options;

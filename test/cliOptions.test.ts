@@ -2,9 +2,78 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { collectDocuments, indexPath, isInFolder, outputPath, parseCommandLine, UsageError } from '../src/cliOptions';
+import { collectDocuments, indexPath, isInFolder, outputPath, parseCommandLine, splitFill, UsageError } from '../src/cliOptions';
 
 const cwd = join(tmpdir(), 'work');
+
+describe('parseCommandLine capture', () => {
+  it('uses the defaults', () => {
+    expect(parseCommandLine(['capture', 'http://localhost:3000/signin', '-o', 'screens/signin.html'], cwd)).toEqual({
+      command: 'capture',
+      url: 'http://localhost:3000/signin',
+      out: join(cwd, 'screens/signin.html'),
+      width: 1280,
+      height: 800,
+      colorScheme: 'light',
+      storageState: undefined,
+      script: undefined,
+      actions: [],
+      waitFor: undefined,
+      wait: undefined,
+      chrome: undefined,
+    });
+  });
+
+  it('reads the options, and the actions in their order', () => {
+    expect(
+      parseCommandLine(
+        ['capture', 'https://example.com/', '--out', 'a.html', '--width', '375', '--height', '667', '--color-scheme', 'dark', '--storage-state', 'state.json', '--script', 'steps.mjs', '--click', '#open', '--fill', 'input[name=email]=a=b@example.com', '--hover', '.menu', '--fill', '#code=', '--press', 'Enter', '--wait-for', '.error', '--wait', '500', '--chrome', 'chromium'],
+        cwd,
+      ),
+    ).toEqual({
+      command: 'capture',
+      url: 'https://example.com/',
+      out: join(cwd, 'a.html'),
+      width: 375,
+      height: 667,
+      colorScheme: 'dark',
+      storageState: join(cwd, 'state.json'),
+      script: join(cwd, 'steps.mjs'),
+      actions: [
+        { action: 'click', selector: '#open' },
+        { action: 'fill', selector: 'input[name=email]', text: 'a=b@example.com' },
+        { action: 'hover', selector: '.menu' },
+        { action: 'fill', selector: '#code', text: '' },
+        { action: 'press', key: 'Enter' },
+      ],
+      waitFor: '.error',
+      wait: 500,
+      chrome: 'chromium',
+    });
+  });
+
+  it('splits --fill at the first = outside brackets and quotes', () => {
+    expect(splitFill(`input[value="a]=b"]=y`)).toEqual({ selector: `input[value="a]=b"]`, text: 'y' });
+    expect(splitFill(':is([a=b])=c')).toEqual({ selector: ':is([a=b])', text: 'c' });
+    expect(splitFill('#email')).toBeUndefined();
+    expect(splitFill('=x')).toBeUndefined();
+  });
+
+  it.each([
+    [['capture']],
+    [['capture', 'http://a', 'http://b', '-o', 'a.html']],
+    [['capture', 'localhost:3000', '-o', 'a.html']],
+    [['capture', 'http://a']],
+    [['capture', 'http://a', '-o', 'a.html', '--width', '0']],
+    [['capture', 'http://a', '-o', 'a.html', '--height', '1.5']],
+    [['capture', 'http://a', '-o', 'a.html', '--wait', '-1']],
+    [['capture', 'http://a', '-o', 'a.html', '--color-scheme', 'blue']],
+    [['capture', 'http://a', '-o', 'a.html', '--fill', '#email']],
+    [['capture', 'http://a', '-o', 'a.html', '--strict']],
+  ])('rejects %j', (args) => {
+    expect(() => parseCommandLine(args, cwd)).toThrow(UsageError);
+  });
+});
 
 describe('parseCommandLine', () => {
   it('uses the defaults of the settings', () => {

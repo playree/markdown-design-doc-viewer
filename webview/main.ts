@@ -784,7 +784,7 @@ function setZoomWireframe(frame: HTMLElement): void {
   const meta = metaOf(block);
   // Kept on updates that do not change it, with what was typed into it and selected: only the links of its parts count,
   // not their lines, which change with an edit above it.
-  const key = JSON.stringify([html, width, meta?.messages.map((m) => [m.nodeId, m.target, m.unlinked])]);
+  const key = JSON.stringify([html, width, block.dataset.seqnotesItems, meta?.messages.map((m) => [m.nodeId, m.target, m.unlinked])]);
   const shown = zoomStage.firstElementChild;
   if (shown instanceof HTMLElement && shown.dataset.seqnotesZoomKey === key) {
     return;

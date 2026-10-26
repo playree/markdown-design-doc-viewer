@@ -21,6 +21,7 @@ npx markdown-design-doc-viewer export docs -o site     # all the Markdown files 
 npx markdown-design-doc-viewer export docs -o site --index   # plus site/index.html, a list of the documents
 npx markdown-design-doc-viewer export docs -o site --diff-base v1.0   # with their changes since the tag v1.0
 npx markdown-design-doc-viewer export README.md        # README.html next to it
+npx markdown-design-doc-viewer capture http://localhost:5173/signin -o docs/screens/signin.html --width 375   # a screen as a wireframe
 ```
 
 Installed in a project (`npm install --save-dev markdown-design-doc-viewer`), the command is `md-design-doc`:
@@ -62,6 +63,58 @@ md-design-doc export docs -o site
 Folders are searched for `*.md` and `*.markdown` files, including their subfolders, except `node_modules` and folders starting with a dot. Link warnings and the warnings of table options are written to the standard error (as annotations in GitHub Actions).
 
 The exit status is 1 when a document could not be exported (also when git fails with `--diff-base`, e.g. for an unknown revision) or has a diagram mermaid cannot render (its HTML is written anyway), or with `--strict` a warning, and 2 for a wrong command line.
+
+## Capturing screens
+
+`capture` writes a screen of a running web app (on its development server, for example) as the HTML file of a [wireframe](https://github.com/playree/markdown-design-doc-viewer#wireframes): the page as it is shown in headless Chrome, also when its scripts draw it (a single-page app), without its scripts and with the styles that apply to it, so that the preview shows it as in a browser. Its images and the fonts it uses are embedded, so the file stands alone.
+
+```sh
+md-design-doc capture http://localhost:5173/signin -o docs/screens/signin.html --width 375
+```
+
+- The style sheets are taken in with the rules that scripts added (CSS-in-JS), and the page is laid out as in the window it was captured in: the `@media` rules are kept or left out for its width and height, and the lengths relative to the window (`100vh`) are in pixels. Write the `--width` as the `width=` of the wireframe.
+- The state of the form controls (the text typed, the boxes checked, the options selected) is kept. The text of a password is masked.
+- What the first view does not show, such as an error message, a dialog or another tab, is captured after actions on the page: `--fill`, `--click`, `--hover` and `--press`, done in their order. Wait with `--wait-for` for what they show:
+
+  ```sh
+  md-design-doc capture http://localhost:5173/signin -o docs/screens/signin-error.html --width 375 \
+    --fill '#email=a@example.com' --fill 'input[name=password]=wrong' --click 'button[type=submit]' --wait-for '[role=alert]'
+  ```
+
+- For more, a Playwright script given with `--script` prepares the page: its default export is called with the [page](https://playwright.dev/docs/api/class-page) once it is open, and its export `setup` before it is opened, for example to give the answers of the API that the screen needs:
+
+  ```js
+  // error.mjs
+  export async function setup(page) {
+    await page.route('**/api/signin', (route) => route.fulfill({ status: 401, json: { message: 'Wrong password.' } }));
+  }
+  export default async function (page) {
+    await page.getByLabel('Email').fill('a@example.com');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.getByRole('alert').waitFor();
+  }
+  ```
+
+- The parts of the screen are numbered in the options of the wireframe, which stay when it is captured again: `<!-- wireframe: link-headings width=375 item.1="#email" item.2="button[type=submit]" -->`.
+- Not captured: the looks of `:hover` and `:focus` (the elements that hovering shows are), the content of frames and of the shadow roots of web components, and videos.
+
+| Option | Description |
+|---|---|
+| `-o`, `--out <file.html>` | Write the HTML file here (required). Its folder is created if needed. |
+| `--width <px>` | Width of the window. Default: `1280`. |
+| `--height <px>` | Height of the window, which `100vh` is. Default: `800`. The whole page is captured, however long. |
+| `--color-scheme <scheme>` | `light` (default) or `dark`, for the pages that follow the color scheme of the system. |
+| `--storage-state <file>` | Cookies and local storage to open the page with: a [storage state](https://playwright.dev/docs/auth) of Playwright, for example of a signed-in user. |
+| `--script <file.mjs>` | Playwright script that prepares the page (see above). It runs as your code, with the access of the command. |
+| `--fill <selector>=<text>` | Types the text into the field. The selector ends at the first `=` outside brackets and quotes (`input[name=email]=a@example.com`). |
+| `--click <selector>` | Clicks the element. |
+| `--hover <selector>` | Moves the pointer over the element. |
+| `--press <key>` | Presses the key, for example `Enter` or `Escape`. |
+| `--wait-for <selector>` | Waits for the element to be shown before capturing the page. |
+| `--wait <ms>` | Waits this long before capturing the page, for example for an animation. |
+| `--chrome <path>` | Chrome or Chromium to open the page with. |
+
+The selectors are those of Playwright: CSS selectors, and its own ones such as `text=Sign in`. The page is opened when the network is idle, and an action waits up to 30 seconds for its element. The exit status is 1 when the page could not be opened or an action failed (no file is written), and 2 for a wrong command line. The files that could not be fetched are left as links, with a warning.
 
 ## GitHub Actions
 

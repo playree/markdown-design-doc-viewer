@@ -21,6 +21,7 @@ npx markdown-design-doc-viewer export docs -o site     # docs/ 以下の Markdow
 npx markdown-design-doc-viewer export docs -o site --index   # 加えて文書の一覧を site/index.html に
 npx markdown-design-doc-viewer export docs -o site --diff-base v1.0   # タグ v1.0 からの差分付きで
 npx markdown-design-doc-viewer export README.md        # 隣に README.html を
+npx markdown-design-doc-viewer capture http://localhost:5173/signin -o docs/screens/signin.html --width 375   # 画面をワイヤーフレームに
 ```
 
 プロジェクトにインストールした場合（`npm install --save-dev markdown-design-doc-viewer`）、コマンド名は `md-design-doc` です。
@@ -62,6 +63,58 @@ md-design-doc export docs -o site
 フォルダはサブフォルダも含めて `*.md` と `*.markdown` を探します（`node_modules` とドットで始まるフォルダは除く）。紐付けの警告と表のオプションの警告は標準エラーに出します（GitHub Actions では注釈になります）。
 
 文書を書き出せなかったとき（`--diff-base` で、不明なリビジョンなどで git が失敗したときも）、mermaid が描画できない図があったとき（HTML は書き出します）、`--strict` で警告があったときは終了コード 1、コマンドラインの誤りは 2 で終わります。
+
+## 画面を撮る
+
+`capture` は、動いている Web アプリ（開発サーバなど）の画面を[ワイヤーフレーム](https://github.com/playree/markdown-design-doc-viewer/blob/main/README.ja.md#ワイヤーフレーム)の HTML ファイルに書き出します。ヘッドレス Chrome で表示したとおりのページを（スクリプトで描画するシングルページアプリも）、スクリプトを除き、効いているスタイルとともに書き出すので、プレビューでブラウザと同じように表示できます。画像と使っているフォントも埋め込むので、ファイル 1 つで表示できます。
+
+```sh
+md-design-doc capture http://localhost:5173/signin -o docs/screens/signin.html --width 375
+```
+
+- スタイルシートは、スクリプトが追加したルール（CSS-in-JS）も含めて取り込み、撮ったときのウィンドウと同じようにレイアウトされるようにします。`@media` のルールはその幅と高さで残すかを決め、ウィンドウに対する長さ（`100vh`）はピクセルにします。`--width` の値をワイヤーフレームの `width=` に書いてください。
+- フォームの部品の状態（入力した文字、チェック、選んだ選択肢）も残します。パスワードの文字は伏せます。
+- エラーメッセージ、ダイアログ、別のタブなど、初期表示にないものは、ページを操作してから撮ります。`--fill`・`--click`・`--hover`・`--press` を書いた順に実行します。操作で表示されるものは `--wait-for` で待ちます。
+
+  ```sh
+  md-design-doc capture http://localhost:5173/signin -o docs/screens/signin-error.html --width 375 \
+    --fill '#email=a@example.com' --fill 'input[name=password]=wrong' --click 'button[type=submit]' --wait-for '[role=alert]'
+  ```
+
+- 込み入った準備は、`--script` で渡す Playwright のスクリプトで行います。既定のエクスポートの関数はページを開いた後に、`setup` は開く前に、[ページ](https://playwright.dev/docs/api/class-page)を引数に呼ばれます。たとえば画面が要る API の応答を差し替えられます。
+
+  ```js
+  // error.mjs
+  export async function setup(page) {
+    await page.route('**/api/signin', (route) => route.fulfill({ status: 401, json: { message: 'パスワードが違います。' } }));
+  }
+  export default async function (page) {
+    await page.getByLabel('メールアドレス').fill('a@example.com');
+    await page.getByRole('button', { name: 'ログイン' }).click();
+    await page.getByRole('alert').waitFor();
+  }
+  ```
+
+- 画面のパーツには、ワイヤーフレームのオプションで番号を振ります（撮り直しても消えません）: `<!-- wireframe: link-headings width=375 item.1="#email" item.2="button[type=submit]" -->`。
+- 撮れないもの: `:hover`・`:focus` の見た目（ホバーで表示される要素は撮れます）、フレームの中身、Web コンポーネントの Shadow root の中身、動画。
+
+| オプション | 説明 |
+|---|---|
+| `-o`, `--out <file.html>` | HTML ファイルをここに書き出します（必須）。フォルダがなければ作ります。 |
+| `--width <px>` | ウィンドウの幅。既定値: `1280`。 |
+| `--height <px>` | ウィンドウの高さ（`100vh` の長さ）。既定値: `800`。ページは長さにかかわらず全体を撮ります。 |
+| `--color-scheme <scheme>` | `light`（既定値）か `dark`。システムの配色に従うページ向けです。 |
+| `--storage-state <file>` | ページを開くときの Cookie とローカルストレージ。Playwright の [storage state](https://playwright.dev/docs/auth) で、ログインしたユーザーのものなどを渡します。 |
+| `--script <file.mjs>` | ページを準備する Playwright のスクリプト（上記）。自分のコードとして、コマンドと同じ権限で動きます。 |
+| `--fill <selector>=<text>` | 入力欄に文字を入力します。セレクタは、角かっこ・引用符の外の最初の `=` までです（`input[name=email]=a@example.com`）。 |
+| `--click <selector>` | 要素をクリックします。 |
+| `--hover <selector>` | 要素の上にポインタを移します。 |
+| `--press <key>` | キーを押します（`Enter`、`Escape` など）。 |
+| `--wait-for <selector>` | 要素が表示されるまで待ってから撮ります。 |
+| `--wait <ms>` | 撮る前にこの時間待ちます（アニメーションなど）。 |
+| `--chrome <path>` | ページを開く Chrome か Chromium。 |
+
+セレクタは Playwright のもので、CSS セレクタのほか `text=ログイン` なども使えます。ページはネットワークが落ち着いてから開いたものとし、操作は要素を最大 30 秒待ちます。ページを開けない、操作に失敗したときは終了コード 1 で、ファイルは書きません。コマンドラインの誤りは 2 です。取得できなかったファイルは警告を出してリンクのままにします。
 
 ## GitHub Actions
 

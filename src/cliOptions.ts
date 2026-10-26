@@ -1,4 +1,7 @@
-/** Command line of the HTML export (cli.ts): its arguments, the files to export and where to write them. */
+/**
+ * Command line (cli.ts): the arguments of the HTML export, the files to export and where to write them, and the
+ * arguments of the capture of a screen as a wireframe (capture.ts).
+ */
 import { readdirSync, realpathSync, statSync } from 'node:fs';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -6,6 +9,7 @@ import { exportFileName, type ExportSettings } from './exportPage';
 import type { DiagramLook } from './protocol';
 
 export const USAGE = `Usage: md-design-doc export <file|folder>... [options]
+       md-design-doc capture <url> -o <file.html> [options]
 
 Exports Markdown design docs to single HTML files, like the "Export Design Doc as HTML" command.
 Folders are searched for *.md and *.markdown files (except in node_modules and folders starting with a dot).
@@ -39,6 +43,32 @@ Options:
   -v, --version                Show the version.
 
 Exit status: 0 when all the files were exported, 1 when one failed (or with --strict, had a warning),
+2 for a wrong command line.
+
+md-design-doc capture <url> -o <file.html> [options]
+
+Captures a screen of a running web app (e.g. on its development server) as the HTML file of a wireframe: the page as
+rendered, with the styles that apply to it, its images and fonts embedded, and without its scripts.
+
+Options:
+  -o, --out <file.html>        Write the HTML file here (required).
+      --width <px>             Width of the window, to write as the width= of the wireframe. Default: 1280.
+      --height <px>            Height of the window (of 100vh). Default: 800.
+      --color-scheme <scheme>  light or dark. Default: light.
+      --storage-state <file>   Cookies and storage to open the page with (a Playwright storage state), e.g. signed in.
+      --script <file.mjs>      Playwright script that prepares the page: its default export is called with the page
+                               once it is open, and its export setup before it is opened (e.g. to mock the API).
+      --fill <selector>=<text> Types the text into the field. The selector ends at the first "=" outside brackets
+                               and quotes.
+      --click <selector>       Clicks the element.
+      --hover <selector>       Moves the pointer over the element.
+      --press <key>            Presses the key (e.g. Enter, Escape).
+                               --fill, --click, --hover and --press are done in their order, after --script.
+      --wait-for <selector>    Waits for the element to be shown before capturing the page.
+      --wait <ms>              Waits this long before capturing the page.
+      --chrome <path>          Chrome or Chromium to open the page with.
+
+Exit status: 0 when the file was written, 1 when the page could not be captured (e.g. a selector not found),
 2 for a wrong command line.`;
 
 /** A mistake in the command line: reported with the usage, exit status 2. */
@@ -65,10 +95,37 @@ export interface ExportOptions {
   indexDesignDocs: boolean;
 }
 
-export type Command = { command: 'help' } | { command: 'version' } | ({ command: 'export' } & ExportOptions);
+/** An action on the page before it is captured (`--fill`, `--click`, `--hover`, `--press`). */
+export type CaptureAction =
+  | { action: 'fill'; selector: string; text: string }
+  | { action: 'click' | 'hover'; selector: string }
+  | { action: 'press'; key: string };
+
+export interface CaptureOptions {
+  url: string;
+  /** The HTML file to write, as an absolute path. */
+  out: string;
+  width: number;
+  height: number;
+  colorScheme: 'light' | 'dark';
+  storageState?: string;
+  script?: string;
+  actions: CaptureAction[];
+  waitFor?: string;
+  wait?: number;
+  chrome?: string;
+}
+
+export type Command = { command: 'help' } | { command: 'version' } | ({ command: 'export' } & ExportOptions) | ({ command: 'capture' } & CaptureOptions);
+
+/** A command name (without a folder) is looked up in PATH. */
+const chromePath = (chrome: string | undefined, cwd: string): string | undefined => (chrome === undefined || !/[\\/]/.test(chrome) ? chrome : resolve(cwd, chrome));
 
 /** Parses the arguments after `md-design-doc`, with relative paths resolved from `cwd`. */
 export function parseCommandLine(args: string[], cwd: string): Command {
+  if (args[0] === 'capture') {
+    return parseCapture(args.slice(1), cwd);
+  }
   let parsed;
   try {
     parsed = parseArgs({
@@ -153,13 +210,133 @@ export function parseCommandLine(args: string[], cwd: string): Command {
       splitMinWidth,
       toc: !values['no-toc'],
     },
-    // A command name (without a folder) is looked up in PATH.
-    chrome: values.chrome === undefined || !/[\\/]/.test(values.chrome) ? values.chrome : resolve(cwd, values.chrome),
+    chrome: chromePath(values.chrome, cwd),
     strict: values.strict ?? false,
     diffBase: values['diff-base'],
     index: values.index ?? false,
     indexTitle: values['index-title'],
     indexDesignDocs: values['index-design-docs'] ?? false,
+  };
+}
+
+/**
+ * The selector and the text of `--fill <selector>=<text>`: split at the first `=` outside brackets, parentheses and
+ * quotes, so that the selector may have attributes (`input[name=email]=a@example.com`). undefined without one.
+ */
+export function splitFill(value: string): { selector: string; text: string } | undefined {
+  let depth = 0;
+  let quote: string | undefined;
+  for (let i = 0; i < value.length; i++) {
+    const c = value[i];
+    if (quote) {
+      if (c === '\\') {
+        i++;
+      } else if (c === quote) {
+        quote = undefined;
+      }
+    } else if (c === '"' || c === "'") {
+      quote = c;
+    } else if (c === '[' || c === '(') {
+      depth++;
+    } else if (c === ']' || c === ')') {
+      depth = Math.max(0, depth - 1);
+    } else if (c === '=' && depth === 0 && i > 0) {
+      return { selector: value.slice(0, i), text: value.slice(i + 1) };
+    }
+  }
+  return undefined;
+}
+
+/** A number of pixels (or milliseconds) of the option `name`, at least `min`. */
+function positiveNumber(name: string, value: string | undefined, fallback: number, min = 1): number {
+  const number = value === undefined ? fallback : Number(value);
+  if (!Number.isInteger(number) || number < min) {
+    throw new UsageError(`--${name} must be a whole number of ${name === 'wait' ? 'milliseconds' : 'pixels'}: ${value}`);
+  }
+  return number;
+}
+
+/** Parses the arguments after `md-design-doc capture`. */
+function parseCapture(args: string[], cwd: string): Command {
+  let parsed;
+  try {
+    parsed = parseArgs({
+      args,
+      allowPositionals: true,
+      tokens: true,
+      options: {
+        out: { type: 'string', short: 'o' },
+        width: { type: 'string' },
+        height: { type: 'string' },
+        'color-scheme': { type: 'string' },
+        'storage-state': { type: 'string' },
+        script: { type: 'string' },
+        fill: { type: 'string', multiple: true },
+        click: { type: 'string', multiple: true },
+        hover: { type: 'string', multiple: true },
+        press: { type: 'string', multiple: true },
+        'wait-for': { type: 'string' },
+        wait: { type: 'string' },
+        chrome: { type: 'string' },
+        help: { type: 'boolean', short: 'h' },
+        version: { type: 'boolean', short: 'v' },
+      },
+    });
+  } catch (error) {
+    throw new UsageError(error instanceof Error ? error.message : String(error));
+  }
+  const { values, positionals, tokens } = parsed;
+  if (values.help) {
+    return { command: 'help' };
+  }
+  if (values.version) {
+    return { command: 'version' };
+  }
+  if (positionals.length !== 1) {
+    throw new UsageError(positionals.length === 0 ? 'No URL to capture.' : 'Give one URL to capture.');
+  }
+  const [url] = positionals;
+  if (!/^(?:https?|file):/i.test(url)) {
+    throw new UsageError(`The URL must start with http:, https: or file: ${url}`);
+  }
+  if (values.out === undefined) {
+    throw new UsageError('--out is required.');
+  }
+  const colorScheme = values['color-scheme'] ?? 'light';
+  if (colorScheme !== 'light' && colorScheme !== 'dark') {
+    throw new UsageError(`--color-scheme must be light or dark: ${colorScheme}`);
+  }
+  // In the order written.
+  const actions: CaptureAction[] = [];
+  for (const token of tokens) {
+    if (token.kind !== 'option' || token.value === undefined) {
+      continue;
+    }
+    if (token.name === 'fill') {
+      const fill = splitFill(token.value);
+      if (!fill) {
+        throw new UsageError(`--fill must be <selector>=<text>: ${token.value}`);
+      }
+      actions.push({ action: 'fill', ...fill });
+    } else if (token.name === 'click' || token.name === 'hover') {
+      actions.push({ action: token.name, selector: token.value });
+    } else if (token.name === 'press') {
+      actions.push({ action: 'press', key: token.value });
+    }
+  }
+  return {
+    command: 'capture',
+    url,
+    out: resolve(cwd, values.out),
+    width: positiveNumber('width', values.width, 1280),
+    height: positiveNumber('height', values.height, 800),
+    colorScheme,
+    storageState: values['storage-state'] === undefined ? undefined : resolve(cwd, values['storage-state']),
+    script: values.script === undefined ? undefined : resolve(cwd, values.script),
+    actions,
+    waitFor: values['wait-for'],
+    wait: values.wait === undefined ? undefined : positiveNumber('wait', values.wait, 0, 0),
+    chrome: chromePath(values.chrome, cwd),
   };
 }
 

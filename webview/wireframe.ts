@@ -6,6 +6,10 @@
  * of a diagram, linked to the headings and rows (webview/linking.ts). The pointer events of the page are given to it
  * (`linkTarget`).
  *
+ * Its styles work as in a browser as far as possible (e.g. those of a page captured by `md-design-doc capture`): `:root`
+ * matches its <html>, and the rules that a shadow root ignores (`@font-face`, `@property`) are given to the document. The
+ * parts written as selectors in its options are numbered as if they had `data-item`.
+ *
  * The block of a wireframe (`wireframeBlock` in src/render.ts) keeps its HTML in a <pre>, sanitized by the preview,
  * from which exported HTML shows it again (the shadow root is not part of the exported body).
  */
@@ -15,8 +19,85 @@ import { partNumber } from '../src/wireframe';
 /** Before the styles of the wireframe: its page shown as in a browser, whatever the colors and font of the page around it. */
 const BASE_STYLE = ':host { all: initial; display: block; } html { display: block; background: #fff; color: #000; color-scheme: light; } head { display: none; }';
 
-/** Shows the (sanitized) HTML of a wireframe in a shadow root of `screen`. */
-function showPage(screen: HTMLElement, html: string): ShadowRoot {
+/** `:root`, which matches nothing in a shadow root: there, the <html> of the page. */
+const ROOT_RE = /:root(?![\w-])/g;
+
+/**
+ * The rules of the wireframes that only work in the document, not in a shadow root (`@font-face`, `@property`, e.g. of
+ * Tailwind CSS): each one once, for all of them.
+ */
+const documentRules = new CSSStyleSheet();
+const documentRuleTexts = new Set<string>();
+
+/**
+ * The style sheet of a <style> of a wireframe, to be adopted by its shadow root: its `:root` matching its <html>,
+ * and its rules that only work in the document moved to `documentRules`.
+ */
+function pageSheet(style: HTMLStyleElement): CSSStyleSheet {
+  const sheet = new CSSStyleSheet(style.media ? { media: style.media } : {});
+  // `@import` is left out, as an external style sheet.
+  sheet.replaceSync(style.textContent ?? '');
+  const visit = (parent: CSSStyleSheet | CSSGroupingRule | CSSStyleRule): void => {
+    for (let i = parent.cssRules.length - 1; i >= 0; i--) {
+      const rule = parent.cssRules[i];
+      if (rule instanceof CSSFontFaceRule || rule instanceof CSSPropertyRule) {
+        if (!documentRuleTexts.has(rule.cssText)) {
+          documentRuleTexts.add(rule.cssText);
+          documentRules.insertRule(rule.cssText, documentRules.cssRules.length);
+        }
+        parent.deleteRule(i);
+        continue;
+      }
+      if (rule instanceof CSSStyleRule) {
+        const selector = rule.selectorText.replace(ROOT_RE, ':is(:root, html)');
+        if (selector !== rule.selectorText) {
+          rule.selectorText = selector;
+        }
+      }
+      if (rule instanceof CSSGroupingRule || rule instanceof CSSStyleRule) {
+        visit(rule);
+      }
+    }
+  };
+  visit(sheet);
+  return sheet;
+}
+
+/** Numbers the elements of the parts written as selectors in the options (`items`); returns the problems with them. */
+function numberParts(shadow: ShadowRoot, items: [number, string][], block: HTMLElement): string[] {
+  const notes: string[] = [];
+  const message = (template: string | undefined, number: number, selector: string): string =>
+    (template ?? '').replace('{0}', String(number)).replace('{1}', selector);
+  for (const [number, selector] of items) {
+    let elements: NodeListOf<Element>;
+    try {
+      elements = shadow.querySelectorAll(selector.replace(ROOT_RE, 'html'));
+    } catch {
+      notes.push(message(block.dataset.seqnotesItemInvalid, number, selector));
+      continue;
+    }
+    if (elements.length === 0) {
+      notes.push(message(block.dataset.seqnotesItemUnmatched, number, selector));
+    }
+    elements.forEach((element) => element.setAttribute('data-item', String(number)));
+  }
+  return notes;
+}
+
+/** The parts of a wireframe written as selectors in its options (`data-seqnotes-items`, by src/render.ts). */
+function itemsOf(block: HTMLElement): [number, string][] {
+  try {
+    return JSON.parse(block.dataset.seqnotesItems ?? '[]') as [number, string][];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Shows the (sanitized) HTML of a wireframe of `block` in a shadow root of `screen`, with the parts of its options
+ * numbered. Returns the shadow root, and the problems with the selectors of the parts.
+ */
+function showPage(block: HTMLElement, screen: HTMLElement, html: string): { shadow: ShadowRoot; notes: string[] } {
   const shadow = screen.attachShadow({ mode: 'open' });
   // A mock-up: its links and forms do not leave the document.
   for (const type of ['click', 'auxclick']) {
@@ -39,8 +120,15 @@ function showPage(screen: HTMLElement, html: string): ShadowRoot {
   style.textContent = BASE_STYLE;
   // Parsed as a document, so that it keeps its <html> and <body>, which its styles may select.
   const page = new DOMParser().parseFromString(html, 'text/html').documentElement;
+  // Its styles adopted in their order, after the base style.
+  const styles = Array.from(page.querySelectorAll('style'));
+  shadow.adoptedStyleSheets = styles.map(pageSheet);
+  styles.forEach((s) => s.remove());
+  if (documentRules.cssRules.length > 0 && !document.adoptedStyleSheets.includes(documentRules)) {
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, documentRules];
+  }
   shadow.append(style, document.importNode(page, true));
-  return shadow;
+  return { shadow, notes: numberParts(shadow, itemsOf(block), block) };
 }
 
 /**
@@ -52,7 +140,7 @@ export function mountWireframe(block: HTMLElement, html: string, meta: DiagramMe
   frame.className = 'seqnotes-wireframe-frame';
   const screen = document.createElement('div');
   screen.className = 'seqnotes-wireframe-screen';
-  const shadow = showPage(screen, html);
+  const { shadow, notes } = showPage(block, screen, html);
 
   const parts = document.createElement('div');
   parts.className = 'seqnotes-wireframe-parts';
@@ -88,6 +176,12 @@ export function mountWireframe(block: HTMLElement, html: string, meta: DiagramMe
   }
   frame.append(screen, parts);
   block.append(frame);
+  for (const note of notes) {
+    const p = document.createElement('p');
+    p.className = 'seqnotes-wireframe-note';
+    p.textContent = note;
+    block.append(p);
+  }
   observe(block, shadow);
   return frame;
 }
@@ -177,7 +271,8 @@ export function remountWireframes(root: Element): void {
     const source = block.querySelector(':scope > .seqnotes-wireframe-src')?.textContent;
     const screen = block.querySelector<HTMLElement>(':scope > .seqnotes-wireframe-frame > .seqnotes-wireframe-screen');
     if (typeof source === 'string' && screen && !screen.shadowRoot) {
-      observe(block, showPage(screen, source));
+      // Its notes are in the exported page already.
+      observe(block, showPage(block, screen, source).shadow);
     }
   }
   layoutWireframes(root);
