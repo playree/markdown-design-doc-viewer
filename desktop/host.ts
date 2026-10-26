@@ -145,7 +145,7 @@ function render(): void {
  * (`read_wireframe`).
  */
 function readWireframes(doc: OpenedDocument): Promise<WireframeFiles> {
-  return loadWireframes(wireframeSources(md.parse(doc.text, {})), (path) =>
+  return loadWireframes(md, wireframeSources(md.parse(doc.text, {})), (path) =>
     invoke<string>('read_wireframe', { path: resolveDocumentPath(doc.dir, path) }).catch(() => undefined),
   );
 }

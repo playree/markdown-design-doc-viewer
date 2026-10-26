@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { onWireframeFileChanged, readWireframes, resolveDocumentPath } from './documentFiles';
+import { readWireframes, resolveDocumentPath, WireframeWatcher } from './documentFiles';
 import { WEBVIEW_TITLES, type DiagramLook, type DiffView, type FromWebview, type PreviewTheme, type ToWebview, type WebviewState } from './protocol';
 import { isExternalUrl, safeDecode, SCHEME_RE } from './exportPage';
 import { renderDiff } from './diffRender';
@@ -120,7 +120,6 @@ export class PreviewManager implements vscode.Disposable {
         { webviewOptions: { retainContextWhenHidden: true, enableFindWidget: true }, supportsMultipleEditorsPerDocument: true },
       ),
       vscode.workspace.onDidChangeTextDocument((e) => this.forEach(e.document.uri, (p) => p.scheduleUpdate())),
-      onWireframeFileChanged((uri) => this.previews.forEach((set) => set.forEach((p) => p.dependsOn(uri) && p.scheduleUpdate()))),
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration('mdDesignDoc')) {
           this.settings = readSettings();
@@ -263,8 +262,10 @@ export class Preview {
   private exportId = 0;
   /** The revision whose differences are shown, if any. */
   private compared: Comparison | undefined;
-  /** The URIs of the files of the wireframes shown. */
-  private dependencies = new Set<string>();
+  /** Follows the files of the wireframes shown. */
+  private readonly wireframeWatcher = new WireframeWatcher(() => this.scheduleUpdate());
+  /** The last update, so that an earlier one that ends later (reading the wireframes) does not replace it. */
+  private updates = 0;
   private readonly exports = new Map<number, { resolve: (body: string) => void; reject: (error: Error) => void }>();
 
   constructor(
@@ -299,6 +300,7 @@ export class Preview {
     this.disposed = true;
     clearTimeout(this.timer);
     this.messageListener.dispose();
+    this.wireframeWatcher.dispose();
     const closed = new Error(vscode.l10n.t('The preview was closed.'));
     this.setClosed(closed);
     this.exports.forEach(({ reject }) => reject(closed));
@@ -315,10 +317,6 @@ export class Preview {
     return this.compared;
   }
 
-  /** true when the preview shows a wireframe whose files include `uri`. */
-  dependsOn(uri: string): boolean {
-    return this.dependencies.has(uri);
-  }
 
   /**
    * Has the webview render `html` (from `renderForExport`, or `renderDiffForExport` with `diff`) for an exported file,
@@ -363,13 +361,14 @@ export class Preview {
 
   async update(): Promise<void> {
     clearTimeout(this.timer);
+    const update = ++this.updates;
     const document = await vscode.workspace.openTextDocument(this.uri);
     const source = document.getText();
     const wireframes = await readWireframes(this.md, this.uri, source);
-    if (this.disposed) {
+    if (this.disposed || update !== this.updates) {
       return;
     }
-    this.dependencies = wireframes.dependencies;
+    this.wireframeWatcher.watch(wireframes.dependencies);
     const { frontMatter, headingNumbers, ...settings } = this.host.settings();
     const env: RenderEnv = { resolveResource: (src) => this.resolveResource(src), t: vscode.l10n.t, frontMatter, headingNumbers, wireframes: wireframes.files };
     if (this.compared) {

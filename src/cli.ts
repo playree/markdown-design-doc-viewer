@@ -107,7 +107,7 @@ function readWireframeFile(path: string, document: string, root: string): string
 
 /** The files of the wireframes of `document` (`source`). */
 function readWireframes(md: ReturnType<typeof createMarkdown>, source: string, document: string, root: string): Promise<WireframeFiles> {
-  return loadWireframes(wireframeSources(md.parse(source, {})), async (path) => readWireframeFile(path, document, root));
+  return loadWireframes(md, wireframeSources(md.parse(source, {})), async (path) => readWireframeFile(path, document, root));
 }
 
 /** git, run for `--diff-base`: the one on the PATH. */

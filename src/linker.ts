@@ -7,7 +7,7 @@ import { isFlowchart, parseFlowchart } from './flowchart';
 import { isSequenceDiagram, normalizeLabel, parseSequence, stripStepNumber, type SequenceMessage, type StepNumber } from './sequence';
 import { isStateDiagram, parseStateDiagram } from './stateDiagram';
 import { itemRows } from './tables';
-import { partNumber, sourcePath, wireframeOf, wireframeParts, wireframeWarnings } from './wireframe';
+import { partNumber, sourcePath, wireframeOf, wireframeWarnings } from './wireframe';
 
 export const END_MARKER_RE = /^\s*<!--\s*link-headings:end\s*-->\s*$/;
 
@@ -199,13 +199,13 @@ function mermaidDiagram(token: Token, index: number, kind: MermaidKind, id: numb
  * file and options. The parts are written in its file, so they have the line of the wireframe.
  */
 function wireframeDiagram(token: Token, index: number, id: number, translate: Translate, warnings: LinkWarning[]): DiagramInfo {
-  const { src, options, file } = wireframeOf(token)!;
+  const { src, options, file, parts } = wireframeOf(token)!;
   const line = token.map?.[0] ?? 0;
   const messages: LinkedMessage[] = [];
   if (file === null) {
     warnings.push({ line, message: translate('The wireframe "{0}" could not be read.', sourcePath(src)) });
   }
-  for (const part of file ? wireframeParts(file.html) : []) {
+  for (const part of parts ?? []) {
     const number = partNumber(part.item);
     if (number === undefined) {
       warnings.push({ line, message: translate('data-item "{0}" of the wireframe "{1}" is not a number.', part.item, sourcePath(src)) });
@@ -296,7 +296,7 @@ export function linkDiagrams(tokens: Token[], translate: Translate = formatMessa
 
     const wording = diagramWording(diagram.kind, translate);
     if (diagram.kind === 'wireframe') {
-      linkParts(diagram, tokens, headings, steps, wording, warnings);
+      linkParts(diagram, tokens, headings, numberedHeadings, steps, wording, warnings);
     } else {
       for (const message of diagram.messages) {
         const label = normalizeLabel(message.ref ?? message.text);
@@ -338,13 +338,14 @@ export function linkDiagrams(tokens: Token[], translate: Translate = formatMessa
 
 /**
  * Links the parts of a wireframe to the headings of its overview range numbered like them (or to the heading of their
- * `data-ref`), and to the rows of its item tables with their numbers. A part linked to rows only gets a target of its own,
+ * `data-ref`, as `%% @ref`), and to the rows of its item tables with their numbers. A part linked to rows only gets a target of its own,
  * which the rows share.
  */
 function linkParts(
   diagram: DiagramInfo,
   tokens: Token[],
   headings: Map<string, string>,
+  numberedHeadings: Map<string, string[]>,
   steps: Map<string, StepNumber>,
   wording: LinkWording,
   warnings: LinkWarning[],
@@ -363,7 +364,9 @@ function linkParts(
       part.target = numbered.get(number);
       continue;
     }
-    part.target = headings.get(normalizeLabel(part.ref));
+    // Like `%% @ref`, a numbered heading by its text without the number when no heading has the text.
+    const label = normalizeLabel(part.ref);
+    part.target = headings.get(label) ?? numberedHeadings.get(label)?.[0];
     if (part.target === undefined) {
       warnings.push({ line: part.line, message: wording.refNotFound(part.ref) });
     }

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { onWireframeFileChanged, readWireframes } from './documentFiles';
+import { readWireframes, WireframeWatcher } from './documentFiles';
 import { collectIssues } from './issues';
 import { createMarkdown } from './render';
 
@@ -29,8 +29,8 @@ export class DiagnosticsManager implements vscode.Disposable {
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
   /** The last update of each document, so that an earlier one that ends later does not replace it. */
   private readonly updates = new Map<string, number>();
-  /** The URIs of the files of the wireframes of each document. */
-  private readonly dependencies = new Map<string, Set<string>>();
+  /** Follow the files of the wireframes of each document. */
+  private readonly wireframeWatchers = new Map<string, WireframeWatcher>();
   private readonly disposables: vscode.Disposable[] = [];
 
   constructor() {
@@ -42,14 +42,6 @@ export class DiagnosticsManager implements vscode.Disposable {
         }
       }),
       vscode.workspace.onDidCloseTextDocument((document) => this.clear(document.uri)),
-      onWireframeFileChanged((uri) => {
-        for (const [key, files] of this.dependencies) {
-          const document = files.has(uri) ? vscode.workspace.textDocuments.find((d) => d.uri.toString() === key) : undefined;
-          if (document) {
-            this.schedule(document);
-          }
-        }
-      }),
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration('mdDesignDoc.diagnostics')) {
           this.updateAll();
@@ -62,6 +54,8 @@ export class DiagnosticsManager implements vscode.Disposable {
   dispose(): void {
     this.timers.forEach((timer) => clearTimeout(timer));
     this.timers.clear();
+    this.wireframeWatchers.forEach((watcher) => watcher.dispose());
+    this.wireframeWatchers.clear();
     this.disposables.forEach((d) => d.dispose());
     this.collection.dispose();
   }
@@ -88,7 +82,7 @@ export class DiagnosticsManager implements vscode.Disposable {
     this.updates.set(key, seq);
     if (document.isClosed || !isTarget(document) || !enabled(document)) {
       this.collection.delete(document.uri);
-      this.dependencies.delete(key);
+      this.unwatch(key);
       return;
     }
     const { version } = document;
@@ -98,7 +92,12 @@ export class DiagnosticsManager implements vscode.Disposable {
     if (this.updates.get(key) !== seq || document.isClosed || document.version !== version) {
       return;
     }
-    this.dependencies.set(key, wireframes.dependencies);
+    let watcher = this.wireframeWatchers.get(key);
+    if (!watcher) {
+      watcher = new WireframeWatcher(() => this.schedule(document));
+      this.wireframeWatchers.set(key, watcher);
+    }
+    watcher.watch(wireframes.dependencies);
     const diagnostics = collectIssues(this.md, source, vscode.l10n.t, wireframes.files).map((issue) => {
       const line = Math.min(issue.line, document.lineCount - 1);
       const diagnostic = new vscode.Diagnostic(
@@ -117,7 +116,12 @@ export class DiagnosticsManager implements vscode.Disposable {
     clearTimeout(this.timers.get(key));
     this.timers.delete(key);
     this.updates.delete(key);
-    this.dependencies.delete(key);
+    this.unwatch(key);
     this.collection.delete(uri);
+  }
+
+  private unwatch(key: string): void {
+    this.wireframeWatchers.get(key)?.dispose();
+    this.wireframeWatchers.delete(key);
   }
 }

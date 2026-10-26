@@ -59,7 +59,7 @@ const SAMPLE = doc(
 
 describe('wireframe files', () => {
   it('reads the numbered parts, but not those in comments or text', () => {
-    expect(wireframeParts(LOGIN)).toEqual([{ item: '1' }, { item: '２' }, { item: '3' }, { item: '4', ref: 'Reset the password' }]);
+    expect(wireframeParts(md, LOGIN)).toEqual([{ item: '1' }, { item: '２' }, { item: '3' }, { item: '4', ref: 'Reset the password' }]);
   });
 
   it('reads the numbers with full-width digits', () => {
@@ -67,8 +67,8 @@ describe('wireframe files', () => {
   });
 
   it('finds the local style sheets', () => {
-    const html = '<link rel="stylesheet" href="a.css"><link rel="icon" href="b.png"><link rel="stylesheet" href="https://example.com/c.css">';
-    expect(stylesheetHrefs(html)).toEqual(['a.css']);
+    const html = '<link rel="stylesheet" href="a&period;css"><link rel="icon" href="b.png"><link rel="stylesheet" href="https://example.com/c.css">';
+    expect(stylesheetHrefs(md, html)).toEqual(['a.css']);
   });
 
   it('makes the paths relative to the document', () => {
@@ -81,29 +81,32 @@ describe('wireframe files', () => {
 
   it('puts the style sheets in their place and resolves the images', () => {
     const file = {
-      html: '<link rel="stylesheet" href="css/a.css"><style>b { background: url(b.png) }</style><img alt="x" src="img/%E3%81%82.png?v=1"><img src="https://example.com/c.png">',
+      html:
+        '<link rel="stylesheet" href="css/a.css"><style>b { background: url(b.png) }</style><img alt="x" src="img/%E3%81%82.png?v=1"><img src="https://example.com/c.png">' +
+        '<div style="background: url(\'d&lowbar;1.png\')"><input type="image" src="e.png"><script src="f.js"></script>',
       stylesheets: { 'css/a.css': 'a { background: url("../bg.png") } </style>' },
     };
-    expect(composeWireframe(file, 'screens/login.html', (src) => `R(${src})`)).toBe(
+    expect(composeWireframe(md, file, 'screens/login.html', (src) => `R(${src})`)).toBe(
       '<style>a { background: url("R(screens/bg.png)") } <\\/style></style><style>b { background: url("R(screens/b.png)") }</style>' +
-        '<img alt="x" src="R(screens/img/%E3%81%82.png?v=1)"><img src="https://example.com/c.png">',
+        '<img alt="x" src="R(screens/img/%E3%81%82.png?v=1)"><img src="https://example.com/c.png">' +
+        '<div style="background: url(&quot;R(screens/d_1.png)&quot;)"><input type="image" src="R(screens/e.png)"><script src="f.js"></script>',
     );
   });
 
   it('loads the files of the wireframes and their style sheets', async () => {
     const read = async (path: string): Promise<string | undefined> =>
       ({ 'screens/login.html': '<link rel="stylesheet" href="../css/a.css"><link rel="stylesheet" href="b.txt">', 'css/a.css': 'a {}' })[path];
-    const files = await loadWireframes(['screens/login.html', 'missing.html'], read);
+    const files = await loadWireframes(md, ['screens/login.html', 'missing.html'], read);
     expect(files).toEqual({
       'screens/login.html': { html: '<link rel="stylesheet" href="../css/a.css"><link rel="stylesheet" href="b.txt">', stylesheets: { '../css/a.css': 'a {}' } },
       'missing.html': null,
     });
-    expect(wireframeDependencies('screens/login.html', files['screens/login.html'])).toEqual(['screens/login.html', 'css/a.css', 'screens/b.txt']);
+    expect(wireframeDependencies(md, 'screens/login.html', files['screens/login.html'])).toEqual(['screens/login.html', 'css/a.css', 'screens/b.txt']);
   });
 });
 
 describe('wireframes in a document', () => {
-  it('takes an image, a link or an image in a link to an HTML file, alone in its paragraph', () => {
+  it('takes an image of an HTML file alone in its paragraph, and at the top level a link or an image in a link to one', () => {
     const src = doc(
       '![A](a.html)',
       '',
@@ -118,6 +121,9 @@ describe('wireframes in a document', () => {
       '[F](https://example.com/f.html)',
       '',
       '- ![G](g.html)',
+      '- [H](h.html)',
+      '',
+      '> [I](i.html)',
     );
     expect(wireframeSources(md.parse(src, {}))).toEqual(['a.html', 'b.htm?x#y', 'c.html', 'g.html']);
   });
@@ -126,7 +132,7 @@ describe('wireframes in a document', () => {
     expect(renderDocument(md, '![Login](screens/login.html)', { forExport: true })).toMatch(
       /^<div class="seqnotes-wireframe seqnotes-wireframe-missing" data-seqnotes-meta="[^"]*" role="figure" aria-label="Login"><p>Login<\/p><\/div>\n$/,
     );
-    expect(renderDocument(md, '![Login](screens/login.html)', { forExport: true, wireframes: {} })).toContain(
+    expect(renderDocument(md, '![Login](screens/login.html)', { forExport: true, wireframes: { 'screens/login.html': null } })).toContain(
       '<p>The wireframe &quot;screens/login.html&quot; could not be read.</p>',
     );
   });
@@ -170,7 +176,7 @@ describe('wireframes in a document', () => {
   });
 
   it('reports the problems of the options, the files and the parts', () => {
-    const files: WireframeFiles = { 'a.html': { html: '<i data-item="x"></i><i data-item="1" data-ref="Nowhere"></i>', stylesheets: {} } };
+    const files: WireframeFiles = { 'a.html': { html: '<i data-item="x"></i><i data-item="1" data-ref="Nowhere"></i>', stylesheets: {} }, 'b.html': null };
     const src = doc(
       '<!-- wireframe: link-headings width=wide size=1 -->',
       '![A](a.html)',
@@ -250,6 +256,27 @@ describe('wireframes in a document', () => {
       [15, '3', 'seqnotes-part-0-3', undefined],
       [16, '7', undefined, true],
     ]);
+  });
+
+  it('links a part by data-ref to a numbered heading by its text without the number, as @ref', () => {
+    const files: WireframeFiles = { 'a.html': { html: '<b data-item="9" data-ref="Sign in"></b>', stylesheets: {} } };
+    const [d] = linkDiagrams(md.parse(doc('<!-- wireframe: link-headings -->', '![A](a.html)', '', '## 4. Sign in'), { wireframes: files })).diagrams;
+    expect(d.messages.map((m) => m.target)).toEqual([hid('4. Sign in')]);
+  });
+
+  it('takes the part numbers from a column merged into another one', () => {
+    const src = doc('<!-- wireframe: link-headings -->', '![A](screens/login.html)', '', '<!-- table: merge=Item,No item=No -->', '| No | Item |', '|---|---|', '| 1 | ID |');
+    const tokens = md.parse(src, { wireframes: FILES });
+    const { diagrams, warnings } = linkDiagrams(tokens);
+    // No "given twice" for the column: only that of the part 4 of the file.
+    expect(warnings.map((w) => w.message)).toEqual(['data-ref target heading "Reset the password" was not found after the wireframe.']);
+    expect(diagrams[0].rows.map((r) => [r.item, r.target])).toEqual([['1', 'seqnotes-part-0-1']]);
+  });
+
+  it('shows the text of a wireframe of a revision that the document does not have any more', () => {
+    const before = doc('![Old screen](screens/old.html)', '', 'Text');
+    const { html } = renderDiff(md, before, 'Text', { wireframes: {} });
+    expect(html).toContain('<div class="seqnotes-wireframe seqnotes-wireframe-missing" data-seqnotes-diff="deleted" role="figure" aria-label="Old screen"><p>Old screen</p></div>');
   });
 
   it('checks no part without the files', () => {

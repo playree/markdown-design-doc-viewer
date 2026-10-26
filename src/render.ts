@@ -2,6 +2,7 @@ import markdownit, { type Env, type MarkdownIt, type Token } from 'markdown-it';
 import footnote from 'markdown-it-footnote';
 import { formatMessage, type Translate } from './l10n';
 import { diagramWording, rowWording } from './diagramWording';
+import { ATTR_RE, decodeAttribute, RAW_TEXT } from './htmlTags';
 import { isMermaidFence, linkDiagrams, type DiagramInfo, type DiagramKind } from './linker';
 import { markdownExtras } from './markdownExtras';
 import { HEADING_ID_PREFIX, slugify } from './slug';
@@ -169,15 +170,13 @@ function wireframeBlock(md: MarkdownIt): void {
       return `<div class="seqnotes-wireframe seqnotes-wireframe-missing"${attrs}><p>${escapeHtml(text)}</p></div>\n`;
     }
     const resolve = env?.resolveResource ?? ((s: string) => s);
-    return `<div class="seqnotes-wireframe"${attrs}><pre class="seqnotes-wireframe-src">${escapeHtml(composeWireframe(file, src, resolve))}</pre></div>\n`;
+    return `<div class="seqnotes-wireframe"${attrs}><pre class="seqnotes-wireframe-src">${escapeHtml(composeWireframe(md, file, src, resolve))}</pre></div>\n`;
   };
 }
 
 /** Set in the `meta` of an HTML token that holds HTML already rendered, whose images are resolved. */
 export const RENDERED_HTML = 'seqnotesRendered';
 
-/** The elements whose content is text, not HTML. */
-const RAW_TEXT = 'script|style|textarea|title';
 /**
  * An HTML comment or an element whose content is text (to the end of the HTML when it is not closed), left as they
  * are, or an `<img>` tag with its attributes.
@@ -185,15 +184,6 @@ const RAW_TEXT = 'script|style|textarea|title';
 const IMG_TAG_RE = new RegExp(`<!--[\\s\\S]*?-->|<(${RAW_TEXT})(?=[\\s/>])[\\s\\S]*?(?:</\\1\\s*>|$)|<img(?=[\\s/>])((?:[^>"']|"[^"]*"|'[^']*')*)>`, 'gi');
 /** An opening or closing tag of an element whose content is text. */
 const RAW_TEXT_TAG_RE = new RegExp(`<(/?)(${RAW_TEXT})(?=[\\s/>])`, 'gi');
-/** An attribute of a tag: its name, and its value in double quotes, in single quotes or without quotes. */
-const ATTR_RE = /([^\s"'>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
-
-/**
- * The text of an HTML attribute value: its character references decoded. `unescapeAll` also takes out the backslash
- * escapes of Markdown, which are kept by doubling the backslashes.
- */
-const decodeAttribute = (md: MarkdownIt, value: string): string => md.utils.unescapeAll(value.replace(/\\/g, '\\\\'));
-
 /** Rewrites the `src` of the `<img>` tags of raw HTML with `resolve`, like the images of Markdown. */
 function resolveHtmlImages(md: MarkdownIt, html: string, resolve: (src: string) => string): string {
   return html.replace(IMG_TAG_RE, (tag, _rawText?: string, attrs?: string) => {

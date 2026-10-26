@@ -638,7 +638,7 @@ async function main(): Promise<void> {
         const type = imageType(imagePath(src));
         return isExternalUrl(src) || !type ? src : `data:${type};base64,${readFileSync(join(dirname(source), imagePath(src))).toString('base64')}`;
       };
-      const wireframes = await loadWireframes(wireframeSources(md.parse(text, {})), read);
+      const wireframes = await loadWireframes(md, wireframeSources(md.parse(text, {})), read);
       const html = renderDocument(md, text, { t: locale.t, wireframes, resolveResource });
       const update: ToWebview = { type: 'update', uri: pathToFileURL(source).href, html, splitMinWidth: 1000, syncEditor: false, toc: true, diagramLook: 'neo', theme: 'auto', limitContentWidth: true, stickyTableHeader: true, tableTreeHighlight: true };
       const page = join(dir, `${locale.name}.html`);

@@ -52,27 +52,55 @@ export interface DocumentWireframes {
 export async function readWireframes(md: MarkdownIt, document: vscode.Uri, source: string): Promise<DocumentWireframes> {
   const folders = embeddableFolders(document);
   const srcs = wireframeSources(md.parse(source, {}));
-  const files = await loadWireframes(srcs, async (path) => {
+  const files = await loadWireframes(md, srcs, async (path) => {
     const uri = resolveDocumentPath(document, path);
     return folders.some((folder) => isIn(uri, folder)) ? readText(uri) : undefined;
   });
-  const dependencies = new Set(srcs.flatMap((src) => wireframeDependencies(src, files[src]).map((path) => resolveDocumentPath(document, path).toString())));
+  const dependencies = new Set(
+    srcs.flatMap((src) => wireframeDependencies(md, src, files[src]).map((path) => resolveDocumentPath(document, path).toString())),
+  );
   return { files, dependencies };
 }
 
 /**
- * Calls `changed` with the URI of a file of a wireframe (HTML or CSS) that changed: edited, saved, created or deleted.
+ * Follows the files of the wireframes of a document (`DocumentWireframes.dependencies`): calls `changed` when one of
+ * them is edited, saved, created or deleted, in the workspace or not.
  */
-export function onWireframeFileChanged(changed: (uri: string) => void): vscode.Disposable {
-  const watcher = vscode.workspace.createFileSystemWatcher('**/*.{html,htm,css}');
-  const notify = (uri: vscode.Uri): void => changed(uri.toString());
-  return vscode.Disposable.from(
-    watcher,
-    watcher.onDidChange(notify),
-    watcher.onDidCreate(notify),
-    watcher.onDidDelete(notify),
-    vscode.workspace.onDidChangeTextDocument((e) => notify(e.document.uri)),
-    // Back to the file saved.
-    vscode.workspace.onDidCloseTextDocument((document) => notify(document.uri)),
-  );
+export class WireframeWatcher implements vscode.Disposable {
+  private files = new Set<string>();
+  private watchers: vscode.Disposable[] = [];
+  private readonly listeners: vscode.Disposable;
+
+  constructor(private readonly changed: () => void) {
+    const notify = (uri: vscode.Uri): void => {
+      if (this.files.has(uri.toString())) {
+        this.changed();
+      }
+    };
+    this.listeners = vscode.Disposable.from(
+      vscode.workspace.onDidChangeTextDocument((e) => notify(e.document.uri)),
+      // Back to the file saved.
+      vscode.workspace.onDidCloseTextDocument((document) => notify(document.uri)),
+    );
+  }
+
+  /** Follows `files` (their URIs) instead of those before. */
+  watch(files: Set<string>): void {
+    if (files.size === this.files.size && [...files].every((file) => this.files.has(file))) {
+      return;
+    }
+    this.watchers.forEach((watcher) => watcher.dispose());
+    this.files = files;
+    this.watchers = [...files].map((file) => {
+      const uri = vscode.Uri.parse(file);
+      // One file: also outside the workspace, unlike a glob.
+      const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.joinPath(uri, '..'), uri.path.split('/').pop() ?? ''));
+      return vscode.Disposable.from(watcher, watcher.onDidChange(this.changed), watcher.onDidCreate(this.changed), watcher.onDidDelete(this.changed));
+    });
+  }
+
+  dispose(): void {
+    this.watchers.forEach((watcher) => watcher.dispose());
+    this.listeners.dispose();
+  }
 }

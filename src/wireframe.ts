@@ -10,6 +10,7 @@
  * No dependency on vscode or Node: `partNumber` is used by the webview too.
  */
 import type { MarkdownIt, StateCore, Token } from 'markdown-it';
+import { ATTR_RE, decodeAttribute, RAW_TEXT } from './htmlTags';
 import { formatMessage, type Translate } from './l10n';
 import type { LinkWarning } from './linker';
 import { toAsciiDigits } from './sequence';
@@ -24,7 +25,7 @@ export interface WireframeFile {
   stylesheets: Record<string, string>;
 }
 
-/** The wireframes of a document by their `src` as written, null for one that could not be read. */
+/** The wireframes of a document by their `src` as written, null for one that could not be read (and none for one not read). */
 export type WireframeFiles = Record<string, WireframeFile | null>;
 
 export interface WireframeOptions {
@@ -44,8 +45,10 @@ export interface Wireframe {
   /** The text of the image or link, which stands for it. */
   alt: string;
   options: WireframeOptions;
-  /** Its file; null when it could not be read, undefined when the host did not read the files. */
+  /** Its file; null when it could not be read, undefined when the host did not read it. */
   file?: WireframeFile | null;
+  /** The parts of its file. */
+  parts?: WireframePart[];
 }
 
 /** A part of a wireframe: an element with `data-item`. */
@@ -108,65 +111,52 @@ function normalizePath(path: string): string {
 // ---------------------------------------------------------------------------
 // The HTML of a wireframe
 
-/** The elements whose content is text, not HTML. */
-const RAW_TEXT = 'script|style|textarea|title';
 /** An HTML comment, an element whose content is text (with its attributes and content), or a tag (with its name and attributes). */
 const SCAN_RE = new RegExp(
   `<!--[\\s\\S]*?(?:-->|$)|<(${RAW_TEXT})(?=[\\s/>])((?:[^>"']|"[^"]*"|'[^']*')*)>([\\s\\S]*?)(?:</\\1\\s*>|$)|<([a-zA-Z][\\w:-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>`,
   'gi',
 );
-/** An attribute of a tag: its name, and its value in double quotes, in single quotes or without quotes. */
-const ATTR_RE = /([^\s"'>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
-
-const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0' };
-
-/** The text of an attribute value, with its character references decoded. */
-function decodeAttribute(value: string): string {
-  return value.replace(/&(?:#(\d+)|#x([0-9a-f]+)|(\w+));/gi, (ref, dec?: string, hex?: string, name?: string) => {
-    if (dec !== undefined || hex !== undefined) {
-      const code = dec !== undefined ? Number(dec) : parseInt(hex!, 16);
-      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : ref;
-    }
-    return ENTITIES[name!.toLowerCase()] ?? ref;
-  });
-}
 
 /** The attributes of a tag by their lower-case names, the first one of a name only (as in the browser). */
-function attributesOf(attrs: string): Map<string, string> {
+function attributesOf(md: MarkdownIt, attrs: string): Map<string, string> {
   const map = new Map<string, string>();
   for (const [, name, double, single, bare] of attrs.matchAll(ATTR_RE)) {
     const key = name.toLowerCase();
     if (!map.has(key)) {
-      map.set(key, decodeAttribute(double ?? single ?? bare ?? ''));
+      map.set(key, decodeAttribute(md, double ?? single ?? bare ?? ''));
     }
   }
   return map;
 }
 
 /** Replaces the value of the attribute `name` of a tag with `replace(value)`, or leaves it when it returns undefined. */
-function replaceAttribute(attrs: string, name: string, replace: (value: string) => string | undefined): string {
+function replaceAttribute(md: MarkdownIt, attrs: string, name: string, replace: (value: string) => string | undefined): string {
   let seen = false;
   return attrs.replace(ATTR_RE, (attr, attrName: string, double?: string, single?: string, bare?: string) => {
     if (seen || attrName.toLowerCase() !== name) {
       return attr;
     }
     seen = true;
-    const value = replace(decodeAttribute(double ?? single ?? bare ?? ''));
-    return value === undefined ? attr : `${attrName}="${value.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`;
+    const value = replace(decodeAttribute(md, double ?? single ?? bare ?? ''));
+    return value === undefined ? attr : `${attrName}="${md.utils.escapeHtml(value)}"`;
   });
 }
 
 const isStylesheet = (attributes: Map<string, string>): boolean => (attributes.get('rel') ?? '').toLowerCase().split(/\s+/).includes('stylesheet');
 
-/** The parts of the HTML of a wireframe, in document order. */
-export function wireframeParts(html: string): WireframePart[] {
-  const parts: WireframePart[] = [];
+/** The tags of the HTML of a wireframe that are part of its page: not in comments, nor elements whose content is text. */
+function* tagsOf(md: MarkdownIt, html: string): Generator<{ name: string; attributes: Map<string, string> }> {
   for (const m of html.matchAll(SCAN_RE)) {
-    // Not a comment, nor an element whose content is text (not a part of the screen).
-    if (m[4] === undefined) {
-      continue;
+    if (m[4] !== undefined) {
+      yield { name: m[4].toLowerCase(), attributes: attributesOf(md, m[5]) };
     }
-    const attributes = attributesOf(m[5]);
+  }
+}
+
+/** The parts of the HTML of a wireframe, in document order. */
+export function wireframeParts(md: MarkdownIt, html: string): WireframePart[] {
+  const parts: WireframePart[] = [];
+  for (const { attributes } of tagsOf(md, html)) {
     const item = attributes.get('data-item');
     if (item !== undefined) {
       parts.push({ item, ...(attributes.has('data-ref') ? { ref: attributes.get('data-ref') } : {}) });
@@ -176,15 +166,11 @@ export function wireframeParts(html: string): WireframePart[] {
 }
 
 /** The `href`s of the local style sheets of the HTML of a wireframe (`<link rel="stylesheet">`). */
-export function stylesheetHrefs(html: string): string[] {
+export function stylesheetHrefs(md: MarkdownIt, html: string): string[] {
   const hrefs: string[] = [];
-  for (const m of html.matchAll(SCAN_RE)) {
-    if (m[4]?.toLowerCase() !== 'link') {
-      continue;
-    }
-    const attributes = attributesOf(m[5]);
+  for (const { name, attributes } of tagsOf(md, html)) {
     const href = attributes.get('href');
-    if (href && isStylesheet(attributes) && !isExternal(href) && !hrefs.includes(href)) {
+    if (name === 'link' && href && isStylesheet(attributes) && !isExternal(href) && !hrefs.includes(href)) {
       hrefs.push(href);
     }
   }
@@ -193,12 +179,15 @@ export function stylesheetHrefs(html: string): string[] {
 
 const CSS_URL_RE = /url\(\s*(['"]?)([^'")]*)\1\s*\)/gi;
 
+/** The elements whose `src` is an image. */
+const IMAGE_ELEMENTS = new Set(['img', 'input']);
+
 /**
  * The HTML of a wireframe (in `src`, relative to the document) as it is shown: its local style sheets put in `<style>`
- * elements in their place, and its local images (`<img src>`, `url()` in its styles) given to `resolve` with their
- * path relative to the document, encoded as in Markdown.
+ * elements in their place, and its local images (the `src` of `<img>` and `<input type="image">`, `url()` in its styles
+ * and `style` attributes) given to `resolve` with their path relative to the document, encoded as in Markdown.
  */
-export function composeWireframe(file: WireframeFile, src: string, resolve: (src: string) => string): string {
+export function composeWireframe(md: MarkdownIt, file: WireframeFile, src: string, resolve: (src: string) => string): string {
   const base = sourcePath(src);
   const resolveFrom = (from: string) => (url: string): string | undefined => {
     if (url === '' || isExternal(url)) {
@@ -208,7 +197,7 @@ export function composeWireframe(file: WireframeFile, src: string, resolve: (src
     return resolve(encodeURI(rebasePath(sourcePath(url), from)) + suffix);
   };
   const css = (text: string, from: string): string =>
-    text.replace(CSS_URL_RE, (call, quote: string, url: string) => {
+    text.replace(CSS_URL_RE, (call, _quote: string, url: string) => {
       const resolved = resolveFrom(from)(url);
       return resolved === undefined ? call : `url("${resolved.replace(/["\\]/g, '\\$&')}")`;
     });
@@ -216,12 +205,12 @@ export function composeWireframe(file: WireframeFile, src: string, resolve: (src
     if (rawName?.toLowerCase() === 'style') {
       return `<style${rawAttrs}>${css(content ?? '', base)}</style>`;
     }
-    const element = name?.toLowerCase();
-    if (element === 'img' && attrs !== undefined) {
-      return `<${name}${replaceAttribute(attrs, 'src', resolveFrom(base))}>`;
+    if (name === undefined || attrs === undefined) {
+      return tag;
     }
-    if (element === 'link' && attrs !== undefined) {
-      const attributes = attributesOf(attrs);
+    const element = name.toLowerCase();
+    if (element === 'link') {
+      const attributes = attributesOf(md, attrs);
       const href = attributes.get('href');
       const sheet = href === undefined ? undefined : file.stylesheets[href];
       if (sheet !== undefined && isStylesheet(attributes)) {
@@ -229,7 +218,11 @@ export function composeWireframe(file: WireframeFile, src: string, resolve: (src
         return `<style>${css(sheet, rebasePath(sourcePath(href!), base)).replace(/<\/style/gi, '<\\/style')}</style>`;
       }
     }
-    return tag;
+    let rewritten = replaceAttribute(md, attrs, 'style', (style) => (/url\(/i.test(style) ? css(style, base) : undefined));
+    if (IMAGE_ELEMENTS.has(element)) {
+      rewritten = replaceAttribute(md, rewritten, 'src', resolveFrom(base));
+    }
+    return rewritten === attrs ? tag : `<${name}${rewritten}>`;
   });
 }
 
@@ -238,7 +231,7 @@ export function composeWireframe(file: WireframeFile, src: string, resolve: (src
  * (relative to the document, or to the root of the workspace with a leading `/`) and returns their text,
  * or undefined when it cannot be read.
  */
-export async function loadWireframes(srcs: string[], read: (path: string) => Promise<string | undefined>): Promise<WireframeFiles> {
+export async function loadWireframes(md: MarkdownIt, srcs: string[], read: (path: string) => Promise<string | undefined>): Promise<WireframeFiles> {
   const files: WireframeFiles = {};
   await Promise.all(
     srcs.map(async (src) => {
@@ -250,7 +243,7 @@ export async function loadWireframes(srcs: string[], read: (path: string) => Pro
       }
       const stylesheets: Record<string, string> = {};
       await Promise.all(
-        stylesheetHrefs(html).map(async (href) => {
+        stylesheetHrefs(md, html).map(async (href) => {
           const sheet = rebasePath(sourcePath(href), path);
           const css = /\.css$/i.test(sheet) ? await read(sheet) : undefined;
           if (css !== undefined) {
@@ -265,16 +258,19 @@ export async function loadWireframes(srcs: string[], read: (path: string) => Pro
 }
 
 /** The paths of the files `loadWireframes` reads for a wireframe, so that the host can follow their changes. */
-export function wireframeDependencies(src: string, file: WireframeFile | null | undefined): string[] {
+export function wireframeDependencies(md: MarkdownIt, src: string, file: WireframeFile | null | undefined): string[] {
   const path = sourcePath(src);
-  return [path, ...(file ? stylesheetHrefs(file.html).map((href) => rebasePath(sourcePath(href), path)) : [])];
+  return [path, ...(file ? stylesheetHrefs(md, file.html).map((href) => rebasePath(sourcePath(href), path)) : [])];
 }
 
 // ---------------------------------------------------------------------------
 // The wireframes of a document
 
-/** The `src` of a paragraph that is a wireframe: an image of an HTML file, a link to one, or an image in such a link. */
-function wireframeSrc(inline: Token | undefined): string | undefined {
+/**
+ * The `src` of a paragraph that is a wireframe: an image of an HTML file, or at the top level, a link to one or an image
+ * in such a link (in a list, such links are rather a list of pages).
+ */
+function wireframeSrc(paragraph: Token, inline: Token | undefined): string | undefined {
   const children = (inline?.children ?? []).filter((c) => c.type !== 'softbreak' && !(c.type === 'text' && c.content.trim() === ''));
   const [first] = children;
   if (children.length === 1 && first.type === 'image') {
@@ -282,7 +278,13 @@ function wireframeSrc(inline: Token | undefined): string | undefined {
     return isWireframeSrc(src) ? src : undefined;
   }
   const last = children[children.length - 1];
-  if (children.length >= 2 && first.type === 'link_open' && last.type === 'link_close' && children.filter((c) => c.type === 'link_open').length === 1) {
+  if (
+    paragraph.level === 0 &&
+    children.length >= 2 &&
+    first.type === 'link_open' &&
+    last.type === 'link_close' &&
+    children.filter((c) => c.type === 'link_open').length === 1
+  ) {
     const href = String(first.attrGet('href') ?? '');
     return isWireframeSrc(href) ? href : undefined;
   }
@@ -333,7 +335,7 @@ export function wireframes(md: MarkdownIt): void {
     const t = env?.t ?? formatMessage;
     const tokens = state.tokens;
     for (let i = 0; i < tokens.length; i++) {
-      const src = tokens[i].type === 'paragraph_open' && tokens[i + 2]?.type === 'paragraph_close' ? wireframeSrc(tokens[i + 1]) : undefined;
+      const src = tokens[i].type === 'paragraph_open' && tokens[i + 2]?.type === 'paragraph_close' ? wireframeSrc(tokens[i], tokens[i + 1]) : undefined;
       if (src === undefined) {
         continue;
       }
@@ -342,11 +344,13 @@ export function wireframes(md: MarkdownIt): void {
       token.block = true;
       token.level = paragraph.level;
       token.map = paragraph.map;
+      const file = env?.wireframes?.[src];
       const wireframe: Wireframe = {
         src,
         alt: altOf(tokens[i + 1]),
         options: { linkHeadings: false, stacked: false },
-        ...(env?.wireframes ? { file: env.wireframes[src] ?? null } : {}),
+        file,
+        ...(file ? { parts: wireframeParts(state.md, file.html) } : {}),
       };
       token.meta = { wireframe };
       tokens.splice(i, 3, token);
