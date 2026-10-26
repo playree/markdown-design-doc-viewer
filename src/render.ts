@@ -167,6 +167,10 @@ function wireframeBlock(md: MarkdownIt): void {
       attrs += ` data-seqnotes-items="${escapeHtml(items)}"`;
       attrs += ` data-seqnotes-item-unmatched="${escapeHtml(t('No element of the wireframe matches item.{0}="{1}".'))}"`;
       attrs += ` data-seqnotes-item-invalid="${escapeHtml(t('item.{0}="{1}" of the wireframe is not a valid CSS selector.'))}"`;
+      if (env?.forExport && options.line !== undefined) {
+        // Where the problems are reported by the command line (exported without the lines of the blocks).
+        attrs += ` data-seqnotes-item-line="${options.line}"`;
+      }
     }
     if (alt) {
       // Its page is inert: what it shows is named by its text.

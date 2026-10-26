@@ -65,6 +65,8 @@ export interface ExportedBody {
   body: string;
   /** Messages of the diagrams mermaid could not render. */
   diagramErrors: string[];
+  /** Problems found while rendering it (`warnings` of the `exported` message). */
+  warnings: { line?: number; message: string }[];
 }
 
 /** One page of the webview in headless Chrome, which renders the bodies of exported files one after another. */
@@ -171,7 +173,7 @@ export class HeadlessRenderer {
   private onExported(message: Extract<FromWebview, { type: 'exported' }>): void {
     const pending = this.pending.get(message.id);
     if (message.body !== undefined) {
-      pending?.resolve({ body: message.body, diagramErrors: message.diagramErrors ?? [] });
+      pending?.resolve({ body: message.body, diagramErrors: message.diagramErrors ?? [], warnings: message.warnings ?? [] });
     } else {
       pending?.reject(new Error(message.error ?? 'The diagrams could not be rendered.'));
     }

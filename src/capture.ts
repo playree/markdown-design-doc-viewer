@@ -5,9 +5,9 @@
  * and written as it is shown (capturePage.ts): without its scripts, with its styles and its images and fonts embedded.
  * Its parts are then numbered by selectors in the options of the wireframe (`item.1="#email"`).
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { BrowserContext, Page } from 'playwright-core';
 import { assetPlaceholder, assetType, replaceAssets, splitTopLevel, styleText, viewportUnitsToPx } from './captureCss';
 import type { CaptureOptions } from './cliOptions';
@@ -20,28 +20,14 @@ interface CaptureScript {
   setup?: (page: Page, context: BrowserContext) => unknown;
 }
 
-/** The file at `url` as a data URI, or undefined when it cannot be fetched. */
-async function fetchAsset(context: BrowserContext, url: string): Promise<string | undefined> {
-  if (url.startsWith('file:')) {
-    // Opened by the page, not by the requests of the context.
-    return undefined;
-  }
+/** The file at `url` with its type, or undefined when it cannot be fetched: with the cookies of the page, or from the disk. */
+async function fetchFile(context: BrowserContext, url: string): Promise<{ body: Buffer; type: string } | undefined> {
   try {
-    const response = await context.request.get(url);
-    if (!response.ok()) {
-      return undefined;
+    if (url.startsWith('file:')) {
+      return { body: readFileSync(fileURLToPath(url)), type: assetType(url, undefined) };
     }
-    return `data:${assetType(url, response.headers()['content-type'])};base64,${(await response.body()).toString('base64')}`;
-  } catch {
-    return undefined;
-  }
-}
-
-/** The text of the style sheet at `url`, or undefined when it cannot be fetched. */
-async function fetchText(context: BrowserContext, url: string): Promise<string | undefined> {
-  try {
     const response = await context.request.get(url);
-    return response.ok() ? await response.text() : undefined;
+    return response.ok() ? { body: await response.body(), type: assetType(url, response.headers()['content-type']) } : undefined;
   } catch {
     return undefined;
   }
@@ -107,25 +93,27 @@ export async function capture(options: CaptureOptions): Promise<string[]> {
       }
     });
 
+    const warnings: string[] = [];
     const sheetTexts: Record<string, string> = {};
     for (const href of await page.evaluate(unreadableSheets)) {
-      const text = await fetchText(context, href);
-      if (text !== undefined) {
-        sheetTexts[href] = text;
+      const file = await fetchFile(context, href);
+      if (file) {
+        sheetTexts[href] = file.body.toString('utf8');
+      } else {
+        warnings.push(`Style sheet left out (could not be fetched): ${href}`);
       }
     }
     // Given as their source: the functions run in the page.
     const helpers = `{ viewportUnitsToPx: ${viewportUnitsToPx}, splitTopLevel: ${splitTopLevel}, assetPlaceholder: ${assetPlaceholder}, styleText: ${styleText} }`;
     const captured = await page.evaluate<CapturedPage>(`(${capturePage})(${JSON.stringify(sheetTexts)}, ${helpers})`);
 
-    const warnings: string[] = [];
     const urls = await Promise.all(
       captured.assets.map(async (url) => {
-        const data = await fetchAsset(context, url);
-        if (data === undefined) {
+        const file = await fetchFile(context, url);
+        if (!file) {
           warnings.push(`Not embedded (could not be fetched): ${url}`);
         }
-        return data ?? url;
+        return file ? `data:${file.type};base64,${file.body.toString('base64')}` : url;
       }),
     );
     // Not `--` in the comment.

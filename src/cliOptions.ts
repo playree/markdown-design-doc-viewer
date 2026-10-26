@@ -32,8 +32,8 @@ Options:
       --no-toc                 Do not show the table of contents at the right edge of the page.
       --chrome <path>          Chrome or Chromium to render the diagrams with. Default: $CHROME_PATH, a Chromium of
                                the Playwright cache, or the Google Chrome installed on the system.
-      --strict                 Fail when a document has a warning (a broken @ref, a misplaced marker, or table
-                               options that cannot be applied).
+      --strict                 Fail when a document has a warning (a broken @ref, a misplaced marker, table
+                               options that cannot be applied, or a selector of a wireframe part that matches nothing).
       --diff-base <rev>        Show the changes of each document since the git revision <rev> (a tag, a commit or a
                                branch), as the preview compares a document with a revision. Requires git.
       --index                  Also write index.html, a list of the exported documents, in --out-dir.
@@ -47,8 +47,9 @@ Exit status: 0 when all the files were exported, 1 when one failed (or with --st
 
 md-design-doc capture <url> -o <file.html> [options]
 
-Captures a screen of a running web app (e.g. on its development server) as the HTML file of a wireframe: the page as
-rendered, with the styles that apply to it, its images and fonts embedded, and without its scripts.
+Captures a screen of a running web app (e.g. on its development server, or a file: URL) as the HTML file of a
+wireframe: the page as rendered, with the styles that apply to it, its images and fonts embedded, and without its
+scripts.
 
 Options:
   -o, --out <file.html>        Write the HTML file here (required).

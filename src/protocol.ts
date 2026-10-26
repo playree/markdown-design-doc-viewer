@@ -36,9 +36,10 @@ export type FromWebview =
   | { type: 'openLink'; href: string }
   /**
    * The rendered body of an `export` request, or why it failed. `diagramErrors` are the messages of the diagrams
-   * mermaid could not render (shown in the body in their place).
+   * mermaid could not render (shown in the body in their place), `warnings` the problems found while rendering it
+   * (the selectors of the parts of the wireframes that match nothing), with their 0-based lines.
    */
-  | { type: 'exported'; id: number; body?: string; diagramErrors?: string[]; error?: string }
+  | { type: 'exported'; id: number; body?: string; diagramErrors?: string[]; warnings?: { line?: number; message: string }[]; error?: string }
   /** The differences shown are closed: back to the document alone. */
   | { type: 'closeDiff' };
 

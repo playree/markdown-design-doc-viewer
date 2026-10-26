@@ -210,7 +210,11 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
         const image = async (src: string): Promise<string> => resolveImage(src, document, target, options.root);
         const diff = options.diffBase === undefined ? undefined : await renderWithDiff(options.diffBase, document, source, env, image);
         const html = diff ? diff.html : await renderForExport(md, source, env, image);
-        const { body, diagramErrors } = await renderer.render(html, options.diagramLook, diff?.view);
+        const { body, diagramErrors, warnings } = await renderer.render(html, options.diagramLook, diff?.view);
+        for (const warning of warnings) {
+          report('warning', document, warning.message, warning.line === undefined ? undefined : warning.line + 1);
+          ok &&= !options.strict;
+        }
         for (const error of diagramErrors) {
           report('error', document, error);
           ok = false;

@@ -18,18 +18,32 @@ export interface CaptureHelpers {
   styleText: (css: string) => string;
 }
 
-/** The URLs of the style sheets whose rules the page cannot read (from another origin), which the capture fetches. */
+/**
+ * The URLs of the style sheets whose rules the page cannot read (from another origin, also imported by another one),
+ * which the capture fetches.
+ */
 export function unreadableSheets(): string[] {
   const hrefs: string[] = [];
-  for (const sheet of Array.from(document.styleSheets)) {
+  const visit = (sheet: CSSStyleSheet | null): void => {
+    if (!sheet) {
+      return;
+    }
+    let rules: CSSRuleList;
     try {
-      void sheet.cssRules;
+      rules = sheet.cssRules;
     } catch {
-      if (sheet.href) {
+      if (sheet.href && !hrefs.includes(sheet.href)) {
         hrefs.push(sheet.href);
       }
+      return;
     }
-  }
+    for (const rule of Array.from(rules)) {
+      if (rule instanceof CSSImportRule) {
+        visit(rule.styleSheet);
+      }
+    }
+  };
+  Array.from(document.styleSheets).forEach(visit);
   return hrefs;
 }
 
@@ -206,6 +220,15 @@ export function capturePage(sheetTexts: Record<string, string>, h: CaptureHelper
       } catch {
         // Drawn with images of another origin.
       }
+    } else if (element instanceof HTMLDialogElement || element.matches(':popover-open')) {
+      // Shown in the top layer, which the copy is not in: where it is, in its style.
+      if (element.matches(':modal, :popover-open')) {
+        const style = getComputedStyle(element);
+        for (const name of ['display', 'position', 'top', 'right', 'bottom', 'left', 'margin', 'width', 'height', 'max-width', 'max-height']) {
+          (copy as HTMLElement).style.setProperty(name, style.getPropertyValue(name));
+        }
+        (copy as HTMLElement).style.setProperty('z-index', '2147483647');
+      }
     } else if (element instanceof SVGImageElement) {
       const href = element.href.baseVal;
       if (href) {
@@ -214,9 +237,12 @@ export function capturePage(sheetTexts: Record<string, string>, h: CaptureHelper
       }
     }
   });
-  // Without what does not show the page: its scripts, frames, links (its style sheets are in the <style>), and the
-  // sources of the <picture> elements (their <img> has the image shown).
-  page.querySelectorAll('script, noscript, iframe, frame, object, embed, base, link, style, meta[http-equiv], picture > source').forEach((element) => element.remove());
+  // Without what does not show the page: its scripts, frames, links (its style sheets are in the <style>), the sources
+  // of the <picture> elements (their <img> has the image shown), and its hidden values and metadata, which may be
+  // secrets (e.g. a CSRF token).
+  page
+    .querySelectorAll('script, noscript, iframe, frame, object, embed, base, link, style, meta:not([charset]), input[type="hidden" i], picture > source')
+    .forEach((element) => element.remove());
   let head = page.querySelector('head');
   if (!head) {
     head = document.createElement('head');

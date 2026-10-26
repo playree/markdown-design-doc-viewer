@@ -22,29 +22,44 @@ const BASE_STYLE = ':host { all: initial; display: block; } html { display: bloc
 /** `:root`, which matches nothing in a shadow root: there, the <html> of the page. */
 const ROOT_RE = /:root(?![\w-])/g;
 
+/** Constructed style sheets (Safari 16.4 and later): without them, the styles of a wireframe are kept as they are. */
+const constructable = typeof CSSStyleSheet === 'function' && 'adoptedStyleSheets' in Document.prototype && 'replaceSync' in CSSStyleSheet.prototype;
+
 /**
  * The rules of the wireframes that only work in the document, not in a shadow root (`@font-face`, `@property`, e.g. of
  * Tailwind CSS): each one once, for all of them.
  */
-const documentRules = new CSSStyleSheet();
+let documentRules: CSSStyleSheet | undefined;
 const documentRuleTexts = new Set<string>();
+
+/** true for a rule that only works in the document. */
+const isDocumentRule = (rule: CSSRule): boolean =>
+  rule instanceof CSSFontFaceRule || (typeof CSSPropertyRule === 'function' && rule instanceof CSSPropertyRule);
+
+/** Gives `rule` to the document, once. */
+function addDocumentRule(rule: CSSRule): void {
+  if (!documentRules) {
+    documentRules = new CSSStyleSheet();
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, documentRules];
+  }
+  if (!documentRuleTexts.has(rule.cssText)) {
+    documentRuleTexts.add(rule.cssText);
+    documentRules.insertRule(rule.cssText, documentRules.cssRules.length);
+  }
+}
 
 /**
  * The style sheet of a <style> of a wireframe, to be adopted by its shadow root: its `:root` matching its <html>,
- * and its rules that only work in the document moved to `documentRules`.
+ * and its rules that only work in the document given to it (`addDocumentRule`). Without its `@import`s.
  */
 function pageSheet(style: HTMLStyleElement): CSSStyleSheet {
   const sheet = new CSSStyleSheet(style.media ? { media: style.media } : {});
-  // `@import` is left out, as an external style sheet.
   sheet.replaceSync(style.textContent ?? '');
   const visit = (parent: CSSStyleSheet | CSSGroupingRule | CSSStyleRule): void => {
     for (let i = parent.cssRules.length - 1; i >= 0; i--) {
       const rule = parent.cssRules[i];
-      if (rule instanceof CSSFontFaceRule || rule instanceof CSSPropertyRule) {
-        if (!documentRuleTexts.has(rule.cssText)) {
-          documentRuleTexts.add(rule.cssText);
-          documentRules.insertRule(rule.cssText, documentRules.cssRules.length);
-        }
+      if (isDocumentRule(rule)) {
+        addDocumentRule(rule);
         parent.deleteRule(i);
         continue;
       }
@@ -63,15 +78,42 @@ function pageSheet(style: HTMLStyleElement): CSSStyleSheet {
   return sheet;
 }
 
-/** Numbers the elements of the parts written as selectors in the options (`items`); returns the problems with them. */
+/** The `@import`s of the text of a <style>, which a constructed style sheet leaves out. */
+const IMPORT_RE = /@import\b(?:[^;"']|"[^"]*"|'[^']*')*;/gi;
+
+/**
+ * Has the shadow root adopt the styles of the page (its <style> elements, in their order), as sheets that work there as
+ * in the document. Their `@import`s are kept in a <style> before them.
+ */
+function adoptStyles(shadow: ShadowRoot, page: HTMLElement): void {
+  if (!constructable) {
+    return;
+  }
+  const styles = Array.from(page.querySelectorAll('style'));
+  const imports = styles.flatMap((style) => (style.textContent ?? '').match(IMPORT_RE) ?? []);
+  if (imports.length > 0) {
+    const style = document.createElement('style');
+    style.textContent = imports.join('\n');
+    shadow.append(style);
+  }
+  shadow.adoptedStyleSheets = styles.map(pageSheet);
+  styles.forEach((style) => style.remove());
+}
+
+/**
+ * Numbers the elements of the parts written as selectors in the options (`items`), as if they had `data-item`: an
+ * element already numbered by a selector before keeps its number. Returns the problems with them.
+ */
 function numberParts(shadow: ShadowRoot, items: [number, string][], block: HTMLElement): string[] {
   const notes: string[] = [];
+  // Translated by the host (`data-seqnotes-item-*` by src/render.ts).
   const message = (template: string | undefined, number: number, selector: string): string =>
-    (template ?? '').replace('{0}', String(number)).replace('{1}', selector);
+    (template ?? '').replace(/\{([01])\}/g, (_match, n: string) => (n === '0' ? String(number) : selector));
+  const numbered = new Set<Element>();
   for (const [number, selector] of items) {
-    let elements: NodeListOf<Element>;
+    let elements: Element[];
     try {
-      elements = shadow.querySelectorAll(selector.replace(ROOT_RE, 'html'));
+      elements = Array.from(shadow.querySelectorAll(selector.replace(ROOT_RE, 'html'))).filter((element) => !numbered.has(element));
     } catch {
       notes.push(message(block.dataset.seqnotesItemInvalid, number, selector));
       continue;
@@ -79,7 +121,10 @@ function numberParts(shadow: ShadowRoot, items: [number, string][], block: HTMLE
     if (elements.length === 0) {
       notes.push(message(block.dataset.seqnotesItemUnmatched, number, selector));
     }
-    elements.forEach((element) => element.setAttribute('data-item', String(number)));
+    for (const element of elements) {
+      element.setAttribute('data-item', String(number));
+      numbered.add(element);
+    }
   }
   return notes;
 }
@@ -120,14 +165,9 @@ function showPage(block: HTMLElement, screen: HTMLElement, html: string): { shad
   style.textContent = BASE_STYLE;
   // Parsed as a document, so that it keeps its <html> and <body>, which its styles may select.
   const page = new DOMParser().parseFromString(html, 'text/html').documentElement;
-  // Its styles adopted in their order, after the base style.
-  const styles = Array.from(page.querySelectorAll('style'));
-  shadow.adoptedStyleSheets = styles.map(pageSheet);
-  styles.forEach((s) => s.remove());
-  if (documentRules.cssRules.length > 0 && !document.adoptedStyleSheets.includes(documentRules)) {
-    document.adoptedStyleSheets = [...document.adoptedStyleSheets, documentRules];
-  }
-  shadow.append(style, document.importNode(page, true));
+  shadow.append(style);
+  adoptStyles(shadow, page);
+  shadow.append(document.importNode(page, true));
   return { shadow, notes: numberParts(shadow, itemsOf(block), block) };
 }
 
