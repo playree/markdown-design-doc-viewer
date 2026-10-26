@@ -543,6 +543,10 @@ function activate(active: Active & { kind: 'message' | 'heading' }): void {
 
 document.addEventListener('keydown', (e) => {
   if (zoom) {
+    // Typed into a form control of a wireframe, except Escape.
+    if (e.key !== 'Escape' && inFormControl(e)) {
+      return;
+    }
     zoomKey(e);
     return;
   }
@@ -779,8 +783,8 @@ function setZoomWireframe(frame: HTMLElement): void {
   copy.style.padding = '0';
   copy.style.width = `${Number(block.dataset.seqnotesWidth) || frame.offsetWidth}px`;
   zoomStage.replaceChildren(copy);
-  // Only shown: the overlay pans on drag, and its boxes take the clicks.
-  mountWireframe(copy, diagramSources.get(frame) ?? '', metaOf(block), true);
+  // Works as in the preview: its text can be selected, its form controls used. The overlay pans on drag around it.
+  mountWireframe(copy, diagramSources.get(frame) ?? '', metaOf(block));
   layoutWireframe(copy);
   if (zoom) {
     zoom.width = copy.offsetWidth;
@@ -908,13 +912,19 @@ zoomOverlay.addEventListener(
 /** true while the pointer pans, so that releasing it is not taken as a click. */
 let zoomDragged = false;
 
+/** true when `e` happened on the page of a wireframe, where a drag selects its text instead of panning. */
+const onWireframePage = (e: Event): boolean => (e.target as Element).closest('.seqnotes-wireframe-screen') !== null;
+
 // On the whole overlay, so that the empty space around a small diagram pans it too.
 zoomOverlay.addEventListener('pointerdown', (e) => {
   if (!zoom || e.button !== 0 || zoomToolbar.contains(e.target as Node)) {
     return;
   }
-  const start = { x: e.clientX, y: e.clientY, zoomX: zoom.x, zoomY: zoom.y };
   zoomDragged = false;
+  if (onWireframePage(e)) {
+    return;
+  }
+  const start = { x: e.clientX, y: e.clientY, zoomX: zoom.x, zoomY: zoom.y };
   const move = (ev: PointerEvent) => {
     const dx = ev.clientX - start.x;
     const dy = ev.clientY - start.y;
@@ -946,21 +956,46 @@ zoomOverlay.addEventListener('pointerdown', (e) => {
 });
 
 zoomOverlay.addEventListener('dblclick', (e) => {
-  if (!zoomToolbar.contains(e.target as Node)) {
+  // Not on the page of a wireframe, where it selects a word.
+  if (!zoomToolbar.contains(e.target as Node) && !onWireframePage(e)) {
     fitZoom();
   }
 });
 
+/**
+ * The form controls of a wireframe that take an input, which are used instead of following the link of their part. Not
+ * its buttons, which do nothing in a mock-up.
+ */
+const FORM_CONTROLS = 'input:not([type="button"], [type="submit"], [type="reset"], [type="image"]), select, textarea, label, [contenteditable]:not([contenteditable="false"])';
+
+/** true when `e` happened in a form control of a wireframe (in its shadow root, so seen in the composed path). */
+const inFormControl = (e: Event): boolean => {
+  const inner = e.composedPath()[0];
+  return inner instanceof Element && inner.closest(FORM_CONTROLS) !== null;
+};
+
+/** The linked arrow, node or part of a wireframe `e` happened on in the overlay. */
+const zoomLinked = (e: Event): Element | null | undefined => linkTarget(e)?.closest('[data-seqnotes-target]');
+
 // A linked arrow in the overlay: close it and show the step, like a click on the arrow in the preview.
+// Not at the end of a selection of the text of a wireframe, nor on its form controls.
 zoomStage.addEventListener('click', (e) => {
-  const message = (e.target as Element).closest('[data-seqnotes-target]');
+  const message = zoomLinked(e);
   const pair = zoom?.kind === 'diagram' && zoomTargets('diagram')[zoom.index]?.closest('.seqnotes-pair');
-  if (zoomDragged || !message || !pair) {
+  if (zoomDragged || endsDrag(e) || inFormControl(e) || !message || !pair) {
     return;
   }
   closeZoom();
   activate({ pair, target: message.getAttribute('data-seqnotes-target')!, kind: 'message' });
 });
+
+// The page of a wireframe takes the pointer, not the boxes of its parts: show the box of a linked part while hovering it.
+zoomStage.addEventListener('mouseover', (e) => {
+  const part = zoomLinked(e);
+  const target = part?.matches('.seqnotes-part') ? part.getAttribute('data-seqnotes-target') : null;
+  zoomStage.querySelectorAll('.seqnotes-part').forEach((box) => box.classList.toggle('seqnotes-active', target !== null && box.getAttribute('data-seqnotes-target') === target));
+});
+zoomStage.addEventListener('mouseleave', () => zoomStage.querySelectorAll('.seqnotes-part.seqnotes-active').forEach((box) => box.classList.remove('seqnotes-active')));
 
 // Not after the user zoomed or panned: they would lose their place, e.g. when a side bar is toggled.
 window.addEventListener('resize', () => {
