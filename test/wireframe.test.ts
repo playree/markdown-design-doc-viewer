@@ -190,13 +190,57 @@ describe('wireframes in a document', () => {
     );
     expect(linkDiagrams(md.parse(src, { wireframes: files })).warnings.map((w) => [w.line, w.message])).toEqual([
       [0, 'Write the width of the wireframe in pixels: "width=<number>".'],
-      [0, 'Unknown wireframe option "size". Write "link-headings", "width=<pixels>" or "stacked".'],
+      [0, 'Unknown wireframe option "size". Write "link-headings", "width=<pixels>", "stacked" or \'item.<number>="<selector>"\'.'],
       [1, 'data-item "x" of the wireframe "a.html" is not a number.'],
       [1, 'data-ref target heading "Nowhere" was not found after the wireframe.'],
       [3, 'The wireframe options are not followed by a wireframe.'],
       [7, 'link-headings is ignored for a wireframe inside a list or blockquote.'],
       [8, 'The wireframe "b.html" could not be read.'],
     ]);
+  });
+
+  it('numbers the parts by the selectors of the options, in a comment of several lines', () => {
+    const files: WireframeFiles = { 'a.html': { html: '<input id="email"><button data-item="3">Go</button>', stylesheets: {} } };
+    const src = doc(
+      '<!-- wireframe: link-headings',
+      '  item.1="#email"',
+      "  item.２=\"input[name='password']\"",
+      '  item.3=button',
+      '  item.4=a,.link',
+      '-->',
+      '![A](a.html)',
+      '',
+      '## 1. Email',
+      '',
+      '## 2. Password',
+      '',
+      '## 3. Go',
+      '',
+      '## 4. Link',
+    );
+    const { diagrams, warnings } = linkDiagrams(md.parse(src, { wireframes: files }));
+    expect(warnings).toEqual([]);
+    expect(diagrams[0].messages.map((m) => [m.nodeId, m.line, m.target])).toEqual([
+      ['3', 6, hid('3. Go')],
+      ['1', 0, hid('1. Email')],
+      ['2', 0, hid('2. Password')],
+      ['4', 0, hid('4. Link')],
+    ]);
+    const html = renderDocument(md, src, { wireframes: files });
+    expect(html).toContain(
+      ` data-seqnotes-items="[[1,&quot;#email&quot;],[2,&quot;input[name='password']&quot;],[3,&quot;button&quot;],[4,&quot;a, .link&quot;]]" data-seqnotes-item-unmatched="No element of the wireframe matches item.{0}=&quot;{1}&quot;." data-seqnotes-item-invalid="item.{0}=&quot;{1}&quot; of the wireframe is not a valid CSS selector."`,
+    );
+  });
+
+  it('takes no part from the selectors without the file, and reports the options of the parts that cannot be read', () => {
+    const src = doc('<!-- wireframe: link-headings item.1="#email" item.x=b item.2 -->', '![A](a.html)', '', '## 1. Email');
+    const { diagrams, warnings } = linkDiagrams(md.parse(src, {}));
+    expect(diagrams[0].messages).toEqual([]);
+    expect(warnings.map((w) => [w.line, w.message])).toEqual([
+      [0, 'Write the selector of a part of the wireframe: \'item.<number>="<selector>"\'.'],
+      [0, 'Write the selector of a part of the wireframe: \'item.<number>="<selector>"\'.'],
+    ]);
+    expect(renderDocument(md, src)).not.toContain('data-seqnotes-items');
   });
 
   it('reports the unlinked parts, headings and rows', () => {

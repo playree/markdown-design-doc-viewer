@@ -580,14 +580,25 @@ function openLink(href: string): void {
  * Renders the HTML of an exported file (`renderDocument` with `forExport`, or `renderDiff` with `diff`) with the light theme,
  * and returns the body without the data only the preview script uses, and the errors of the diagrams.
  */
-async function exportBody(id: number, html: string, look: DiagramLook, diff: DiffView | undefined): Promise<{ body: string; diagramErrors: string[] }> {
+async function exportBody(
+  id: number,
+  html: string,
+  look: DiagramLook,
+  diff: DiffView | undefined,
+): Promise<{ body: string; diagramErrors: string[]; warnings: { line?: number; message: string }[] }> {
   const { content } = await buildContent(html, `seqnotes-export-${id}`, false, look, diff);
   content.querySelectorAll('.seqnotes-pair').forEach(wrapSections);
-  for (const attr of ['data-seqnotes-meta', 'data-seqnotes-line', 'data-seqnotes-diff-old']) {
+  // The selectors of the parts of the wireframes that match nothing: reported, not exported, like the other warnings.
+  const warnings = Array.from(content.querySelectorAll<HTMLElement>('.seqnotes-wireframe-note'), (note) => {
+    const line = note.parentElement?.dataset.seqnotesItemLine;
+    note.remove();
+    return { ...(line === undefined ? {} : { line: Number(line) }), message: note.textContent ?? '' };
+  });
+  for (const attr of ['data-seqnotes-meta', 'data-seqnotes-line', 'data-seqnotes-diff-old', 'data-seqnotes-item-line']) {
     content.querySelectorAll(`[${attr}]`).forEach((el) => el.removeAttribute(attr));
   }
   const diagramErrors = Array.from(content.querySelectorAll('.seqnotes-error-message'), (el) => el.textContent ?? '');
-  return { body: content.innerHTML, diagramErrors };
+  return { body: content.innerHTML, diagramErrors, warnings };
 }
 
 // ---------------------------------------------------------------------------
@@ -784,7 +795,7 @@ function setZoomWireframe(frame: HTMLElement): void {
   const meta = metaOf(block);
   // Kept on updates that do not change it, with what was typed into it and selected: only the links of its parts count,
   // not their lines, which change with an edit above it.
-  const key = JSON.stringify([html, width, meta?.messages.map((m) => [m.nodeId, m.target, m.unlinked])]);
+  const key = JSON.stringify([html, width, block.dataset.seqnotesItems, meta?.messages.map((m) => [m.nodeId, m.target, m.unlinked])]);
   const shown = zoomStage.firstElementChild;
   if (shown instanceof HTMLElement && shown.dataset.seqnotesZoomKey === key) {
     return;
@@ -1203,7 +1214,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       break;
     case 'export':
       exportBody(message.id, message.html, message.diagramLook, message.diff).then(
-        ({ body, diagramErrors }) => vscode.postMessage({ type: 'exported', id: message.id, body, diagramErrors }),
+        ({ body, diagramErrors, warnings }) => vscode.postMessage({ type: 'exported', id: message.id, body, diagramErrors, warnings }),
         (error: unknown) => vscode.postMessage({ type: 'exported', id: message.id, error: error instanceof Error ? error.message : String(error) }),
       );
       break;

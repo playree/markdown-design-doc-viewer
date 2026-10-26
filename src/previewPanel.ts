@@ -63,7 +63,8 @@ export function webviewShell(webview: vscode.Webview, extensionUri: vscode.Uri, 
     // mermaid writes inline <style> elements and style attributes into its SVGs
     `style-src ${webview.cspSource} 'unsafe-inline'`,
     `img-src ${webview.cspSource} https: data:`,
-    `font-src ${webview.cspSource}`,
+    // The fonts of the wireframes captured by `md-design-doc capture` are embedded in their styles
+    `font-src ${webview.cspSource} data:`,
   ].join('; ');
   const titles = Object.entries(WEBVIEW_TITLES)
     .map(([name, title]) => ` data-seqnotes-${name}="${escapeHtml(vscode.l10n.t(title))}"`)

@@ -1,13 +1,15 @@
 /**
  * Command line of the HTML export (`md-design-doc export`), for CI and batch conversions: the same HTML file as
  * the "Export Design Doc as HTML" command, with the diagrams rendered by the preview webview in headless Chrome.
+ * Also captures a screen of a web app as a wireframe (`md-design-doc capture`, capture.ts).
  *
  * Built to dist/cli.js, next to the webview files it loads (webview.js, webview.css, export.js, export.css).
  */
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { collectDocuments, indexPath, isInFolder, outputPath, parseCommandLine, UsageError, USAGE, type ExportOptions } from './cliOptions';
+import { capture } from './capture';
+import { collectDocuments, indexPath, isInFolder, outputPath, parseCommandLine, UsageError, USAGE, type CaptureOptions, type ExportOptions } from './cliOptions';
 import { documentInfo, indexBody, type IndexEntry } from './exportIndex';
 import { exportDiff, exportPage, imagePath, imageType, renderDiffForExport, renderForExport, stripSourceMap } from './exportPage';
 import { GitError, gitFilesAt, gitRevision, gitShowAt } from './gitCli';
@@ -208,7 +210,11 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
         const image = async (src: string): Promise<string> => resolveImage(src, document, target, options.root);
         const diff = options.diffBase === undefined ? undefined : await renderWithDiff(options.diffBase, document, source, env, image);
         const html = diff ? diff.html : await renderForExport(md, source, env, image);
-        const { body, diagramErrors } = await renderer.render(html, options.diagramLook, diff?.view);
+        const { body, diagramErrors, warnings } = await renderer.render(html, options.diagramLook, diff?.view);
+        for (const warning of warnings) {
+          report('warning', document, warning.message, warning.line === undefined ? undefined : warning.line + 1);
+          ok &&= !options.strict;
+        }
         for (const error of diagramErrors) {
           report('error', document, error);
           ok = false;
@@ -247,6 +253,15 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
   return ok;
 }
 
+/** Captures the screen of `options.url` as a wireframe. */
+async function captureScreen(options: CaptureOptions): Promise<number> {
+  for (const warning of await capture(options)) {
+    console.error(`warning: ${warning}`);
+  }
+  console.log(`-> ${display(options.out)}`);
+  return 0;
+}
+
 async function main(args: string[]): Promise<number> {
   try {
     const command = parseCommandLine(args, process.cwd());
@@ -259,6 +274,8 @@ async function main(args: string[]): Promise<number> {
         return 0;
       case 'export':
         return (await exportDocuments(command)) ? 0 : 1;
+      case 'capture':
+        return await captureScreen(command);
     }
   } catch (error) {
     if (error instanceof UsageError) {

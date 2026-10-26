@@ -42,6 +42,30 @@ Shown above the form when the sign-in API returns 401. The password box is clear
 
 <!-- link-headings:end -->
 
+## Password reset screen
+
+The HTML of this screen has no `data-item`, as that of a screen captured from the running app with `md-design-doc capture`: its parts are numbered by CSS selectors in the options of the wireframe.
+
+<!-- wireframe: link-headings width=375
+  item.1="input[name='email']"
+  item.2="#reset-form button"
+  item.3="#back-to-sign-in"
+-->
+[Password reset screen](screens/password-reset.html)
+
+<!-- table: item=No merge=Item,Name -->
+| No | Item | Name | Type | Required | Notes |
+|---|---|---|---|---|---|
+| 1 | Email address | `email` | Text box | ✓ | The address of the account. |
+| 2 | Send the link | `send` | Button | | |
+| 3 | Back to sign in | `back` | Link | | Opens the sign-in screen. |
+
+### 2. Send the link
+
+Sends a link to reset the password to the address, if an account has it. The screen tells the same either way, so that it does not tell which addresses have an account.
+
+<!-- link-headings:end -->
+
 ## Notes
 
 - The wireframe is only a layout: the colors and fonts of the real screen follow the design system.
