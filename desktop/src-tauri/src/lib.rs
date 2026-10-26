@@ -44,6 +44,9 @@ const MAX_ENTRIES: usize = 20_000;
 /// The images the webview may load from the disk (`allow_images`).
 const IMAGE_EXTENSIONS: &[&str] = &["apng", "avif", "bmp", "gif", "ico", "jpeg", "jpg", "png", "svg", "webp"];
 
+/// The files of the wireframes of a document (`read_wireframe`): their HTML and their style sheets.
+const WIREFRAME_EXTENSIONS: &[&str] = &["html", "htm", "css"];
+
 /// The files a link opens with their default app. The others are shown in their folder instead, so that a link
 /// in a document cannot run a program.
 const OPENED_EXTENSIONS: &[&str] = &[
@@ -720,6 +723,24 @@ async fn read_image(window: Window, windows: State<'_, Windows>, path: String) -
     std::fs::read(&path).map(Response::new).map_err(|e| e.to_string())
 }
 
+/// Reads a file of a wireframe of the window's document (its HTML, or a style sheet of it) as text. Only such a file in
+/// the folder of the document (or below it), also when its symbolic links are followed, as `read_image`.
+#[tauri::command]
+async fn read_wireframe(window: Window, windows: State<'_, Windows>, path: String) -> Result<String, String> {
+    let document = shown_document(&window, &windows);
+    let folder = document.as_deref().map(Path::new).and_then(Path::parent).ok_or("The window shows no document.")?;
+    let path = dunce::canonicalize(&path).map_err(|e| e.to_string())?;
+    if !path.is_file() || !has_extension(&path, WIREFRAME_EXTENSIONS) || !path.starts_with(folder) {
+        return Err("Not a file of a wireframe in the folder of the document.".to_string());
+    }
+    let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+    let mut text = String::from_utf8(bytes).map_err(|_| "The file is not UTF-8 text.".to_string())?;
+    if text.starts_with('\u{feff}') {
+        text.remove(0);
+    }
+    Ok(text)
+}
+
 /// The file the window shows.
 fn shown_document(window: &Window, windows: &Windows) -> Option<String> {
     windows.0.lock().unwrap_or_else(PoisonError::into_inner).shown.get(window.label()).cloned()
@@ -1162,6 +1183,7 @@ pub fn run() {
             write_export,
             open_export,
             read_image,
+            read_wireframe,
             git_log,
             git_show,
             git_branches,

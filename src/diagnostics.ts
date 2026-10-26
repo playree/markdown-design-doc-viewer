@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { onWireframeFileChanged, readWireframes } from './documentFiles';
 import { collectIssues } from './issues';
 import { createMarkdown } from './render';
 
@@ -26,17 +27,29 @@ export class DiagnosticsManager implements vscode.Disposable {
   private readonly collection = vscode.languages.createDiagnosticCollection('mdDesignDoc');
   private readonly md = createMarkdown();
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
+  /** The last update of each document, so that an earlier one that ends later does not replace it. */
+  private readonly updates = new Map<string, number>();
+  /** The URIs of the files of the wireframes of each document. */
+  private readonly dependencies = new Map<string, Set<string>>();
   private readonly disposables: vscode.Disposable[] = [];
 
   constructor() {
     this.disposables.push(
-      vscode.workspace.onDidOpenTextDocument((document) => this.update(document)),
+      vscode.workspace.onDidOpenTextDocument((document) => void this.update(document)),
       vscode.workspace.onDidChangeTextDocument((e) => {
         if (e.contentChanges.length > 0) {
           this.schedule(e.document);
         }
       }),
       vscode.workspace.onDidCloseTextDocument((document) => this.clear(document.uri)),
+      onWireframeFileChanged((uri) => {
+        for (const [key, files] of this.dependencies) {
+          const document = files.has(uri) ? vscode.workspace.textDocuments.find((d) => d.uri.toString() === key) : undefined;
+          if (document) {
+            this.schedule(document);
+          }
+        }
+      }),
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration('mdDesignDoc.diagnostics')) {
           this.updateAll();
@@ -55,7 +68,7 @@ export class DiagnosticsManager implements vscode.Disposable {
 
   private updateAll(): void {
     this.collection.clear();
-    vscode.workspace.textDocuments.forEach((document) => this.update(document));
+    vscode.workspace.textDocuments.forEach((document) => void this.update(document));
   }
 
   private schedule(document: vscode.TextDocument): void {
@@ -64,18 +77,29 @@ export class DiagnosticsManager implements vscode.Disposable {
     }
     const key = document.uri.toString();
     clearTimeout(this.timers.get(key));
-    this.timers.set(key, setTimeout(() => this.update(document), UPDATE_DELAY_MS));
+    this.timers.set(key, setTimeout(() => void this.update(document), UPDATE_DELAY_MS));
   }
 
-  private update(document: vscode.TextDocument): void {
+  private async update(document: vscode.TextDocument): Promise<void> {
     const key = document.uri.toString();
     clearTimeout(this.timers.get(key));
     this.timers.delete(key);
+    const seq = (this.updates.get(key) ?? 0) + 1;
+    this.updates.set(key, seq);
     if (document.isClosed || !isTarget(document) || !enabled(document)) {
       this.collection.delete(document.uri);
+      this.dependencies.delete(key);
       return;
     }
-    const diagnostics = collectIssues(this.md, document.getText(), vscode.l10n.t).map((issue) => {
+    const { version } = document;
+    const source = document.getText();
+    const wireframes = await readWireframes(this.md, document.uri, source);
+    // Changed meanwhile: updated again after it.
+    if (this.updates.get(key) !== seq || document.isClosed || document.version !== version) {
+      return;
+    }
+    this.dependencies.set(key, wireframes.dependencies);
+    const diagnostics = collectIssues(this.md, source, vscode.l10n.t, wireframes.files).map((issue) => {
       const line = Math.min(issue.line, document.lineCount - 1);
       const diagnostic = new vscode.Diagnostic(
         document.lineAt(line).range,
@@ -92,6 +116,8 @@ export class DiagnosticsManager implements vscode.Disposable {
     const key = uri.toString();
     clearTimeout(this.timers.get(key));
     this.timers.delete(key);
+    this.updates.delete(key);
+    this.dependencies.delete(key);
     this.collection.delete(uri);
   }
 }

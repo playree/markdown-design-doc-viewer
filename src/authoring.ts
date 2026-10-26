@@ -1,7 +1,7 @@
 import type { MarkdownIt } from 'markdown-it';
 import { diagramWording } from './diagramWording';
 import { formatMessage, type Translate } from './l10n';
-import { diagramKind, linkDiagrams, type DiagramInfo, type DiagramKind, type LinkedMessage, type OverviewHeading } from './linker';
+import { diagramKind, linkDiagrams, type DiagramInfo, type LinkedMessage, type MermaidKind, type OverviewHeading } from './linker';
 import { normalizeLabel } from './sequence';
 
 /** A 0-based position in the Markdown document. */
@@ -30,7 +30,7 @@ export interface RefCandidate {
 
 export interface RefCandidates {
   /** Kind of the diagram the `@ref` is in. */
-  kind: DiagramKind;
+  kind: MermaidKind;
   candidates: RefCandidate[];
 }
 
@@ -47,7 +47,7 @@ function inFence(lines: string[], map: [number, number] | null, line: number): b
  * The kind of the diagram `line` is inside, when it is one whose items can be linked,
  * where `%% @link-headings` and `%% @ref` can be written.
  */
-export function linkableDiagramAt(md: MarkdownIt, source: string, line: number): DiagramKind | undefined {
+export function linkableDiagramAt(md: MarkdownIt, source: string, line: number): MermaidKind | undefined {
   const lines = source.split(/\r?\n/);
   const fence = md.parse(source, {}).find((t) => diagramKind(t) !== undefined && inFence(lines, t.map, line));
   return fence && diagramKind(fence);
@@ -60,7 +60,7 @@ export function linkableDiagramAt(md: MarkdownIt, source: string, line: number):
 export function refCandidates(md: MarkdownIt, source: string, line: number): RefCandidates | undefined {
   const lines = source.split(/\r?\n/);
   const tokens = md.parse(source, {});
-  const diagram = linkDiagrams(tokens).diagrams.find((d) => d.paired && inFence(lines, tokens[d.fenceIndex].map, line));
+  const diagram = mermaidDiagrams(tokens).find((d) => d.paired && inFence(lines, tokens[d.fenceIndex].map, line));
   if (!diagram) {
     return undefined;
   }
@@ -68,6 +68,14 @@ export function refCandidates(md: MarkdownIt, source: string, line: number): Ref
   // A heading with the text of an earlier one cannot be written as a `@ref`.
   const candidates = diagram.headings.filter((h) => h.text !== '' && h.refTarget).map((h) => ({ text: h.text, linked: targets.has(h.id) }));
   return { kind: diagram.kind, candidates: [...candidates.filter((c) => !c.linked), ...candidates.filter((c) => c.linked)] };
+}
+
+/**
+ * The mermaid diagrams of a document (`linkDiagrams`), whose `%% @ref`s are written in it. Those of the wireframes are in
+ * their files.
+ */
+function mermaidDiagrams(tokens: ReturnType<MarkdownIt['parse']>, t?: Translate): (DiagramInfo & { kind: MermaidKind })[] {
+  return linkDiagrams(tokens, t).diagrams.filter((d): d is DiagramInfo & { kind: MermaidKind } => d.kind !== 'wireframe');
 }
 
 const indentOf = (line: string): string => /^\s*/.exec(line)![0];
@@ -158,14 +166,14 @@ export function quickFixes(md: MarkdownIt, source: string, line: number, t: Tran
 export function quickFixesByLine(md: MarkdownIt, source: string, lines: number[], t: Translate = formatMessage): Map<number, QuickFix[]> {
   const sourceLines = source.split(/\r?\n/);
   const tokens = md.parse(source, {});
-  const diagrams = linkDiagrams(tokens, t).diagrams.filter((d) => d.paired);
+  const diagrams = mermaidDiagrams(tokens, t).filter((d) => d.paired);
   return new Map(lines.map((line) => [line, fixesAt(sourceLines, tokens, diagrams, line, t)]));
 }
 
 /** false for a node whose `%% @ref`, written above its line, would go to another node of the line. */
 const canWriteRef = (message: LinkedMessage): boolean => message.refLine !== undefined || message.refable !== false;
 
-function fixesAt(lines: string[], tokens: ReturnType<MarkdownIt['parse']>, diagrams: DiagramInfo[], line: number, t: Translate): QuickFix[] {
+function fixesAt(lines: string[], tokens: ReturnType<MarkdownIt['parse']>, diagrams: (DiagramInfo & { kind: MermaidKind })[], line: number, t: Translate): QuickFix[] {
   const fixes: QuickFix[] = [];
   for (const diagram of diagrams) {
     // Arrows / nodes without a heading, or the `@ref` of one. A line may define several nodes.

@@ -2,7 +2,7 @@
 
 English | [日本語](ai-authoring-guide.ja.md)
 
-Follow these rules when you write a design document in Markdown. The document is previewed with the VS Code extension "Markdown Design Doc Viewer". The preview shows a mermaid sequence diagram (or flowchart, ER diagram or state diagram) on the left and the step descriptions after it on the right. Each arrow of the diagram (each node of a flowchart, entity of an ER diagram or state of a state diagram) is linked to the heading with the same text. The goal is that every arrow (node, entity or state) is linked to a heading and every step heading is linked to one of them. Edge, relationship and transition labels are not linked, so do not write headings for them.
+Follow these rules when you write a design document in Markdown. The document is previewed with the VS Code extension "Markdown Design Doc Viewer". The preview shows a mermaid sequence diagram (or flowchart, ER diagram or state diagram) on the left and the step descriptions after it on the right. Each arrow of the diagram (each node of a flowchart, entity of an ER diagram or state of a state diagram) is linked to the heading with the same text. The goal is that every arrow (node, entity or state) is linked to a heading and every step heading is linked to one of them. A screen design can also show a wireframe of the screen (an HTML file) beside the descriptions of its numbered parts. Edge, relationship and transition labels are not linked, so do not write headings for them.
 
 ## Template
 
@@ -99,6 +99,30 @@ An ER diagram (`erDiagram`) or a state diagram (`stateDiagram-v2`) can be linked
 - To link an entity or a state to a heading with another text, define it on a line of its own (`ORDER {` with its attributes, `S2 : Paid`, `state "Paid" as S2`) with `%% @ref <heading text>` on the line just before it.
 - Leave out `direction LR` / `RL` when the headings should be beside the diagram. Horizontal diagrams are shown above their headings.
 
+## Wireframe
+
+A screen design can show the wireframe of the screen beside the description of its parts. Write the screen as a static HTML file next to the document, and put it into the document like an image.
+
+```markdown
+<!-- wireframe: link-headings width=375 -->
+[Sign-in screen](screens/login.html)
+
+<!-- table: item=No merge=Item,Name -->
+| No | Item | Name | Type | Required | Description |
+|---|---|---|---|---|---|
+| 1 | Member ID | `memberId` | Text box | Yes | |
+| 2 | Password | `password` | Password box | Yes | |
+| 3 | Sign in | `signIn` | Button | | |
+
+### 3. Sign in
+```
+
+- Write the HTML as a mock-up: plain elements (`<input>`, `<button>`, `<a>`, lists, tables) and CSS in a `<style>` element or a local style sheet (`<link rel="stylesheet" href="wireframe.css">`). Scripts are not run and external style sheets are not loaded. Local images are relative to the HTML file.
+- Number every part described in the document with `data-item="<number>"` on its element, from 1 in the reading order of the screen. Give elements that are one part (the options of a radio button, the rows of a list) the same number.
+- Put the wireframe alone in its paragraph: `[text](file.html)`, `![text](file.html)`, or `[![text](file.png)](file.html)` with an image of the screen that GitHub shows instead. Write `<!-- wireframe: link-headings -->` on the line right before it to link its parts. Add `width=<pixels>` for a fixed-width screen (`375` for a phone, `1280` for a PC screen), and `stacked` for a wide screen, whose descriptions are then put below it.
+- Describe the parts after the wireframe in an item table whose `No` column has the numbers, with `item=No` in its table options, and write a heading numbered like a part (`### 3. Sign in`) for a part that needs more than a row (the processing of a button, the rules of an input). A part may have both a row and a heading. To link a part to a heading without its number, write `data-ref="<heading text>"` on its element.
+- Every part needs a row or a heading, and every row of the item table and every heading at the level of the numbered ones needs a part. End the descriptions with `<!-- link-headings:end -->`.
+
 ## Step descriptions
 
 - Write the descriptions **after** the diagram, as headings in the order of the arrows, one heading per arrow.
@@ -147,6 +171,7 @@ For tables of the items of a message, a file or a screen (item name, physical na
 - `merge=A,B` shows column B under column A, in one cell. Use it for the item name and the physical name. More columns can follow (`merge=A,B,C`), `merge=` can be written more than once (`merge="Min length","Max length"`), and an empty cell adds no line.
 - `level=L` takes the integers of column L (1 for the top) as the depth of each row, hides the column and shows the rows as a tree in the column right of it. For nested items (XML elements, JSON objects), add a level column right before the item name instead of describing the parent in the text. With `merge=`, the tree is drawn in the merged cell.
 - Write the level of every row as an integer, and make a child one level deeper than its parent. A row more than one level deeper than the row above is also taken as its child, but do not skip levels.
+- `item=N` links the rows to the parts of the wireframe before the table with the numbers of column N (see Wireframe).
 - Name the columns with the text of their header. Quote a name with spaces or commas (`"Physical name"`).
 - Options that cannot be applied (a column that does not exist, a level that is not an integer, a comment not followed by a table) are reported as warnings.
 
@@ -156,4 +181,4 @@ For tables of the items of a message, a file or a screen (item name, physical na
 
 ## Check
 
-When the file is open in VS Code, the extension reports link problems as diagnostics with the source `Markdown Design Doc`: arrows (nodes) without a heading, step headings without an arrow (node), `@ref` targets that do not exist, `%% @link-headings` markers that have no effect, and table options that cannot be applied. After writing or editing the document, read the diagnostics of the file and fix the document until none of them remain.
+When the file is open in VS Code, the extension reports link problems as diagnostics with the source `Markdown Design Doc`: arrows (nodes) without a heading, step headings without an arrow (node), `@ref` targets that do not exist, `%% @link-headings` markers that have no effect, table options that cannot be applied, and the parts of a wireframe without a row or heading (and rows and headings without a part). After writing or editing the document, read the diagnostics of the file and fix the document until none of them remain.

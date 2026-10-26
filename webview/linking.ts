@@ -16,7 +16,7 @@ const isWide = (): boolean => document.body.classList.contains('seqnotes-wide');
 /** true when `el` is in a pair laid out side by side now (a stacked pair never is). */
 export const isSideBySide = (el: Element): boolean => isWide() && !el.closest('.seqnotes-pair-stacked');
 
-/** Highlights the arrows and the section of `active`, and clears the previous highlight in `root`. */
+/** Highlights the arrows and the section (and rows) of `active`, and clears the previous highlight in `root`. */
 export function showActive(root: Element, active: Active | undefined): void {
   root.querySelectorAll(`.${ACTIVE}`).forEach((el) => el.classList.remove(ACTIVE));
   if (!active) {
@@ -26,7 +26,7 @@ export function showActive(root: Element, active: Active | undefined): void {
   active.pair.querySelectorAll(`[data-seqnotes-target="${target}"], [data-seqnotes-section="${target}"]`).forEach((el) => el.classList.add(ACTIVE));
 }
 
-/** The message or linked heading under an event target. */
+/** The message or linked heading (or row of an item table) under an event target. */
 export function activeFor(el: Element | null): (Active & { kind: 'message' | 'heading' }) | undefined {
   const pair = el?.closest('.seqnotes-pair');
   if (!el || !pair) {
@@ -35,6 +35,11 @@ export function activeFor(el: Element | null): (Active & { kind: 'message' | 'he
   const message = el.closest('[data-seqnotes-target]');
   if (message) {
     return { pair, target: message.getAttribute('data-seqnotes-target')!, kind: 'message' };
+  }
+  // A row linked to a part of a wireframe, which it shares with the heading linked to the part, if any.
+  const row = el.closest('tr[data-seqnotes-section]');
+  if (row) {
+    return { pair, target: row.getAttribute('data-seqnotes-section')!, kind: 'heading' };
   }
   // Only the heading that owns the section; unlinked sub-headings inside it do not count.
   const heading = el.closest(':is(h1, h2, h3, h4, h5, h6)[id]');

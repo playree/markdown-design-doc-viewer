@@ -48,7 +48,7 @@ When the app is running, a file opened from the file manager or the command line
 
 **File** > **Open Recent** and the screen shown when no file is open list the files opened recently, up to 10, the last one first (the same in all the windows, and kept for the next launch). They are the files opened with the dialog, by dropping them, from the file manager or the command line, or from this list; not those opened from the sidebar or a link. A file that is no longer found (deleted or moved) is removed from the list when it is chosen, which tells that it could not be opened. **File** > **Open Recent** > **Clear Recently Opened**, or **Clear** on the screen, empties the list.
 
-When the file is saved, the preview is updated, keeping its scroll position. **File** > **Reload** (Ctrl+R, ⌘R) reads it again.
+When the file is saved, the preview is updated, keeping its scroll position. **File** > **Reload** (Ctrl+R, ⌘R) reads it again. The files of a [wireframe](../README.md#wireframes) (its HTML and style sheets) are read from the folder of the document: after changing them, **File** > **Reload** shows them.
 
 **View** > **Sidebar** (Ctrl+B, ⌘B) shows or hides a sidebar. Its **Files** tab lists the Markdown files of a folder and of its subfolders as a tree, and its **History** tab the Git history of the document.
 

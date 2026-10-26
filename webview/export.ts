@@ -8,6 +8,7 @@ import { setUpIndexList } from './indexList';
 import { activeFor, revealCounterpart, scrollToFragment, showActive, type Active } from './linking';
 import { setupTableTree } from './tableTree';
 import { setupToc } from './toc';
+import { layoutWireframes, remountWireframes } from './wireframe';
 
 const root = document.getElementById('seqnotes-root')!;
 const width = Number(document.body.dataset.seqnotesSplitMinWidth);
@@ -26,11 +27,15 @@ window.addEventListener('resize', applyLayout);
 window.addEventListener('beforeprint', () => {
   printing = true;
   applyLayout();
+  // At once, so that the parts are boxed where they are printed.
+  layoutWireframes(root);
 });
 window.addEventListener('afterprint', () => {
   printing = false;
   applyLayout();
 });
+
+remountWireframes(root);
 
 // Other links are left to the browser, as in the document.
 setupFootnotePopup(root, (href) => {

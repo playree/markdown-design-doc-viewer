@@ -10,6 +10,7 @@ import { setUpIndexList } from './indexList';
 import { activeFor, isSideBySide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, type Active } from './linking';
 import { foldedRows, isFoldedAway, plainTables, restoreFolded, restorePlain, setupTableTree } from './tableTree';
 import { setupToc } from './toc';
+import { layoutWireframe, layoutWireframes, mountWireframe } from './wireframe';
 
 interface VsCodeApi {
   postMessage(message: FromWebview): void;
@@ -128,7 +129,7 @@ let renderedDark = isDarkTheme();
 /** SVGs of the previous render keyed by theme + source, so unchanged diagrams are not re-rendered on every edit. */
 let svgCache = new Map<string, string>();
 
-/** mermaid source of each rendered diagram, so that the zoom overlay can follow its diagram across updates. */
+/** mermaid source of each rendered diagram (or HTML of a wireframe), so that the zoom overlay can follow its diagram across updates. */
 const diagramSources = new WeakMap<Element, string>();
 
 /** mermaid is configured globally, so renders run one at a time. */
@@ -163,8 +164,7 @@ async function renderDiagrams(container: HTMLElement, idPrefix: string, dark: bo
   const blocks = Array.from(container.querySelectorAll<HTMLElement>('.seqnotes-mermaid'));
   for (const [i, block] of blocks.entries()) {
     const pre = block.querySelector('.seqnotes-mermaid-src');
-    const metaJson = block.getAttribute('data-seqnotes-meta');
-    const meta = metaJson ? (JSON.parse(metaJson) as DiagramMeta) : undefined;
+    const meta = metaOf(block);
     const id = `${idPrefix}-${i}`;
     const source = pre?.textContent ?? '';
     const key = `${dark}\n${look}\n${source}`;
@@ -201,6 +201,26 @@ async function renderDiagrams(container: HTMLElement, idPrefix: string, dark: bo
 /** Raw HTML in Markdown is allowed, so sanitize like the built-in preview does. */
 const sanitize = (html: string): DocumentFragment => DOMPurify.sanitize(html, { RETURN_DOM_FRAGMENT: true });
 
+/** The data of a diagram's block for the webview, if any. */
+function metaOf(block: Element): DiagramMeta | undefined {
+  const json = block.getAttribute('data-seqnotes-meta');
+  return json ? (JSON.parse(json) as DiagramMeta) : undefined;
+}
+
+/** Shows the wireframes of `container` with their HTML sanitized like the document's (webview/wireframe.ts). */
+function renderWireframes(container: HTMLElement): void {
+  for (const block of Array.from(container.querySelectorAll<HTMLElement>('.seqnotes-wireframe'))) {
+    const pre = block.querySelector(':scope > .seqnotes-wireframe-src');
+    if (!pre) {
+      continue;
+    }
+    // Kept sanitized for an exported page, which shows it from there (`remountWireframes`).
+    const html = DOMPurify.sanitize(pre.textContent ?? '', { WHOLE_DOCUMENT: true });
+    pre.textContent = html;
+    diagramSources.set(mountWireframe(block, html, metaOf(block)), html);
+  }
+}
+
 /** Sanitizes the HTML from the extension host and renders its diagrams into a new element. */
 async function buildContent(html: string, idPrefix: string, dark: boolean, look: DiagramLook, diff?: DiffView): Promise<{ content: HTMLElement; cache: Map<string, string> }> {
   const content = document.createElement('div');
@@ -208,6 +228,7 @@ async function buildContent(html: string, idPrefix: string, dark: boolean, look:
   if (diff) {
     markChanges(content, diff, sanitize);
   }
+  renderWireframes(content);
   const cache = await queueRender(() => renderDiagrams(content, idPrefix, dark, look));
   return { content, cache };
 }
@@ -270,7 +291,7 @@ function annotateMessages(svg: SVGSVGElement, meta: DiagramMeta): void {
 }
 
 /** The node elements of each kind of diagram, and the node id in their element ids (without the svg id). */
-const NODE_ELEMENTS: Record<Exclude<DiagramMeta['kind'], 'sequence'>, { selector: string; id: RegExp }> = {
+const NODE_ELEMENTS: Record<Exclude<DiagramMeta['kind'], 'sequence' | 'wireframe'>, { selector: string; id: RegExp }> = {
   flowchart: { selector: 'g.node', id: /^flowchart-(.+)-\d+$/ },
   er: { selector: 'g.node', id: /^entity-(.+)-\d+$/ },
   // A composite state is a cluster, not a node.
@@ -454,6 +475,7 @@ async function update(html: string, diff: DiffView | undefined): Promise<void> {
   });
   setUpWarnings();
   diffBar.show(diff);
+  layoutWireframes(root);
   addZoomButtons();
   markZoomableImages();
   if (zoom) {
@@ -632,9 +654,9 @@ zoomOverlay.append(zoomStage, zoomToolbar);
 // Outside the root, so the arrow / heading handlers on it do not see the events.
 document.body.append(zoomOverlay);
 
-/** The diagram holders or the images that open in the zoom overlay, in document order. */
+/** The diagram holders (and the frames of the wireframes) or the images that open in the zoom overlay, in document order. */
 function zoomTargets(kind: ZoomKind): Element[] {
-  return Array.from(root.querySelectorAll(kind === 'diagram' ? '.seqnotes-diagram' : 'img.seqnotes-zoomable'));
+  return Array.from(root.querySelectorAll(kind === 'diagram' ? '.seqnotes-diagram, .seqnotes-wireframe-frame' : 'img.seqnotes-zoomable'));
 }
 
 /** What tells a diagram or image apart from the others across updates. */
@@ -723,6 +745,10 @@ function setZoomContent(): boolean {
     setZoomImage(target);
     return true;
   }
+  if (target?.matches('.seqnotes-wireframe-frame')) {
+    setZoomWireframe(target as HTMLElement);
+    return true;
+  }
   const svg = target?.querySelector<SVGSVGElement>(':scope > svg');
   if (!svg) {
     closeZoom();
@@ -740,6 +766,25 @@ function setZoomContent(): boolean {
   zoomStage.replaceChildren(copy);
   applyZoom();
   return true;
+}
+
+/** Puts a copy of a wireframe into the overlay, at the width it is laid out at (that of its options, or of its column). */
+function setZoomWireframe(frame: HTMLElement): void {
+  const block = frame.parentElement!;
+  const copy = block.cloneNode(false) as HTMLElement;
+  // Not a line of the document, nor laid out at another width.
+  copy.removeAttribute('data-line');
+  copy.style.margin = '0';
+  copy.style.padding = '0';
+  copy.style.width = `${Number(block.dataset.seqnotesWidth) || frame.offsetWidth}px`;
+  zoomStage.replaceChildren(copy);
+  mountWireframe(copy, diagramSources.get(frame) ?? '', metaOf(block));
+  layoutWireframe(copy);
+  if (zoom) {
+    zoom.width = copy.offsetWidth;
+    zoom.height = copy.offsetHeight;
+  }
+  applyZoom();
 }
 
 function setZoomImage(image: HTMLImageElement): void {

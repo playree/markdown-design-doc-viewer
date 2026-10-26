@@ -4,16 +4,19 @@
  * - `merge=A,B…` shows the cells of columns B… under those of column A, in one column.
  * - `level=L` takes the integers of column L as the depth of each row, hides that column and shows the rows as a tree
  *   in the column right of it: indented with lines, the rows with children emphasized and foldable.
+ * - `item=N` takes the texts of column N as the numbers of the parts of a wireframe (src/wireframe.ts) the rows are linked to.
  * The columns are hidden (`seqnotes-cell-hidden`), not removed, so that a button in the header shows the table as it is
  * (`seqnotes-table-plain`, in webview/tableTree.ts and preview.css).
  */
 import type { MarkdownIt, StateCore, Token } from 'markdown-it';
 import { formatMessage, type Translate } from './l10n';
-import type { LinkWarning } from './linker';
+import type { ItemRow, LinkWarning } from './linker';
 import type { RenderEnv } from './render';
 import { toAsciiDigits } from './sequence';
 
 const DIRECTIVE_RE = /^<!--\s*table:([^]*?)-->\s*$/;
+/** In the `meta` of the `table_open` of a table with `item=`: the index of the column of the part numbers. */
+const ITEM_COLUMN = 'seqNotesItemColumn';
 
 export interface TableOption {
   key: string;
@@ -153,6 +156,24 @@ const textOf = (inline: Token): string =>
     .join('')
     .trim();
 
+/** The body rows of the tables with `item=` among `tokens[start, end)`. */
+export function itemRows(tokens: Token[], start: number, end: number): ItemRow[] {
+  const rows: ItemRow[] = [];
+  for (let i = start; i < end; i++) {
+    const column = (tokens[i].meta as Record<string, number> | null)?.[ITEM_COLUMN];
+    if (tokens[i].type !== 'table_open' || column === undefined) {
+      continue;
+    }
+    for (const row of rowsOf(tokens, i).filter((r) => !r.head)) {
+      const cell = row.cells[column];
+      if (cell) {
+        rows.push({ index: row.open, cell: cell.open, line: tokens[row.open].map?.[0] ?? 0, item: textOf(cell.inline) });
+      }
+    }
+  }
+  return rows;
+}
+
 /** Applies the options of a table, and returns its warnings. */
 function formatTable(state: StateCore, start: number, options: TableOption[], line: number, t: Translate): LinkWarning[] {
   const tokens = state.tokens;
@@ -184,9 +205,22 @@ function formatTable(state: StateCore, start: number, options: TableOption[], li
 
   let level: number | undefined;
   let levelGiven = false;
+  let itemGiven = false;
   const merges: number[][] = [];
   for (const option of options) {
-    if (option.key === 'level') {
+    if (option.key === 'item') {
+      if (itemGiven) {
+        warn(t('Write "item=" only once in the table options.'));
+      } else if (option.values.length !== 1) {
+        warn(t('Write one column for the part numbers: "item=<column>".'));
+      } else {
+        const item = column(option.values[0]);
+        if (item !== undefined) {
+          tokens[start].meta = { ...tokens[start].meta, [ITEM_COLUMN]: item };
+        }
+      }
+      itemGiven = true;
+    } else if (option.key === 'level') {
       if (levelGiven) {
         warn(t('Write "level=" only once in the table options.'));
       } else if (option.values.length !== 1) {
@@ -203,7 +237,7 @@ function formatTable(state: StateCore, start: number, options: TableOption[], li
     } else if (option.key === 'merge') {
       warn(t('Write two or more columns to merge: "merge=<column>,<column>".'));
     } else {
-      warn(t('Unknown table option "{0}". Write "level=<column>" or "merge=<column>,<column>".', option.key));
+      warn(t('Unknown table option "{0}". Write "level=<column>", "merge=<column>,<column>" or "item=<column>".', option.key));
     }
   }
 

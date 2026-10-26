@@ -1,9 +1,10 @@
 import type { MarkdownIt } from 'markdown-it';
-import { diagramWording } from './diagramWording';
+import { diagramWording, rowWording } from './diagramWording';
 import { formatMessage, type Translate } from './l10n';
 import { headingText, linkDiagrams } from './linker';
 import { normalizeLabel } from './sequence';
 import { tableWarnings } from './tables';
+import type { WireframeFiles } from './wireframe';
 
 export interface Issue {
   /** 0-based line in the Markdown document. */
@@ -14,10 +15,11 @@ export interface Issue {
 
 /**
  * Problems of the arrow / node ⇔ heading links and of the table options, for the editor diagnostics: the warnings shown in the preview,
- * and the arrows and headings the preview marks as unlinked. Sorted by line.
+ * and the arrows and headings the preview marks as unlinked. Sorted by line. The parts of the wireframes are only
+ * checked with their `wireframes` read by the host.
  */
-export function collectIssues(md: MarkdownIt, source: string, t: Translate = formatMessage): Issue[] {
-  const tokens = md.parse(source, { t });
+export function collectIssues(md: MarkdownIt, source: string, t: Translate = formatMessage, wireframes?: WireframeFiles): Issue[] {
+  const tokens = md.parse(source, { t, wireframes });
   const { diagrams, warnings } = linkDiagrams(tokens, t);
   const issues: Issue[] = [...warnings, ...tableWarnings(tokens)].map((w) => ({ line: w.line, message: w.message, severity: 'warning' }));
 
@@ -51,6 +53,9 @@ export function collectIssues(md: MarkdownIt, source: string, t: Translate = for
         message: wording.unlinkedHeading(heading),
         severity: 'info',
       });
+    }
+    for (const row of diagram.rows.filter((r) => r.unlinked)) {
+      issues.push({ line: row.line, message: rowWording(t).unlinked(row.item), severity: 'info' });
     }
   }
 

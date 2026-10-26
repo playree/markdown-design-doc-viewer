@@ -1,7 +1,8 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { documentTitle, exportDiff, exportFileName, exportPage, imagePath, imageType, renderDiffForExport, renderForExport, stripSourceMap } from './exportPage';
-import { readSettings, resolveDocumentPath, type Comparison, type PreviewManager, type Settings } from './previewPanel';
+import { embeddableFolders, isIn, readWireframes, resolveDocumentPath } from './documentFiles';
+import { readSettings, type Comparison, type PreviewManager, type Settings } from './previewPanel';
 import { WEBVIEW_TITLES, type DiffView } from './protocol';
 import { createMarkdown } from './render';
 
@@ -11,20 +12,6 @@ function linkFrom(target: vscode.Uri, image: vscode.Uri): string {
     return image.toString();
   }
   return path.posix.relative(path.posix.dirname(target.path), image.path).split('/').map(encodeURIComponent).join('/');
-}
-
-/** true when `uri` is in `folder` (or is it). */
-function isIn(uri: vscode.Uri, folder: vscode.Uri): boolean {
-  const dir = folder.path.endsWith('/') ? folder.path : `${folder.path}/`;
-  return uri.scheme === folder.scheme && uri.authority === folder.authority && (uri.path === folder.path || uri.path.startsWith(dir));
-}
-
-/**
- * The folders whose images are embedded: the same as the preview can show (`localResourceRoots`), so that an
- * export does not put other local files into a file to be shared.
- */
-function embeddableFolders(document: vscode.Uri): vscode.Uri[] {
-  return [vscode.Uri.joinPath(document, '..'), ...(vscode.workspace.workspaceFolders ?? []).map((f) => f.uri)];
 }
 
 /**
@@ -40,7 +27,8 @@ async function renderWithImages(
   comparison: Comparison | undefined,
 ): Promise<{ html: string; diff?: DiffView }> {
   const folders = embeddableFolders(uri);
-  const env = { t: vscode.l10n.t, frontMatter: settings.frontMatter, headingNumbers: settings.headingNumbers };
+  const { files: wireframes } = await readWireframes(md, uri, source);
+  const env = { t: vscode.l10n.t, frontMatter: settings.frontMatter, headingNumbers: settings.headingNumbers, wireframes };
   const resolveImage = async (src: string): Promise<string> => {
     const image = resolveDocumentPath(uri, imagePath(src));
     const type = imageType(image.path);

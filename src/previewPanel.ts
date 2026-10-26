@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { onWireframeFileChanged, readWireframes, resolveDocumentPath } from './documentFiles';
 import { WEBVIEW_TITLES, type DiagramLook, type DiffView, type FromWebview, type PreviewTheme, type ToWebview, type WebviewState } from './protocol';
 import { isExternalUrl, safeDecode, SCHEME_RE } from './exportPage';
 import { renderDiff } from './diffRender';
@@ -45,15 +46,6 @@ export function readSettings(): Settings {
 
 function readTheme(value: string | undefined): PreviewTheme {
   return value === 'light' || value === 'dark' ? value : 'auto';
-}
-
-/** Resolves a link or image path of a Markdown document: relative to it, or to its workspace folder with a leading `/`. */
-export function resolveDocumentPath(document: vscode.Uri, path: string): vscode.Uri {
-  if (path.startsWith('/')) {
-    const folder = vscode.workspace.getWorkspaceFolder(document);
-    return vscode.Uri.joinPath(folder?.uri ?? vscode.Uri.joinPath(document, '..'), path);
-  }
-  return vscode.Uri.joinPath(document, '..', path);
 }
 
 /**
@@ -128,6 +120,7 @@ export class PreviewManager implements vscode.Disposable {
         { webviewOptions: { retainContextWhenHidden: true, enableFindWidget: true }, supportsMultipleEditorsPerDocument: true },
       ),
       vscode.workspace.onDidChangeTextDocument((e) => this.forEach(e.document.uri, (p) => p.scheduleUpdate())),
+      onWireframeFileChanged((uri) => this.previews.forEach((set) => set.forEach((p) => p.dependsOn(uri) && p.scheduleUpdate()))),
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration('mdDesignDoc')) {
           this.settings = readSettings();
@@ -270,6 +263,8 @@ export class Preview {
   private exportId = 0;
   /** The revision whose differences are shown, if any. */
   private compared: Comparison | undefined;
+  /** The URIs of the files of the wireframes shown. */
+  private dependencies = new Set<string>();
   private readonly exports = new Map<number, { resolve: (body: string) => void; reject: (error: Error) => void }>();
 
   constructor(
@@ -320,6 +315,11 @@ export class Preview {
     return this.compared;
   }
 
+  /** true when the preview shows a wireframe whose files include `uri`. */
+  dependsOn(uri: string): boolean {
+    return this.dependencies.has(uri);
+  }
+
   /**
    * Has the webview render `html` (from `renderForExport`, or `renderDiffForExport` with `diff`) for an exported file,
    * and returns the rendered body.
@@ -364,16 +364,19 @@ export class Preview {
   async update(): Promise<void> {
     clearTimeout(this.timer);
     const document = await vscode.workspace.openTextDocument(this.uri);
+    const source = document.getText();
+    const wireframes = await readWireframes(this.md, this.uri, source);
     if (this.disposed) {
       return;
     }
+    this.dependencies = wireframes.dependencies;
     const { frontMatter, headingNumbers, ...settings } = this.host.settings();
-    const env: RenderEnv = { resolveResource: (src) => this.resolveResource(src), t: vscode.l10n.t, frontMatter, headingNumbers };
+    const env: RenderEnv = { resolveResource: (src) => this.resolveResource(src), t: vscode.l10n.t, frontMatter, headingNumbers, wireframes: wireframes.files };
     if (this.compared) {
-      const { html, old, stats } = renderDiff(this.md, this.compared.source, document.getText(), env);
+      const { html, old, stats } = renderDiff(this.md, this.compared.source, source, env);
       this.post({ type: 'update', uri: this.uri.toString(), html, ...settings, diff: { label: this.compared.label, old, stats } });
     } else {
-      this.post({ type: 'update', uri: this.uri.toString(), html: renderDocument(this.md, document.getText(), env), ...settings });
+      this.post({ type: 'update', uri: this.uri.toString(), html: renderDocument(this.md, source, env), ...settings });
     }
   }
 
