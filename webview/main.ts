@@ -543,6 +543,10 @@ function activate(active: Active & { kind: 'message' | 'heading' }): void {
 
 document.addEventListener('keydown', (e) => {
   if (zoom) {
+    // Typed into a form control of a wireframe, except Escape (unless it cancels a conversion).
+    if (e.isComposing || (e.key !== 'Escape' && inFormControl(e))) {
+      return;
+    }
     zoomKey(e);
     return;
   }
@@ -721,6 +725,9 @@ function closeZoom(): void {
   zoom = undefined;
   zoomOverlay.hidden = true;
   zoomStage.replaceChildren();
+  zoomHovered = undefined;
+  holdSpace(false);
+  cancelZoomClick();
   (opener as HTMLElement | null | undefined)?.focus({ preventScroll: true });
 }
 
@@ -772,15 +779,27 @@ function setZoomContent(): boolean {
 /** Puts a copy of a wireframe into the overlay, at the width it is laid out at (that of its options, or of its column). */
 function setZoomWireframe(frame: HTMLElement): void {
   const block = frame.parentElement!;
+  const html = diagramSources.get(frame) ?? '';
+  const width = `${Number(block.dataset.seqnotesWidth) || frame.offsetWidth}px`;
+  const meta = metaOf(block);
+  // Kept on updates that do not change it, with what was typed into it and selected: only the links of its parts count,
+  // not their lines, which change with an edit above it.
+  const key = JSON.stringify([html, width, meta?.messages.map((m) => [m.nodeId, m.target, m.unlinked])]);
+  const shown = zoomStage.firstElementChild;
+  if (shown instanceof HTMLElement && shown.dataset.seqnotesZoomKey === key) {
+    return;
+  }
   const copy = block.cloneNode(false) as HTMLElement;
   // Not a line of the document, nor laid out at another width.
   copy.removeAttribute('data-line');
+  copy.dataset.seqnotesZoomKey = key;
   copy.style.margin = '0';
   copy.style.padding = '0';
-  copy.style.width = `${Number(block.dataset.seqnotesWidth) || frame.offsetWidth}px`;
+  copy.style.width = width;
   zoomStage.replaceChildren(copy);
-  // Only shown: the overlay pans on drag, and its boxes take the clicks.
-  mountWireframe(copy, diagramSources.get(frame) ?? '', metaOf(block), true);
+  zoomHovered = undefined;
+  // Works as in the preview: its text can be selected, its form controls used. The overlay pans on drag around it.
+  mountWireframe(copy, html, meta);
   layoutWireframe(copy);
   if (zoom) {
     zoom.width = copy.offsetWidth;
@@ -889,6 +908,13 @@ function zoomKey(e: KeyboardEvent): void {
     case '0':
       fitZoom();
       break;
+    case ' ':
+      // Not on a button (of the toolbar, or of a wireframe), which Space presses.
+      if ((e.composedPath()[0] as Element | undefined)?.closest?.('button, input')) {
+        return;
+      }
+      holdSpace(true);
+      break;
     default:
       return;
   }
@@ -908,13 +934,32 @@ zoomOverlay.addEventListener(
 /** true while the pointer pans, so that releasing it is not taken as a click. */
 let zoomDragged = false;
 
+/** true when `e` happened on the page of a wireframe, where a drag selects its text instead of panning (unless Space is held). */
+const onWireframePage = (e: Event): boolean => (e.target as Element).closest('.seqnotes-wireframe-screen') !== null;
+
+/** true while Space is held, which pans on drag over the page of a wireframe too, e.g. when it fills the overlay. */
+let zoomSpace = false;
+function holdSpace(held: boolean): void {
+  zoomSpace = held;
+  zoomOverlay.classList.toggle('seqnotes-zoom-space', held);
+}
+document.addEventListener('keyup', (e) => {
+  if (e.key === ' ') {
+    holdSpace(false);
+  }
+});
+window.addEventListener('blur', () => holdSpace(false));
+
 // On the whole overlay, so that the empty space around a small diagram pans it too.
 zoomOverlay.addEventListener('pointerdown', (e) => {
   if (!zoom || e.button !== 0 || zoomToolbar.contains(e.target as Node)) {
     return;
   }
-  const start = { x: e.clientX, y: e.clientY, zoomX: zoom.x, zoomY: zoom.y };
   zoomDragged = false;
+  if (onWireframePage(e) && !zoomSpace) {
+    return;
+  }
+  const start = { x: e.clientX, y: e.clientY, zoomX: zoom.x, zoomY: zoom.y };
   const move = (ev: PointerEvent) => {
     const dx = ev.clientX - start.x;
     const dy = ev.clientY - start.y;
@@ -946,21 +991,72 @@ zoomOverlay.addEventListener('pointerdown', (e) => {
 });
 
 zoomOverlay.addEventListener('dblclick', (e) => {
-  if (!zoomToolbar.contains(e.target as Node)) {
+  // Not on the page of a wireframe, where it selects a word.
+  if (!zoomToolbar.contains(e.target as Node) && !onWireframePage(e)) {
     fitZoom();
   }
 });
 
+/**
+ * The form controls of a wireframe that take an input, which are used instead of following the link of their part. Not
+ * its buttons, which do nothing in a mock-up.
+ */
+const FORM_CONTROLS = 'input:not([type="button"], [type="submit"], [type="reset"], [type="image"]), select, textarea, label, [contenteditable]:not([contenteditable="false"])';
+
+/** true when `e` happened in a form control of a wireframe (in its shadow root, so seen in the composed path). */
+const inFormControl = (e: Event): boolean => {
+  const inner = e.composedPath()[0];
+  return inner instanceof Element && inner.closest(FORM_CONTROLS) !== null;
+};
+
+/** The linked arrow, node or part of a wireframe `e` happened on in the overlay. */
+const zoomLinked = (e: Event): Element | null | undefined => linkTarget(e)?.closest('[data-seqnotes-target]');
+
+/** How long a click on a part of a wireframe waits for a second one, which selects a word instead (ms). */
+const DOUBLE_CLICK_WAIT = 400;
+
+/** The click on a part of a wireframe waiting for a second one. */
+let zoomClickTimer: ReturnType<typeof setTimeout> | undefined;
+
+function cancelZoomClick(): void {
+  clearTimeout(zoomClickTimer);
+  zoomClickTimer = undefined;
+}
+
 // A linked arrow in the overlay: close it and show the step, like a click on the arrow in the preview.
+// Not at the end of a selection of the text of a wireframe, nor on its form controls.
 zoomStage.addEventListener('click', (e) => {
-  const message = (e.target as Element).closest('[data-seqnotes-target]');
+  cancelZoomClick();
+  const message = zoomLinked(e);
   const pair = zoom?.kind === 'diagram' && zoomTargets('diagram')[zoom.index]?.closest('.seqnotes-pair');
-  if (zoomDragged || !message || !pair) {
+  if (zoomDragged || endsDrag(e) || inFormControl(e) || !message || !pair || e.detail > 1) {
     return;
   }
-  closeZoom();
-  activate({ pair, target: message.getAttribute('data-seqnotes-target')!, kind: 'message' });
+  const show = (): void => {
+    closeZoom();
+    activate({ pair, target: message.getAttribute('data-seqnotes-target')!, kind: 'message' });
+  };
+  // A part of a wireframe: not before it is clear that the text is not double-clicked to select a word.
+  if (message.matches('.seqnotes-part') && e.detail === 1) {
+    zoomClickTimer = setTimeout(show, DOUBLE_CLICK_WAIT);
+  } else {
+    show();
+  }
 });
+
+// The page of a wireframe takes the pointer, not the boxes of its parts: show the box of a linked part while hovering it.
+let zoomHovered: string | undefined;
+function showZoomHovered(target: string | undefined): void {
+  if (target !== zoomHovered) {
+    zoomHovered = target;
+    showActiveIn(zoomStage, target === undefined ? undefined : { pair: zoomStage, target });
+  }
+}
+zoomStage.addEventListener('mouseover', (e) => {
+  const part = zoomLinked(e);
+  showZoomHovered(part?.matches('.seqnotes-part') ? part.getAttribute('data-seqnotes-target')! : undefined);
+});
+zoomStage.addEventListener('mouseleave', () => showZoomHovered(undefined));
 
 // Not after the user zoomed or panned: they would lose their place, e.g. when a side bar is toggled.
 window.addEventListener('resize', () => {

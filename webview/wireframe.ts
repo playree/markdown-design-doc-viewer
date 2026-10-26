@@ -15,20 +15,26 @@ import { partNumber } from '../src/wireframe';
 /** Before the styles of the wireframe: its page shown as in a browser, whatever the colors and font of the page around it. */
 const BASE_STYLE = ':host { all: initial; display: block; } html { display: block; background: #fff; color: #000; color-scheme: light; } head { display: none; }';
 
-/**
- * Shows the (sanitized) HTML of a wireframe in a shadow root of `screen`. With `inert`, it is only shown (in the zoom
- * overlay, which pans on drag): its boxes take the clicks.
- */
-function showPage(screen: HTMLElement, html: string, inert: boolean): ShadowRoot {
-  screen.inert = inert;
+/** Shows the (sanitized) HTML of a wireframe in a shadow root of `screen`. */
+function showPage(screen: HTMLElement, html: string): ShadowRoot {
   const shadow = screen.attachShadow({ mode: 'open' });
   // A mock-up: its links and forms do not leave the document.
-  shadow.addEventListener('click', (e) => {
-    if ((e.target as Element).closest('a[href], area[href]')) {
-      e.preventDefault();
+  for (const type of ['click', 'auxclick']) {
+    shadow.addEventListener(type, (e) => {
+      if ((e.target as Element).closest('a[href], area[href]')) {
+        e.preventDefault();
+      }
+    });
+  }
+  shadow.addEventListener('submit', (e) => e.preventDefault());
+  // Moving from one element of the page to another, the event does not leave the shadow root (both are its host outside
+  // of it): tell the page around it again, so that it highlights the part hovered (`linkTarget`).
+  shadow.addEventListener('mouseover', (event) => {
+    const e = event as MouseEvent;
+    if (e.relatedTarget instanceof Node && shadow.contains(e.relatedTarget)) {
+      e.target?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, composed: true, clientX: e.clientX, clientY: e.clientY }));
     }
   });
-  shadow.addEventListener('submit', (e) => e.preventDefault());
   const style = document.createElement('style');
   style.textContent = BASE_STYLE;
   // Parsed as a document, so that it keeps its <html> and <body>, which its styles may select.
@@ -39,14 +45,14 @@ function showPage(screen: HTMLElement, html: string, inert: boolean): ShadowRoot
 
 /**
  * The HTML of a wireframe in a shadow root, and a box over each of its parts; observed, so that they stay over them.
- * Returns the frame of the two. With `inert`, only shown (see `showPage`).
+ * Returns the frame of the two.
  */
-export function mountWireframe(block: HTMLElement, html: string, meta: DiagramMeta | undefined, inert = false): HTMLElement {
+export function mountWireframe(block: HTMLElement, html: string, meta: DiagramMeta | undefined): HTMLElement {
   const frame = document.createElement('div');
   frame.className = 'seqnotes-wireframe-frame';
   const screen = document.createElement('div');
   screen.className = 'seqnotes-wireframe-screen';
-  const shadow = showPage(screen, html, inert);
+  const shadow = showPage(screen, html);
 
   const parts = document.createElement('div');
   parts.className = 'seqnotes-wireframe-parts';
@@ -171,7 +177,7 @@ export function remountWireframes(root: Element): void {
     const source = block.querySelector(':scope > .seqnotes-wireframe-src')?.textContent;
     const screen = block.querySelector<HTMLElement>(':scope > .seqnotes-wireframe-frame > .seqnotes-wireframe-screen');
     if (typeof source === 'string' && screen && !screen.shadowRoot) {
-      observe(block, showPage(screen, source, false));
+      observe(block, showPage(screen, source));
     }
   }
   layoutWireframes(root);
