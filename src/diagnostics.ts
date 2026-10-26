@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { readWireframes, WireframeWatcher } from './documentFiles';
 import { collectIssues } from './issues';
 import { createMarkdown } from './render';
 
@@ -26,11 +27,15 @@ export class DiagnosticsManager implements vscode.Disposable {
   private readonly collection = vscode.languages.createDiagnosticCollection('mdDesignDoc');
   private readonly md = createMarkdown();
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
+  /** The last update of each document, so that an earlier one that ends later does not replace it. */
+  private readonly updates = new Map<string, number>();
+  /** Follow the files of the wireframes of each document. */
+  private readonly wireframeWatchers = new Map<string, WireframeWatcher>();
   private readonly disposables: vscode.Disposable[] = [];
 
   constructor() {
     this.disposables.push(
-      vscode.workspace.onDidOpenTextDocument((document) => this.update(document)),
+      vscode.workspace.onDidOpenTextDocument((document) => void this.update(document)),
       vscode.workspace.onDidChangeTextDocument((e) => {
         if (e.contentChanges.length > 0) {
           this.schedule(e.document);
@@ -49,13 +54,15 @@ export class DiagnosticsManager implements vscode.Disposable {
   dispose(): void {
     this.timers.forEach((timer) => clearTimeout(timer));
     this.timers.clear();
+    this.wireframeWatchers.forEach((watcher) => watcher.dispose());
+    this.wireframeWatchers.clear();
     this.disposables.forEach((d) => d.dispose());
     this.collection.dispose();
   }
 
   private updateAll(): void {
     this.collection.clear();
-    vscode.workspace.textDocuments.forEach((document) => this.update(document));
+    vscode.workspace.textDocuments.forEach((document) => void this.update(document));
   }
 
   private schedule(document: vscode.TextDocument): void {
@@ -64,18 +71,34 @@ export class DiagnosticsManager implements vscode.Disposable {
     }
     const key = document.uri.toString();
     clearTimeout(this.timers.get(key));
-    this.timers.set(key, setTimeout(() => this.update(document), UPDATE_DELAY_MS));
+    this.timers.set(key, setTimeout(() => void this.update(document), UPDATE_DELAY_MS));
   }
 
-  private update(document: vscode.TextDocument): void {
+  private async update(document: vscode.TextDocument): Promise<void> {
     const key = document.uri.toString();
     clearTimeout(this.timers.get(key));
     this.timers.delete(key);
+    const seq = (this.updates.get(key) ?? 0) + 1;
+    this.updates.set(key, seq);
     if (document.isClosed || !isTarget(document) || !enabled(document)) {
       this.collection.delete(document.uri);
+      this.unwatch(key);
       return;
     }
-    const diagnostics = collectIssues(this.md, document.getText(), vscode.l10n.t).map((issue) => {
+    const { version } = document;
+    const source = document.getText();
+    const wireframes = await readWireframes(this.md, document.uri, source);
+    // Changed meanwhile: updated again after it.
+    if (this.updates.get(key) !== seq || document.isClosed || document.version !== version) {
+      return;
+    }
+    let watcher = this.wireframeWatchers.get(key);
+    if (!watcher) {
+      watcher = new WireframeWatcher(() => this.schedule(document));
+      this.wireframeWatchers.set(key, watcher);
+    }
+    watcher.watch(wireframes.dependencies);
+    const diagnostics = collectIssues(this.md, source, vscode.l10n.t, wireframes.files).map((issue) => {
       const line = Math.min(issue.line, document.lineCount - 1);
       const diagnostic = new vscode.Diagnostic(
         document.lineAt(line).range,
@@ -92,6 +115,13 @@ export class DiagnosticsManager implements vscode.Disposable {
     const key = uri.toString();
     clearTimeout(this.timers.get(key));
     this.timers.delete(key);
+    this.updates.delete(key);
+    this.unwatch(key);
     this.collection.delete(uri);
+  }
+
+  private unwatch(key: string): void {
+    this.wireframeWatchers.get(key)?.dispose();
+    this.wireframeWatchers.delete(key);
   }
 }

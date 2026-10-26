@@ -17,6 +17,7 @@ import { collectIssues } from './issues';
 import { formatMessage, translatorFor, type Translate } from './l10n';
 import { WEBVIEW_TITLES, type DiffView } from './protocol';
 import { createMarkdown, type RenderEnv } from './render';
+import { loadWireframes, wireframeSources, type WireframeFiles } from './wireframe';
 
 /** dist/, where the script runs from. */
 const DIST = __dirname;
@@ -85,6 +86,28 @@ function resolveImage(src: string, document: string, target: string, root: strin
     // Linked instead.
   }
   return linkFrom(target, image);
+}
+
+/**
+ * The text of a file of a wireframe of `document` (`path` as in `loadWireframes`), when it is in the document's folder or
+ * in `root`, like the images embedded.
+ */
+function readWireframeFile(path: string, document: string, root: string): string | undefined {
+  const file = path.startsWith('/') ? join(root, path) : resolve(dirname(document), path);
+  try {
+    const real = realpathSync(file);
+    if ([dirname(document), root].some((folder) => isInFolder(real, realpathSync(folder)))) {
+      return readFileSync(real, 'utf8').replace(/^\uFEFF/, '');
+    }
+  } catch {
+    // Not read.
+  }
+  return undefined;
+}
+
+/** The files of the wireframes of `document` (`source`). */
+function readWireframes(md: ReturnType<typeof createMarkdown>, source: string, document: string, root: string): Promise<WireframeFiles> {
+  return loadWireframes(md, wireframeSources(md.parse(source, {})), async (path) => readWireframeFile(path, document, root));
 }
 
 /** git, run for `--diff-base`: the one on the PATH. */
@@ -176,11 +199,12 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
       const target = targets[i];
       try {
         const source = readFileSync(document, 'utf8');
-        for (const issue of collectIssues(md, source, t).filter((issue) => issue.severity === 'warning')) {
+        const wireframes = await readWireframes(md, source, document, options.root);
+        for (const issue of collectIssues(md, source, t, wireframes).filter((issue) => issue.severity === 'warning')) {
           report('warning', document, issue.message, issue.line + 1);
           ok &&= !options.strict;
         }
-        const env = { t, frontMatter: options.frontMatter, headingNumbers: options.headingNumbers };
+        const env = { t, frontMatter: options.frontMatter, headingNumbers: options.headingNumbers, wireframes };
         const image = async (src: string): Promise<string> => resolveImage(src, document, target, options.root);
         const diff = options.diffBase === undefined ? undefined : await renderWithDiff(options.diffBase, document, source, env, image);
         const html = diff ? diff.html : await renderForExport(md, source, env, image);

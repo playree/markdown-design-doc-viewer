@@ -1,11 +1,13 @@
 import markdownit, { type Env, type MarkdownIt, type Token } from 'markdown-it';
 import footnote from 'markdown-it-footnote';
 import { formatMessage, type Translate } from './l10n';
-import { diagramWording } from './diagramWording';
+import { diagramWording, rowWording } from './diagramWording';
+import { ATTR_RE, decodeAttribute, RAW_TEXT } from './htmlTags';
 import { isMermaidFence, linkDiagrams, type DiagramInfo, type DiagramKind } from './linker';
 import { markdownExtras } from './markdownExtras';
 import { HEADING_ID_PREFIX, slugify } from './slug';
 import { tableOptions, tableWarnings } from './tables';
+import { composeWireframe, sourcePath, WIREFRAME_TOKEN, wireframeOf, wireframes, type WireframeFiles } from './wireframe';
 
 export { HEADING_ID_PREFIX, slugify };
 
@@ -18,6 +20,11 @@ export type RenderEnv = Env & {
   frontMatter?: boolean;
   /** false leaves out the `autonumber` numbers, so that no number is shown on the linked headings. */
   headingNumbers?: boolean;
+  /**
+   * The files of the wireframes, read by the host (`loadWireframes` in wireframe.ts). Without them, the wireframes are
+   * shown by their text, and their parts are not linked.
+   */
+  wireframes?: WireframeFiles;
   /**
    * Renders for an exported file: without what only helps the author (warnings, marks of missing links)
    * or the editor sync (source lines).
@@ -94,6 +101,42 @@ function sourceLines(md: MarkdownIt): void {
   });
 }
 
+/** The attributes of a diagram's block: its source line, its differences, and its data for the webview (`DiagramMeta`). */
+function diagramAttributes(token: Token, env: RenderEnv | undefined): string {
+  const diagram = token.meta?.seqNotes as DiagramInfo | undefined;
+  const forExport = env?.forExport === true;
+  const headingNumbers = env?.headingNumbers !== false;
+  // Set by `sourceLines`, which leaves it out where the document order would break.
+  const line = token.attrGet('data-line');
+  let attrs = line === null ? '' : ` data-line="${line}"`;
+  // Set by `renderDiff`: the other blocks have it rendered with their attributes.
+  for (const name of ['data-seqnotes-diff', 'data-seqnotes-diff-old']) {
+    const value = token.attrGet(name);
+    if (value !== null) {
+      attrs += ` ${name}="${escapeHtml(String(value))}"`;
+    }
+  }
+  if (diagram) {
+    const meta: DiagramMeta = {
+      id: diagram.id,
+      kind: diagram.kind,
+      paired: diagram.paired,
+      messages: diagram.messages.map(({ index, line, text, nodeId, number, numberInHeading, target, unlinked }) => ({
+        index,
+        line,
+        text,
+        nodeId,
+        number: headingNumbers ? number : undefined,
+        numberInHeading,
+        target,
+        unlinked: forExport ? undefined : unlinked,
+      })),
+    };
+    attrs += ` data-seqnotes-meta="${escapeHtml(JSON.stringify(meta))}"`;
+  }
+  return attrs;
+}
+
 function mermaidFence(md: MarkdownIt): void {
   const defaultFence = md.renderer.rules.fence!;
   md.renderer.rules.fence = (tokens, idx, options, env: RenderEnv | undefined, self) => {
@@ -101,46 +144,39 @@ function mermaidFence(md: MarkdownIt): void {
     if (!isMermaidFence(token)) {
       return defaultFence(tokens, idx, options, env, self);
     }
-    const diagram = token.meta?.seqNotes as DiagramInfo | undefined;
-    const forExport = env?.forExport === true;
-    const headingNumbers = env?.headingNumbers !== false;
-    // Set by `sourceLines`, which leaves it out where the document order would break.
-    const line = token.attrGet('data-line');
-    let attrs = line === null ? '' : ` data-line="${line}"`;
-    // Set by `renderDiff`: the other blocks have it rendered with their attributes.
-    for (const name of ['data-seqnotes-diff', 'data-seqnotes-diff-old']) {
-      const value = token.attrGet(name);
-      if (value !== null) {
-        attrs += ` ${name}="${escapeHtml(String(value))}"`;
-      }
+    return `<div class="seqnotes-mermaid"${diagramAttributes(token, env)}><pre class="seqnotes-mermaid-src">${escapeHtml(token.content)}</pre></div>\n`;
+  };
+}
+
+/**
+ * A wireframe: its HTML (`composeWireframe`) as the text of a <pre>, which the webview sanitizes and shows
+ * (webview/wireframe.ts), or a placeholder with its text when its file is not there.
+ */
+function wireframeBlock(md: MarkdownIt): void {
+  md.renderer.rules[WIREFRAME_TOKEN] = (tokens, idx, _options, env: RenderEnv | undefined) => {
+    const token = tokens[idx];
+    const { src, alt, options, file } = wireframeOf(token)!;
+    let attrs = diagramAttributes(token, env);
+    if (options.width !== undefined) {
+      attrs += ` data-seqnotes-width="${options.width}"`;
     }
-    if (diagram) {
-      const meta: DiagramMeta = {
-        id: diagram.id,
-        kind: diagram.kind,
-        paired: diagram.paired,
-        messages: diagram.messages.map(({ index, line, text, nodeId, number, numberInHeading, target, unlinked }) => ({
-          index,
-          line,
-          text,
-          nodeId,
-          number: headingNumbers ? number : undefined,
-          numberInHeading,
-          target,
-          unlinked: forExport ? undefined : unlinked,
-        })),
-      };
-      attrs += ` data-seqnotes-meta="${escapeHtml(JSON.stringify(meta))}"`;
+    if (alt) {
+      // Its page is inert: what it shows is named by its text.
+      attrs += ` role="figure" aria-label="${escapeHtml(alt)}"`;
     }
-    return `<div class="seqnotes-mermaid"${attrs}><pre class="seqnotes-mermaid-src">${escapeHtml(token.content)}</pre></div>\n`;
+    if (!file) {
+      const t = env?.t ?? formatMessage;
+      const text = file === null ? t('The wireframe "{0}" could not be read.', sourcePath(src)) : alt || sourcePath(src);
+      return `<div class="seqnotes-wireframe seqnotes-wireframe-missing"${attrs}><p>${escapeHtml(text)}</p></div>\n`;
+    }
+    const resolve = env?.resolveResource ?? ((s: string) => s);
+    return `<div class="seqnotes-wireframe"${attrs}><pre class="seqnotes-wireframe-src">${escapeHtml(composeWireframe(md, file, src, resolve))}</pre></div>\n`;
   };
 }
 
 /** Set in the `meta` of an HTML token that holds HTML already rendered, whose images are resolved. */
 export const RENDERED_HTML = 'seqnotesRendered';
 
-/** The elements whose content is text, not HTML. */
-const RAW_TEXT = 'script|style|textarea|title';
 /**
  * An HTML comment or an element whose content is text (to the end of the HTML when it is not closed), left as they
  * are, or an `<img>` tag with its attributes.
@@ -148,15 +184,6 @@ const RAW_TEXT = 'script|style|textarea|title';
 const IMG_TAG_RE = new RegExp(`<!--[\\s\\S]*?-->|<(${RAW_TEXT})(?=[\\s/>])[\\s\\S]*?(?:</\\1\\s*>|$)|<img(?=[\\s/>])((?:[^>"']|"[^"]*"|'[^']*')*)>`, 'gi');
 /** An opening or closing tag of an element whose content is text. */
 const RAW_TEXT_TAG_RE = new RegExp(`<(/?)(${RAW_TEXT})(?=[\\s/>])`, 'gi');
-/** An attribute of a tag: its name, and its value in double quotes, in single quotes or without quotes. */
-const ATTR_RE = /([^\s"'>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
-
-/**
- * The text of an HTML attribute value: its character references decoded. `unescapeAll` also takes out the backslash
- * escapes of Markdown, which are kept by doubling the backslashes.
- */
-const decodeAttribute = (md: MarkdownIt, value: string): string => md.utils.unescapeAll(value.replace(/\\/g, '\\\\'));
-
 /** Rewrites the `src` of the `<img>` tags of raw HTML with `resolve`, like the images of Markdown. */
 function resolveHtmlImages(md: MarkdownIt, html: string, resolve: (src: string) => string): string {
   return html.replace(IMG_TAG_RE, (tag, _rawText?: string, attrs?: string) => {
@@ -222,7 +249,7 @@ function resourceLinks(md: MarkdownIt): void {
 
 export function createMarkdown(): MarkdownIt {
   const md = markdownit({ html: true, linkify: true });
-  md.use(footnote).use(markdownExtras).use(tableOptions).use(headingIds).use(sourceLines).use(mermaidFence).use(resourceLinks);
+  md.use(footnote).use(markdownExtras).use(tableOptions).use(wireframes).use(headingIds).use(sourceLines).use(mermaidFence).use(wireframeBlock).use(resourceLinks);
   return md;
 }
 
@@ -244,6 +271,18 @@ export function renderTokens(md: MarkdownIt, tokens: Token[], env: RenderEnv): s
       tokens[index].attrSet('title', wording.unlinkedHeadingTitle);
       // Shown by the CSS (`content: attr(...)`).
       tokens[index].attrSet('data-seqnotes-mark', wording.unlinkedHeadingMark);
+    }
+    for (const row of diagram.rows) {
+      if (row.target) {
+        // Highlighted with the section of the heading linked to the same part (webview/linking.ts).
+        tokens[row.index].attrSet('data-seqnotes-section', row.target);
+        tokens[row.index].attrJoin('class', 'seqnotes-row');
+      } else if (row.unlinked && !env.forExport) {
+        const rows = rowWording(t);
+        tokens[row.index].attrJoin('class', 'seqnotes-unlinked');
+        tokens[row.cell].attrSet('title', rows.title);
+        tokens[row.cell].attrSet('data-seqnotes-mark', rows.mark);
+      }
     }
   }
 

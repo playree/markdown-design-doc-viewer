@@ -762,6 +762,66 @@ body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-overvi
 }
 .seqnotes-node.seqnotes-active text { fill: var(--seqnotes-accent) !important; font-weight: bold; }
 
+/*
+ * Wireframes (webview/wireframe.ts): the page of the HTML in a frame, and over it a box for each part, with its number.
+ * The boxes are only drawn when highlighted.
+ */
+.seqnotes-wireframe { margin: 1em 0; padding: 10px; }
+.seqnotes-wireframe-src { display: none; }
+.seqnotes-wireframe-frame {
+  position: relative;
+  max-width: 100%;
+  margin: 0 auto;
+  border: 1px solid var(--seqnotes-border);
+  background: #fff;
+}
+/* The fixed elements of the page (e.g. a header) stay in it, and what overflows it is cut, as in a window. */
+.seqnotes-wireframe-screen { transform-origin: 0 0; contain: layout paint; }
+.seqnotes-wireframe-frame:hover > .seqnotes-zoom-button { opacity: 1; }
+.seqnotes-wireframe-missing > p {
+  margin: 0;
+  padding: 2em 1em;
+  border: 1px dashed var(--seqnotes-border);
+  color: var(--seqnotes-muted);
+  text-align: center;
+}
+.seqnotes-part {
+  position: absolute;
+  box-sizing: border-box;
+  /* The page under it takes the pointer, so that its text can be selected (`linkTarget` in webview/wireframe.ts). */
+  pointer-events: none;
+  border: 2px solid transparent;
+  border-radius: 3px;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.seqnotes-part.seqnotes-active { border-color: var(--seqnotes-accent); background: var(--seqnotes-accent-bg); }
+/* The zoom overlay shows an inert copy, whose boxes take the clicks. */
+.seqnotes-zoom .seqnotes-part.seqnotes-linked { pointer-events: auto; cursor: pointer; }
+/* The number of a part, at the top left corner of its box like the markers of a screen design. */
+.seqnotes-part-number {
+  position: absolute;
+  left: 0;
+  top: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  box-sizing: border-box;
+  background: #d93025;
+  color: #fff;
+  font: bold 11px/18px var(--vscode-font-family, sans-serif);
+  text-align: center;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.seqnotes-part.seqnotes-active .seqnotes-part-number { background: var(--seqnotes-accent); }
+.seqnotes-part.seqnotes-unlinked:not(.seqnotes-active) .seqnotes-part-number { opacity: 0.45; }
+
+/* Rows of item tables linked to the parts of a wireframe, highlighted with the section of their part. */
+tr.seqnotes-row { cursor: pointer; }
+tr.seqnotes-row.seqnotes-active > td { background: var(--seqnotes-accent-bg); }
+tr.seqnotes-row.seqnotes-active > td:first-child { box-shadow: inset 3px 0 0 var(--seqnotes-accent); }
+
 .seqnotes-section {
   display: flow-root;
   margin: 0.8em 0;
@@ -809,7 +869,8 @@ body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-overvi
 /* Arrows / nodes without a step, and steps at the level of the linked ones without an arrow / node. */
 .messageText.seqnotes-unlinked:not(.seqnotes-current) { opacity: 0.55; }
 .seqnotes-node.seqnotes-unlinked:not(.seqnotes-current) .label { opacity: 0.55; }
-.seqnotes-unlinked:is(h1, h2, h3, h4, h5, h6)::after {
+.seqnotes-unlinked:is(h1, h2, h3, h4, h5, h6)::after,
+.seqnotes-unlinked > td[data-seqnotes-mark]::after {
   content: attr(data-seqnotes-mark);
   margin-left: 0.6em;
   padding: 0 0.5em;

@@ -171,7 +171,16 @@ export function renderDiff(md: MarkdownIt, beforeSource: string, afterSource: st
   const segmenter = wordSegmenter();
   // Without source lines (`forExport`), so that the revision's blocks do not take part in the editor sync, and with
   // other ids for its footnotes (`docId`), which would be taken for those of the document.
-  const beforeEnv: RenderEnv = { resolveResource: env.resolveResource, t: env.t, frontMatter: env.frontMatter, headingNumbers: env.headingNumbers, forExport: true, docId: 'seqnotes-old' };
+  // The wireframes are those of the document: their files are not compared.
+  const beforeEnv: RenderEnv = {
+    resolveResource: env.resolveResource,
+    t: env.t,
+    frontMatter: env.frontMatter,
+    headingNumbers: env.headingNumbers,
+    wireframes: env.wireframes,
+    forExport: true,
+    docId: 'seqnotes-old',
+  };
   const beforeTokens = md.parse(beforeSource, beforeEnv);
   const afterTokens = md.parse(afterSource, env);
   for (const token of beforeTokens) {

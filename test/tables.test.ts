@@ -137,7 +137,7 @@ describe('table options', () => {
     const messages = [
       'No column "x" in the table.',
       'Write two or more columns to merge: "merge=<column>,<column>".',
-      'Unknown table option "tree". Write "level=<column>" or "merge=<column>,<column>".',
+      'Unknown table option "tree". Write "level=<column>", "merge=<column>,<column>" or "item=<column>".',
     ];
     expect(collectIssues(md, source)).toEqual([
       ...messages.map((message) => ({ line: 0, message, severity: 'warning' })),

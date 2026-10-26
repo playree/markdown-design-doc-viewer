@@ -16,7 +16,7 @@
  */
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { applyPalette, GIFEncoder, quantize } from 'gifenc';
 import type { Browser, JSHandle, Page } from 'playwright-core';
@@ -24,7 +24,9 @@ import { PNG } from 'pngjs';
 import { launchChrome } from '../src/headless';
 import { formatMessage, translatorFor, type Translate } from '../src/l10n';
 import { WEBVIEW_TITLES, type ToWebview } from '../src/protocol';
+import { imagePath, imageType, isExternalUrl } from '../src/exportPage';
 import { createMarkdown, escapeHtml, renderDocument } from '../src/render';
+import { loadWireframes, wireframeSources } from '../src/wireframe';
 
 /** The repository root: the script runs as dist/screenshots.cjs. */
 const ROOT = resolve(__dirname, '..');
@@ -73,6 +75,7 @@ interface Names {
   linkChecks: string;
   markdown: string;
   tables: string;
+  wireframe: string;
   /** The steps of the sequence diagram the animation points at: an arrow hovered, an arrow clicked and a heading hovered. */
   demo: { hover: string; click: string; heading: string };
 }
@@ -107,6 +110,7 @@ const LOCALES: Locale[] = [
       linkChecks: 'Refund (draft)',
       markdown: 'Open items',
       tables: 'Request body of POST /orders',
+      wireframe: 'Order confirmation screen',
       demo: { hover: '1. Place order', click: '5. Authorize payment', heading: '3. Reserve stock' },
     },
   },
@@ -124,6 +128,7 @@ const LOCALES: Locale[] = [
       linkChecks: '返金（草案）',
       markdown: '未決事項',
       tables: 'POST /orders のリクエスト本文',
+      wireframe: '注文完了画面',
       demo: { hover: '1. 注文を確定', click: '5. オーソリ', heading: '3. 在庫を引き当て' },
     },
   },
@@ -188,6 +193,27 @@ const SCENES: Scene[] = [
       await treeRow(page, names.tables, 'payment', (row) => row.querySelector<HTMLElement>('.seqnotes-tree-toggle')?.click());
       await treeRow(page, names.tables, 'items', (row) => row.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })));
       return sectionClip(page, names.tables);
+    },
+  },
+  {
+    // A wireframe beside its items: a part made of two elements highlighted with its row, as when hovering it.
+    name: 'wireframe',
+    file: 'images/screenshot-wireframe',
+    height: 790,
+    prepare: async (page, names) => {
+      await page.evaluate((title) => {
+        const h2 = [...document.querySelectorAll('h2')].find((h) => h.textContent?.trim() === title);
+        let pair = h2?.nextElementSibling;
+        while (pair && !pair.classList.contains('seqnotes-pair')) {
+          pair = pair.nextElementSibling;
+        }
+        const part = pair?.querySelector('.seqnotes-part[data-seqnotes-part="2"]');
+        if (!part) {
+          throw new Error(`No part 2 of a wireframe under the h2 "${title}"`);
+        }
+        part.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      }, names.wireframe);
+      return sectionClip(page, names.wireframe);
     },
   },
   {
@@ -604,7 +630,16 @@ async function main(): Promise<void> {
   try {
     for (const locale of locales) {
       const source = join(ROOT, locale.source);
-      const html = renderDocument(createMarkdown(), readFileSync(source, 'utf8'), { t: locale.t });
+      const md = createMarkdown();
+      const text = readFileSync(source, 'utf8');
+      const read = async (path: string): Promise<string | undefined> => readFileSync(join(dirname(source), path), 'utf8');
+      // The local images (of the wireframes) as data URIs: the page is written to another folder.
+      const resolveResource = (src: string): string => {
+        const type = imageType(imagePath(src));
+        return isExternalUrl(src) || !type ? src : `data:${type};base64,${readFileSync(join(dirname(source), imagePath(src))).toString('base64')}`;
+      };
+      const wireframes = await loadWireframes(md, wireframeSources(md.parse(text, {})), read);
+      const html = renderDocument(md, text, { t: locale.t, wireframes, resolveResource });
       const update: ToWebview = { type: 'update', uri: pathToFileURL(source).href, html, splitMinWidth: 1000, syncEditor: false, toc: true, diagramLook: 'neo', theme: 'auto', limitContentWidth: true, stickyTableHeader: true, tableTreeHighlight: true };
       const page = join(dir, `${locale.name}.html`);
       writeFileSync(page, shell(update, locale));

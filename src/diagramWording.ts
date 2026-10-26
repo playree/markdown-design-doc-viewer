@@ -1,9 +1,8 @@
 import type { Translate } from './l10n';
-import type { DiagramKind } from './linker';
+import type { DiagramKind, MermaidKind } from './linker';
 
-/** The texts about the links of a kind of diagram, which name its items: arrows, nodes, entities or states. */
-export interface DiagramWording {
-  refWithoutMarker: string;
+/** The texts about the links of a kind of diagram, which name its items: arrows, nodes, entities, states or parts. */
+export interface LinkWording {
   markerNotTopLevel: string;
   refNotFound: (heading: string) => string;
   /** Tooltip of a step heading no item is linked to. */
@@ -13,6 +12,11 @@ export interface DiagramWording {
   nothingLinked: string;
   unlinkedItem: (label: string) => string;
   unlinkedHeading: (heading: string) => string;
+}
+
+/** `LinkWording` of a mermaid diagram, with the texts about its directives (`%% @ref`) for the editor. */
+export interface DiagramWording extends LinkWording {
+  refWithoutMarker: string;
   /** Quick fix of a step heading no item is linked to. */
   linkItemFix: (label: string) => string;
   /** Completion details of the headings of `%% @ref`. */
@@ -23,8 +27,23 @@ export interface DiagramWording {
   refDoc: string;
 }
 
-export function diagramWording(kind: DiagramKind, t: Translate): DiagramWording {
+export function diagramWording(kind: MermaidKind, t: Translate): DiagramWording;
+export function diagramWording(kind: DiagramKind, t: Translate): LinkWording;
+export function diagramWording(kind: DiagramKind, t: Translate): DiagramWording | LinkWording {
   switch (kind) {
+    case 'wireframe':
+      return {
+        markerNotTopLevel: t('link-headings is ignored for a wireframe inside a list or blockquote.'),
+        refNotFound: (heading) => t('data-ref target heading "{0}" was not found after the wireframe.', heading),
+        unlinkedHeadingTitle: t('No part of the wireframe is linked to this heading.'),
+        unlinkedHeadingMark: t('no part'),
+        nothingLinked: t(
+          'No part of the wireframe is linked to a heading or a row. Number the headings after it like its parts (data-item), or give the item table their numbers with "item=<column>".',
+        ),
+        unlinkedItem: (label) =>
+          t('Part {0} of the wireframe is not linked to any heading or row. Add a heading numbered {0} after the wireframe, or a row with {0} in the column of "item=".', label),
+        unlinkedHeading: (heading) => t('No part of the wireframe is linked to heading "{0}".', heading),
+      };
     case 'sequence':
       return {
         refWithoutMarker: t('@ref is ignored because the sequence diagram has no "%% @link-headings" marker.'),
@@ -94,4 +113,13 @@ export function diagramWording(kind: DiagramKind, t: Translate): DiagramWording 
         refDoc: t('Link the state defined on the next line to a heading.'),
       };
   }
+}
+
+/** The texts about the rows of the item tables linked to the parts of a wireframe. */
+export function rowWording(t: Translate): { title: string; mark: string; unlinked: (item: string) => string } {
+  return {
+    title: t('No part of the wireframe has the number of this row.'),
+    mark: t('no part'),
+    unlinked: (item) => t('No part of the wireframe has the number {0} of this row.', item),
+  };
 }

@@ -18,9 +18,10 @@ import { documentTitle, exportDiff, exportFileName, exportPage, imageType, rende
 import { formatRevisionDate, parseGitLog, type Revision } from '../src/gitLog';
 import { WEBVIEW_TITLES, type DiffView, type FromWebview, type PreviewTheme, type ToWebview } from '../src/protocol';
 import { createMarkdown, escapeHtml, renderDocument, type RenderEnv } from '../src/render';
+import { loadWireframes, wireframeSources, type WireframeFiles } from '../src/wireframe';
 import type { FolderTree } from './folderTree';
 import { lang, t } from './l10n';
-import { isInside, isMarkdownPath, linkTarget, relativeLink, resourcePath, splitPath } from './paths';
+import { isInside, isMarkdownPath, linkTarget, relativeLink, resolveDocumentPath, resourcePath, splitPath } from './paths';
 import { addRecentFile, menuText, parseRecentFiles, removeRecentFile } from './recentFiles';
 import { parseSettings, SETTINGS_KEY, type DesktopSettings } from './settings';
 import { createSettingsDialog } from './settingsDialog';
@@ -139,6 +140,16 @@ function render(): void {
   rendering = rendering.then(renderNow).catch((error: unknown) => console.error(error));
 }
 
+/**
+ * The files of the wireframes of a document, read again at each render: from the folder of the window's document only
+ * (`read_wireframe`).
+ */
+function readWireframes(doc: OpenedDocument): Promise<WireframeFiles> {
+  return loadWireframes(md, wireframeSources(md.parse(doc.text, {})), (path) =>
+    invoke<string>('read_wireframe', { path: resolveDocumentPath(doc.dir, path) }).catch(() => undefined),
+  );
+}
+
 async function renderNow(): Promise<void> {
   if (ready && listShown) {
     await renderDesignDocs();
@@ -159,6 +170,7 @@ async function renderNow(): Promise<void> {
   const env: RenderEnv = {
     t,
     ...renderSettings(),
+    wireframes: await readWireframes(doc),
     resolveResource: (src) => {
       const path = resourcePath(doc.dir, src);
       if (path === undefined) {
@@ -965,7 +977,7 @@ async function writeExport(doc: OpenedDocument): Promise<string | undefined> {
   if (!target) {
     return undefined;
   }
-  const env = { t, ...renderSettings() };
+  const env = { t, ...renderSettings(), wireframes: await readWireframes(doc) };
   const image = (src: string): Promise<string> => exportedImage(doc.dir, src, target);
   // With the differences from the commit it is compared with, if any, as the window shows it.
   const compared = comparison?.path === doc.path ? comparison : undefined;

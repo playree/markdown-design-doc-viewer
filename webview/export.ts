@@ -5,9 +5,10 @@
 import { setupDiffBar } from './diffBar';
 import { setupFootnotePopup } from './footnotePopup';
 import { setUpIndexList } from './indexList';
-import { activeFor, revealCounterpart, scrollToFragment, showActive, type Active } from './linking';
+import { activeFor, endsDrag, revealCounterpart, scrollToFragment, showActive, type Active } from './linking';
 import { setupTableTree } from './tableTree';
 import { setupToc } from './toc';
+import { layoutWireframes, linkTarget, remountWireframes } from './wireframe';
 
 const root = document.getElementById('seqnotes-root')!;
 const width = Number(document.body.dataset.seqnotesSplitMinWidth);
@@ -26,11 +27,15 @@ window.addEventListener('resize', applyLayout);
 window.addEventListener('beforeprint', () => {
   printing = true;
   applyLayout();
+  // At once, so that the parts are boxed where they are printed.
+  layoutWireframes(root);
 });
 window.addEventListener('afterprint', () => {
   printing = false;
   applyLayout();
 });
+
+remountWireframes(root);
 
 // Other links are left to the browser, as in the document.
 setupFootnotePopup(root, (href) => {
@@ -64,7 +69,7 @@ if (index) {
   setUpIndexList(index);
 }
 
-root.addEventListener('mouseover', (e) => showActive(root, activeFor(e.target as Element) ?? pinned));
+root.addEventListener('mouseover', (e) => showActive(root, activeFor(linkTarget(e)) ?? pinned));
 root.addEventListener('mouseleave', () => showActive(root, pinned));
 
 root.addEventListener('click', (e) => {
@@ -75,7 +80,7 @@ root.addEventListener('click', (e) => {
     scrollToFragment(link.getAttribute('href')!);
     return;
   }
-  const active = activeFor(target);
+  const active = endsDrag(e) ? undefined : activeFor(linkTarget(e));
   if (active) {
     pinned = { pair: active.pair, target: active.target };
     showActive(root, pinned);

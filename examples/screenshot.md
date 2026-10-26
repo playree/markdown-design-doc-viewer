@@ -282,6 +282,33 @@ The fields of the JSON body. "Required" of a nested field applies when its paren
 | 11 | 2 | Quantity | `quantity` | integer | Yes | 1 to 99. Also limited by the stock and by the per-customer limit of the product, whichever is smaller. |
 | 12 | 2 | Gift wrap | `giftWrap` | boolean | | `false` when omitted. Wrapping is charged per item and is not available for some products such as furniture. |
 
+## Order confirmation screen
+
+The screen shown by step 9 of the checkout. The numbers of the wireframe are those of the items below.
+
+<!-- wireframe: link-headings width=375 -->
+[Order confirmation screen](screens/order-complete.html)
+
+<!-- table: item=No merge=Item,Name -->
+| No | Item | Name | Type | Description |
+|---|---|---|---|---|
+| 1 | Order number | `orderNo` | Text | From the response of `POST /orders`. |
+| 2 | Items | `items` | List | One row per SKU, with its quantity and subtotal. |
+| 3 | Total | `total` | Text | Tax and shipping included. |
+| 4 | Delivery | `delivery` | Text | The date and time slot chosen. |
+| 5 | Continue shopping | `continue` | Button | |
+| 6 | View your orders | `orders` | Link | |
+
+### 5. Continue shopping
+
+Opens the top page. The cart is empty by now.
+
+### 6. View your orders
+
+Opens the order history, with this order at the top.
+
+<!-- link-headings:end -->
+
 ## Refund (draft)
 
 ```mermaid

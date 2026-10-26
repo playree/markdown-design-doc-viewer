@@ -1,11 +1,13 @@
 import type { Token } from 'markdown-it';
 import { formatMessage, type Translate } from './l10n';
 import type { ParsedNodeDiagram } from './diagramNodes';
-import { diagramWording } from './diagramWording';
+import { diagramWording, type LinkWording } from './diagramWording';
 import { isErDiagram, parseErDiagram } from './erDiagram';
 import { isFlowchart, parseFlowchart } from './flowchart';
 import { isSequenceDiagram, normalizeLabel, parseSequence, stripStepNumber, type SequenceMessage, type StepNumber } from './sequence';
 import { isStateDiagram, parseStateDiagram } from './stateDiagram';
+import { itemRows } from './tables';
+import { partNumber, sourcePath, wireframeOf, wireframeWarnings } from './wireframe';
 
 export const END_MARKER_RE = /^\s*<!--\s*link-headings:end\s*-->\s*$/;
 
@@ -14,12 +16,16 @@ const LEGACY_END_MARKER_RE = /^\s*<!--\s*seq-notes:end\s*-->\s*$/;
 
 /**
  * Diagrams whose items can be linked to headings: the arrows of a sequence diagram, the nodes of a flowchart,
- * the entities of an ER diagram and the states of a state diagram.
+ * the entities of an ER diagram, the states of a state diagram and the parts of a wireframe (src/wireframe.ts),
+ * which are also linked to the rows of item tables.
  */
-export type DiagramKind = 'sequence' | 'flowchart' | 'er' | 'state';
+export type DiagramKind = MermaidKind | 'wireframe';
+
+/** The diagrams written in mermaid, where `%% @link-headings` and `%% @ref` are written. */
+export type MermaidKind = 'sequence' | 'flowchart' | 'er' | 'state';
 
 /** The diagrams whose items are nodes, with their parsers. */
-const NODE_DIAGRAMS: { kind: Exclude<DiagramKind, 'sequence'>; is: (source: string) => boolean; parse: (source: string, firstLine: number) => ParsedNodeDiagram }[] = [
+const NODE_DIAGRAMS: { kind: Exclude<MermaidKind, 'sequence'>; is: (source: string) => boolean; parse: (source: string, firstLine: number) => ParsedNodeDiagram }[] = [
   { kind: 'flowchart', is: isFlowchart, parse: parseFlowchart },
   { kind: 'er', is: isErDiagram, parse: parseErDiagram },
   { kind: 'state', is: isStateDiagram, parse: parseStateDiagram },
@@ -55,10 +61,27 @@ export interface OverviewHeading {
   refTarget: boolean;
 }
 
+/** A row of an item table (`item=` in its options) in the overview range of a wireframe. */
+export interface ItemRow {
+  /** Token index of the `tr_open`. */
+  index: number;
+  /** Token index of the `td_open` of its cell in the column of the part numbers. */
+  cell: number;
+  /** 0-based line in the Markdown document. */
+  line: number;
+  /** The text of its cell in the column of the part numbers. */
+  item: string;
+  /** The `target` of the part with its number. */
+  target?: string;
+  /** true when no part has its number although other rows or headings are linked. */
+  unlinked?: boolean;
+}
+
 export interface DiagramInfo {
   /** Sequential number of the linkable diagram in the document. */
   id: number;
   kind: DiagramKind;
+  /** Token index of the mermaid fence, or of the wireframe. */
   fenceIndex: number;
   /** Exclusive end of the overview range (token index). Only meaningful when `paired`. */
   rangeEnd: number;
@@ -76,6 +99,8 @@ export interface DiagramInfo {
   paired: boolean;
   /** true when the overview is always put below the diagram instead of beside it (a horizontal diagram). */
   stacked: boolean;
+  /** The rows of the item tables of the overview range (wireframes only). */
+  rows: ItemRow[];
 }
 
 export interface LinkWarning {
@@ -93,7 +118,7 @@ export function isMermaidFence(token: Token): boolean {
 }
 
 /** The kind of a mermaid fence whose items can be linked to headings, if it is one. */
-export function diagramKind(token: Token): DiagramKind | undefined {
+export function diagramKind(token: Token): MermaidKind | undefined {
   if (!isMermaidFence(token)) {
     return undefined;
   }
@@ -146,41 +171,75 @@ function stepLevel(linkedLevels: number[]): number | undefined {
   return best;
 }
 
+/** A diagram of the mermaid fence `token`, of `kind`, with its arrows / nodes, and the problems of its directives. */
+function mermaidDiagram(token: Token, index: number, kind: MermaidKind, id: number, translate: Translate, warnings: LinkWarning[]): DiagramInfo {
+  const firstLine = (token.map?.[0] ?? 0) + 1;
+  const wording = diagramWording(kind, translate);
+  const nodes = NODE_DIAGRAMS.find((d) => d.kind === kind)?.parse(token.content, firstLine);
+  const { messages, markerLine, legacyMarkerLine }: { messages: LinkedMessage[]; markerLine?: number; legacyMarkerLine?: number } = nodes
+    ? { messages: nodes.nodes, markerLine: nodes.markerLine, legacyMarkerLine: nodes.legacyMarkerLine }
+    : parseSequence(token.content, firstLine);
+  if (legacyMarkerLine !== undefined) {
+    warnings.push({ line: legacyMarkerLine, message: translate('"%% @seq-notes" is no longer supported. Write "%% @link-headings" instead.') });
+  }
+  if (markerLine === undefined) {
+    for (const m of messages.filter((m) => m.ref !== undefined)) {
+      warnings.push({ line: m.refLine ?? m.line, message: wording.refWithoutMarker });
+    }
+  } else if (token.level !== 0) {
+    warnings.push({ line: markerLine, message: wording.markerNotTopLevel });
+  }
+  const paired = markerLine !== undefined && token.level === 0;
+  const stacked = nodes?.horizontal ?? false;
+  return { id, kind, fenceIndex: index, rangeEnd: index + 1, messages, unlinkedHeadings: [], headings: [], paired, stacked, rows: [] };
+}
+
+/**
+ * A diagram of the wireframe token `token`, with a part (node) per number of its `data-item`s, and the problems of its
+ * file and options. The parts are written in its file, so they have the line of the wireframe.
+ */
+function wireframeDiagram(token: Token, index: number, id: number, translate: Translate, warnings: LinkWarning[]): DiagramInfo {
+  const { src, options, file, parts } = wireframeOf(token)!;
+  const line = token.map?.[0] ?? 0;
+  const messages: LinkedMessage[] = [];
+  if (file === null) {
+    warnings.push({ line, message: translate('The wireframe "{0}" could not be read.', sourcePath(src)) });
+  }
+  for (const part of parts ?? []) {
+    const number = partNumber(part.item);
+    if (number === undefined) {
+      warnings.push({ line, message: translate('data-item "{0}" of the wireframe "{1}" is not a number.', part.item, sourcePath(src)) });
+    } else if (!messages.some((m) => m.nodeId === String(number))) {
+      // Several elements with a number are one part: e.g. the options of a radio button.
+      messages.push({ index: messages.length, line, text: String(number), nodeId: String(number), ...(part.ref !== undefined ? { ref: part.ref } : {}) });
+    }
+  }
+  if (options.linkHeadings && token.level !== 0) {
+    warnings.push({ line: options.line ?? line, message: diagramWording('wireframe', translate).markerNotTopLevel });
+  }
+  const paired = options.linkHeadings && token.level === 0;
+  return { id, kind: 'wireframe', fenceIndex: index, rangeEnd: index + 1, messages, unlinkedHeadings: [], headings: [], paired, stacked: options.stacked, rows: [] };
+}
+
 /**
  * Finds the diagrams whose items can be linked and resolves the arrow / node → heading links of the ones
- * marked with `%% @link-headings`. Headings must already carry an `id` attribute.
+ * marked with `%% @link-headings` (or the option `link-headings` of a wireframe). Headings must already carry an `id` attribute.
  *
  * Only top-level (level 0) fences are paired, so the overview range always
  * starts and ends on a top-level block boundary and can be rendered on its own.
  */
 export function linkDiagrams(tokens: Token[], translate: Translate = formatMessage): LinkResult {
-  const warnings: LinkWarning[] = [];
+  const warnings: LinkWarning[] = [...wireframeWarnings(tokens)];
 
-  const diagrams: DiagramInfo[] = tokens
-    .map((token, index) => ({ token, index, kind: diagramKind(token) }))
-    .filter((d): d is { token: Token; index: number; kind: DiagramKind } => d.kind !== undefined)
-    .map(({ token, index, kind }, id) => {
-      const firstLine = (token.map?.[0] ?? 0) + 1;
-      const wording = diagramWording(kind, translate);
-      const nodes = NODE_DIAGRAMS.find((d) => d.kind === kind)?.parse(token.content, firstLine);
-      const { messages, markerLine, legacyMarkerLine }: { messages: LinkedMessage[]; markerLine?: number; legacyMarkerLine?: number } = nodes
-        ? { messages: nodes.nodes, markerLine: nodes.markerLine, legacyMarkerLine: nodes.legacyMarkerLine }
-        : parseSequence(token.content, firstLine);
-      if (legacyMarkerLine !== undefined) {
-        warnings.push({ line: legacyMarkerLine, message: translate('"%% @seq-notes" is no longer supported. Write "%% @link-headings" instead.') });
-      }
-      if (markerLine === undefined) {
-        for (const m of messages.filter((m) => m.ref !== undefined)) {
-          warnings.push({ line: m.refLine ?? m.line, message: wording.refWithoutMarker });
-        }
-      } else if (token.level !== 0) {
-        warnings.push({ line: markerLine, message: wording.markerNotTopLevel });
-      }
-      const paired = markerLine !== undefined && token.level === 0;
-      const stacked = nodes?.horizontal ?? false;
-      const diagram: DiagramInfo = { id, kind, fenceIndex: index, rangeEnd: index + 1, messages, unlinkedHeadings: [], headings: [], paired, stacked };
-      return diagram;
-    });
+  const diagrams: DiagramInfo[] = [];
+  tokens.forEach((token, index) => {
+    const kind = diagramKind(token);
+    if (kind) {
+      diagrams.push(mermaidDiagram(token, index, kind, diagrams.length, translate, warnings));
+    } else if (wireframeOf(token)) {
+      diagrams.push(wireframeDiagram(token, index, diagrams.length, translate, warnings));
+    }
+  });
 
   const pairedFences = new Set(diagrams.filter((d) => d.paired).map((d) => d.fenceIndex));
 
@@ -236,20 +295,24 @@ export function linkDiagrams(tokens: Token[], translate: Translate = formatMessa
     }
 
     const wording = diagramWording(diagram.kind, translate);
-    for (const message of diagram.messages) {
-      const label = normalizeLabel(message.ref ?? message.text);
-      const number = message.number;
-      // Compared as numbers, so that `01.` matches arrow 1.
-      const numbered = numberedHeadings.get(label) ?? [];
-      const target = headings.get(label) ?? numbered.find((id) => Number(steps.get(id)!.value) === number) ?? numbered[0];
-      if (target) {
-        message.target = target;
-        const step = steps.get(target);
-        if (step && number !== undefined) {
-          message.numberInHeading = Number(step.value) === number;
+    if (diagram.kind === 'wireframe') {
+      linkParts(diagram, tokens, headings, numberedHeadings, steps, wording, warnings);
+    } else {
+      for (const message of diagram.messages) {
+        const label = normalizeLabel(message.ref ?? message.text);
+        const number = message.number;
+        // Compared as numbers, so that `01.` matches arrow 1.
+        const numbered = numberedHeadings.get(label) ?? [];
+        const target = headings.get(label) ?? numbered.find((id) => Number(steps.get(id)!.value) === number) ?? numbered[0];
+        if (target) {
+          message.target = target;
+          const step = steps.get(target);
+          if (step && number !== undefined) {
+            message.numberInHeading = Number(step.value) === number;
+          }
+        } else if (message.ref !== undefined) {
+          warnings.push({ line: message.refLine ?? message.line, message: wording.refNotFound(message.ref) });
         }
-      } else if (message.ref !== undefined) {
-        warnings.push({ line: message.refLine ?? message.line, message: wording.refNotFound(message.ref) });
       }
     }
 
@@ -261,6 +324,9 @@ export function linkDiagrams(tokens: Token[], translate: Translate = formatMessa
     for (const message of diagram.messages.filter((m) => !m.target && m.labeled !== false)) {
       message.unlinked = true;
     }
+    for (const row of diagram.rows.filter((r) => !r.target)) {
+      row.unlinked = true;
+    }
     const level = stepLevel(headingTokens.filter((h) => targets.has(h.id)).map((h) => h.level));
     diagram.stepLevel = level;
     diagram.unlinkedHeadings = headingTokens.filter((h) => h.level === level && !targets.has(h.id)).map((h) => h.index);
@@ -268,4 +334,50 @@ export function linkDiagrams(tokens: Token[], translate: Translate = formatMessa
 
   warnings.sort((a, b) => a.line - b.line);
   return { diagrams, warnings };
+}
+
+/**
+ * Links the parts of a wireframe to the headings of its overview range numbered like them (or to the heading of their
+ * `data-ref`, as `%% @ref`), and to the rows of its item tables with their numbers. A part linked to rows only gets a target of its own,
+ * which the rows share.
+ */
+function linkParts(
+  diagram: DiagramInfo,
+  tokens: Token[],
+  headings: Map<string, string>,
+  numberedHeadings: Map<string, string[]>,
+  steps: Map<string, StepNumber>,
+  wording: LinkWording,
+  warnings: LinkWarning[],
+): void {
+  // The first heading of the range with each number.
+  const numbered = new Map<number, string>();
+  for (const [id, step] of steps) {
+    const number = Number(step.value);
+    if (!numbered.has(number)) {
+      numbered.set(number, id);
+    }
+  }
+  const parts = new Map(diagram.messages.map((m) => [Number(m.nodeId), m]));
+  for (const [number, part] of parts) {
+    if (part.ref === undefined) {
+      part.target = numbered.get(number);
+      continue;
+    }
+    // Like `%% @ref`, a numbered heading by its text without the number when no heading has the text.
+    const label = normalizeLabel(part.ref);
+    part.target = headings.get(label) ?? numberedHeadings.get(label)?.[0];
+    if (part.target === undefined) {
+      warnings.push({ line: part.line, message: wording.refNotFound(part.ref) });
+    }
+  }
+  diagram.rows = itemRows(tokens, diagram.fenceIndex + 1, diagram.rangeEnd);
+  for (const row of diagram.rows) {
+    const number = partNumber(row.item);
+    const part = number === undefined ? undefined : parts.get(number);
+    if (part) {
+      part.target ??= `seqnotes-part-${diagram.id}-${number}`;
+      row.target = part.target;
+    }
+  }
 }

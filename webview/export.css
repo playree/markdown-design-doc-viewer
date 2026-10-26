@@ -39,6 +39,11 @@ body.seqnotes-diff-off :is([data-seqnotes-diff="deleted"], del.seqnotes-diff-del
   body.seqnotes-sticky-table-header thead th { position: static; }
 
   .seqnotes-section.seqnotes-active { background: none; border-left-color: transparent; }
-  .seqnotes-diagram, pre, table, .markdown-alert, details { break-inside: avoid; }
+  .seqnotes-part.seqnotes-active { background: none; border-color: transparent; }
+  .seqnotes-part.seqnotes-active .seqnotes-part-number { background: #d93025; }
+  /* Its white number is not read on paper without its background. */
+  .seqnotes-part-number { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  tr.seqnotes-row.seqnotes-active > td { background: none; box-shadow: none; }
+  .seqnotes-diagram, .seqnotes-wireframe, pre, table, .markdown-alert, details { break-inside: avoid; }
   h1, h2, h3, h4, h5, h6 { break-after: avoid; }
 }
