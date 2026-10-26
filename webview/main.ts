@@ -543,8 +543,8 @@ function activate(active: Active & { kind: 'message' | 'heading' }): void {
 
 document.addEventListener('keydown', (e) => {
   if (zoom) {
-    // Typed into a form control of a wireframe, except Escape.
-    if (e.key !== 'Escape' && inFormControl(e)) {
+    // Typed into a form control of a wireframe, except Escape (unless it cancels a conversion).
+    if (e.isComposing || (e.key !== 'Escape' && inFormControl(e))) {
       return;
     }
     zoomKey(e);
@@ -725,6 +725,8 @@ function closeZoom(): void {
   zoom = undefined;
   zoomOverlay.hidden = true;
   zoomStage.replaceChildren();
+  zoomHovered = undefined;
+  holdSpace(false);
   (opener as HTMLElement | null | undefined)?.focus({ preventScroll: true });
 }
 
@@ -776,15 +778,25 @@ function setZoomContent(): boolean {
 /** Puts a copy of a wireframe into the overlay, at the width it is laid out at (that of its options, or of its column). */
 function setZoomWireframe(frame: HTMLElement): void {
   const block = frame.parentElement!;
+  const html = diagramSources.get(frame) ?? '';
+  const width = `${Number(block.dataset.seqnotesWidth) || frame.offsetWidth}px`;
+  // Kept on updates that do not change it, with what was typed into it and selected.
+  const key = JSON.stringify([html, block.getAttribute('data-seqnotes-meta'), width]);
+  const shown = zoomStage.firstElementChild;
+  if (shown instanceof HTMLElement && shown.dataset.seqnotesZoomKey === key) {
+    return;
+  }
   const copy = block.cloneNode(false) as HTMLElement;
   // Not a line of the document, nor laid out at another width.
   copy.removeAttribute('data-line');
+  copy.dataset.seqnotesZoomKey = key;
   copy.style.margin = '0';
   copy.style.padding = '0';
-  copy.style.width = `${Number(block.dataset.seqnotesWidth) || frame.offsetWidth}px`;
+  copy.style.width = width;
   zoomStage.replaceChildren(copy);
+  zoomHovered = undefined;
   // Works as in the preview: its text can be selected, its form controls used. The overlay pans on drag around it.
-  mountWireframe(copy, diagramSources.get(frame) ?? '', metaOf(block));
+  mountWireframe(copy, html, metaOf(block));
   layoutWireframe(copy);
   if (zoom) {
     zoom.width = copy.offsetWidth;
@@ -893,6 +905,9 @@ function zoomKey(e: KeyboardEvent): void {
     case '0':
       fitZoom();
       break;
+    case ' ':
+      holdSpace(true);
+      break;
     default:
       return;
   }
@@ -912,8 +927,21 @@ zoomOverlay.addEventListener(
 /** true while the pointer pans, so that releasing it is not taken as a click. */
 let zoomDragged = false;
 
-/** true when `e` happened on the page of a wireframe, where a drag selects its text instead of panning. */
+/** true when `e` happened on the page of a wireframe, where a drag selects its text instead of panning (unless Space is held). */
 const onWireframePage = (e: Event): boolean => (e.target as Element).closest('.seqnotes-wireframe-screen') !== null;
+
+/** true while Space is held, which pans on drag over the page of a wireframe too, e.g. when it fills the overlay. */
+let zoomSpace = false;
+function holdSpace(held: boolean): void {
+  zoomSpace = held;
+  zoomOverlay.classList.toggle('seqnotes-zoom-space', held);
+}
+document.addEventListener('keyup', (e) => {
+  if (e.key === ' ') {
+    holdSpace(false);
+  }
+});
+window.addEventListener('blur', () => holdSpace(false));
 
 // On the whole overlay, so that the empty space around a small diagram pans it too.
 zoomOverlay.addEventListener('pointerdown', (e) => {
@@ -921,7 +949,7 @@ zoomOverlay.addEventListener('pointerdown', (e) => {
     return;
   }
   zoomDragged = false;
-  if (onWireframePage(e)) {
+  if (onWireframePage(e) && !zoomSpace) {
     return;
   }
   const start = { x: e.clientX, y: e.clientY, zoomX: zoom.x, zoomY: zoom.y };
@@ -990,12 +1018,18 @@ zoomStage.addEventListener('click', (e) => {
 });
 
 // The page of a wireframe takes the pointer, not the boxes of its parts: show the box of a linked part while hovering it.
+let zoomHovered: string | undefined;
+function showZoomHovered(target: string | undefined): void {
+  if (target !== zoomHovered) {
+    zoomHovered = target;
+    showActiveIn(zoomStage, target === undefined ? undefined : { pair: zoomStage, target });
+  }
+}
 zoomStage.addEventListener('mouseover', (e) => {
   const part = zoomLinked(e);
-  const target = part?.matches('.seqnotes-part') ? part.getAttribute('data-seqnotes-target') : null;
-  zoomStage.querySelectorAll('.seqnotes-part').forEach((box) => box.classList.toggle('seqnotes-active', target !== null && box.getAttribute('data-seqnotes-target') === target));
+  showZoomHovered(part?.matches('.seqnotes-part') ? part.getAttribute('data-seqnotes-target')! : undefined);
 });
-zoomStage.addEventListener('mouseleave', () => zoomStage.querySelectorAll('.seqnotes-part.seqnotes-active').forEach((box) => box.classList.remove('seqnotes-active')));
+zoomStage.addEventListener('mouseleave', () => showZoomHovered(undefined));
 
 // Not after the user zoomed or panned: they would lose their place, e.g. when a side bar is toggled.
 window.addEventListener('resize', () => {

@@ -19,11 +19,13 @@ const BASE_STYLE = ':host { all: initial; display: block; } html { display: bloc
 function showPage(screen: HTMLElement, html: string): ShadowRoot {
   const shadow = screen.attachShadow({ mode: 'open' });
   // A mock-up: its links and forms do not leave the document.
-  shadow.addEventListener('click', (e) => {
-    if ((e.target as Element).closest('a[href], area[href]')) {
-      e.preventDefault();
-    }
-  });
+  for (const type of ['click', 'auxclick']) {
+    shadow.addEventListener(type, (e) => {
+      if ((e.target as Element).closest('a[href], area[href]')) {
+        e.preventDefault();
+      }
+    });
+  }
   shadow.addEventListener('submit', (e) => e.preventDefault());
   // Moving from one element of the page to another, the event does not leave the shadow root (both are its host outside
   // of it): tell the page around it again, so that it highlights the part hovered (`linkTarget`).

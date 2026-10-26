@@ -620,8 +620,9 @@ body:is(.vscode-light, .vscode-high-contrast-light):not([data-seqnotes-theme="da
 .seqnotes-zoom-stage svg { display: block; }
 .seqnotes-zoom-stage img { display: block; max-width: none; }
 .seqnotes-zoom.seqnotes-zoom-dragging { cursor: grabbing; }
-/* The page of a wireframe works as in the preview: a drag selects its text, the overlay pans on drag around it. */
-.seqnotes-zoom .seqnotes-wireframe-screen { cursor: auto; touch-action: auto; user-select: text; }
+/* The page of a wireframe works as in the preview: a drag selects its text, the overlay pans on drag around it (or with Space held). */
+.seqnotes-zoom .seqnotes-wireframe-screen { cursor: auto; user-select: text; }
+.seqnotes-zoom.seqnotes-zoom-space .seqnotes-wireframe-screen { cursor: grab; user-select: none; }
 
 .seqnotes-zoom-toolbar {
   position: absolute;
