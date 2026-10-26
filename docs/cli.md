@@ -66,7 +66,7 @@ The exit status is 1 when a document could not be exported (also when git fails 
 
 ## Capturing screens
 
-`capture` writes a screen of a running web app (on its development server, for example; a `file:` URL works too) as the HTML file of a [wireframe](https://github.com/playree/markdown-design-doc-viewer#wireframes): the page as it is shown in headless Chrome, also when its scripts draw it (a single-page app), without its scripts and with the styles that apply to it, so that the preview shows it as in a browser. Its images and the fonts it uses are embedded, so the file stands alone.
+`capture` writes a screen of a running web app (on its development server, for example; a `file:` URL works too) as the HTML file of a [wireframe](https://github.com/playree/markdown-design-doc-viewer#wireframes): the page as it is shown in headless Chrome, also when its scripts draw it (a single-page app), without its scripts and with the styles that apply to it, so that the preview shows it as in a browser. Its images and the fonts it uses are embedded, so the file stands alone (for a `file:` page, only local files in its folder or the current folder).
 
 ```sh
 md-design-doc capture http://localhost:5173/signin -o docs/screens/signin.html --width 375

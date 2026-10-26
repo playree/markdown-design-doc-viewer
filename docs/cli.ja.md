@@ -66,7 +66,7 @@ md-design-doc export docs -o site
 
 ## 画面を撮る
 
-`capture` は、動いている Web アプリ（開発サーバなど。`file:` の URL も使えます）の画面を[ワイヤーフレーム](https://github.com/playree/markdown-design-doc-viewer/blob/main/README.ja.md#ワイヤーフレーム)の HTML ファイルに書き出します。ヘッドレス Chrome で表示したとおりのページを（スクリプトで描画するシングルページアプリも）、スクリプトを除き、効いているスタイルとともに書き出すので、プレビューでブラウザと同じように表示できます。画像と使っているフォントも埋め込むので、ファイル 1 つで表示できます。
+`capture` は、動いている Web アプリ（開発サーバなど。`file:` の URL も使えます）の画面を[ワイヤーフレーム](https://github.com/playree/markdown-design-doc-viewer/blob/main/README.ja.md#ワイヤーフレーム)の HTML ファイルに書き出します。ヘッドレス Chrome で表示したとおりのページを（スクリプトで描画するシングルページアプリも）、スクリプトを除き、効いているスタイルとともに書き出すので、プレビューでブラウザと同じように表示できます。画像と使っているフォントも埋め込むので、ファイル 1 つで表示できます（`file:` のページでは、ローカルのファイルはそのフォルダかカレントフォルダのものだけを埋め込みます）。
 
 ```sh
 md-design-doc capture http://localhost:5173/signin -o docs/screens/signin.html --width 375

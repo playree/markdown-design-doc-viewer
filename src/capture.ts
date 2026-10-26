@@ -5,12 +5,12 @@
  * and written as it is shown (capturePage.ts): without its scripts, with its styles and its images and fonts embedded.
  * Its parts are then numbered by selectors in the options of the wireframe (`item.1="#email"`).
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { BrowserContext, Page } from 'playwright-core';
 import { assetPlaceholder, assetType, replaceAssets, splitTopLevel, styleText, viewportUnitsToPx } from './captureCss';
-import type { CaptureOptions } from './cliOptions';
+import { isInFolder, type CaptureOptions } from './cliOptions';
 import { capturePage, unreadableSheets, type CapturedPage } from './capturePage';
 import { launchChrome } from './headless';
 
@@ -20,11 +20,23 @@ interface CaptureScript {
   setup?: (page: Page, context: BrowserContext) => unknown;
 }
 
-/** The file at `url` with its type, or undefined when it cannot be fetched: with the cookies of the page, or from the disk. */
-async function fetchFile(context: BrowserContext, url: string): Promise<{ body: Buffer; type: string } | undefined> {
+/**
+ * The local files the page may embed: when it is a local file itself, those in its folder or the current folder, so
+ * that a page does not write the other files of the computer into the wireframe.
+ */
+function localFolders(pageUrl: string): string[] {
+  return pageUrl.startsWith('file:') ? [dirname(fileURLToPath(pageUrl)), process.cwd()].map((folder) => realpathSync(folder)) : [];
+}
+
+/**
+ * The file at `url` with its type, or undefined when it cannot be fetched: with the cookies of the page, or from the
+ * disk in `folders`.
+ */
+async function fetchFile(context: BrowserContext, url: string, folders: string[]): Promise<{ body: Buffer; type: string } | undefined> {
   try {
     if (url.startsWith('file:')) {
-      return { body: readFileSync(fileURLToPath(url)), type: assetType(url, undefined) };
+      const path = realpathSync(fileURLToPath(url));
+      return folders.some((folder) => isInFolder(path, folder)) ? { body: readFileSync(path), type: assetType(url, undefined) } : undefined;
     }
     const response = await context.request.get(url);
     return response.ok() ? { body: await response.body(), type: assetType(url, response.headers()['content-type']) } : undefined;
@@ -94,9 +106,10 @@ export async function capture(options: CaptureOptions): Promise<string[]> {
     });
 
     const warnings: string[] = [];
+    const folders = localFolders(page.url());
     const sheetTexts: Record<string, string> = {};
     for (const href of await page.evaluate(unreadableSheets)) {
-      const file = await fetchFile(context, href);
+      const file = await fetchFile(context, href, folders);
       if (file) {
         sheetTexts[href] = file.body.toString('utf8');
       } else {
@@ -109,7 +122,7 @@ export async function capture(options: CaptureOptions): Promise<string[]> {
 
     const urls = await Promise.all(
       captured.assets.map(async (url) => {
-        const file = await fetchFile(context, url);
+        const file = await fetchFile(context, url, folders);
         if (!file) {
           warnings.push(`Not embedded (could not be fetched): ${url}`);
         }
