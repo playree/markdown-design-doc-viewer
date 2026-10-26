@@ -1,8 +1,10 @@
 /**
  * The wireframes of a document (src/wireframe.ts), shared by the preview (main.ts) and exported HTML (export.ts).
- * Their HTML is shown in a shadow root, so that its styles and those of the page do not apply to each other, and made
- * inert. A box is put over each of their parts (`data-item`), with its number: it stands for the part like a node of a
- * diagram, linked to the headings and rows (webview/linking.ts).
+ * Their HTML is shown in a shadow root, so that its styles and those of the page do not apply to each other, and works
+ * as a page (its text can be selected, its form controls used), without leaving the document: its links and forms do not
+ * navigate. A box is drawn over each of their parts (`data-item`), with its number: it stands for the part like a node
+ * of a diagram, linked to the headings and rows (webview/linking.ts). The pointer events of the page are given to it
+ * (`linkTarget`).
  *
  * The block of a wireframe (`wireframeBlock` in src/render.ts) keeps its HTML in a <pre>, sanitized by the preview,
  * from which exported HTML shows it again (the shadow root is not part of the exported body).
@@ -13,11 +15,20 @@ import { partNumber } from '../src/wireframe';
 /** Before the styles of the wireframe: its page shown as in a browser, whatever the colors and font of the page around it. */
 const BASE_STYLE = ':host { all: initial; display: block; } html { display: block; background: #fff; color: #000; color-scheme: light; } head { display: none; }';
 
-/** Shows the (sanitized) HTML of a wireframe in a shadow root of `screen`, which is made inert. */
-function showPage(screen: HTMLElement, html: string): ShadowRoot {
-  // Not focused nor clicked: a click selects the part instead.
-  screen.inert = true;
+/**
+ * Shows the (sanitized) HTML of a wireframe in a shadow root of `screen`. With `inert`, it is only shown (in the zoom
+ * overlay, which pans on drag): its boxes take the clicks.
+ */
+function showPage(screen: HTMLElement, html: string, inert: boolean): ShadowRoot {
+  screen.inert = inert;
   const shadow = screen.attachShadow({ mode: 'open' });
+  // A mock-up: its links and forms do not leave the document.
+  shadow.addEventListener('click', (e) => {
+    if ((e.target as Element).closest('a[href], area[href]')) {
+      e.preventDefault();
+    }
+  });
+  shadow.addEventListener('submit', (e) => e.preventDefault());
   const style = document.createElement('style');
   style.textContent = BASE_STYLE;
   // Parsed as a document, so that it keeps its <html> and <body>, which its styles may select.
@@ -28,14 +39,14 @@ function showPage(screen: HTMLElement, html: string): ShadowRoot {
 
 /**
  * The HTML of a wireframe in a shadow root, and a box over each of its parts; observed, so that they stay over them.
- * Returns the frame of the two.
+ * Returns the frame of the two. With `inert`, only shown (see `showPage`).
  */
-export function mountWireframe(block: HTMLElement, html: string, meta: DiagramMeta | undefined): HTMLElement {
+export function mountWireframe(block: HTMLElement, html: string, meta: DiagramMeta | undefined, inert = false): HTMLElement {
   const frame = document.createElement('div');
   frame.className = 'seqnotes-wireframe-frame';
   const screen = document.createElement('div');
   screen.className = 'seqnotes-wireframe-screen';
-  const shadow = showPage(screen, html);
+  const shadow = showPage(screen, html, inert);
 
   const parts = document.createElement('div');
   parts.className = 'seqnotes-wireframe-parts';
@@ -160,8 +171,24 @@ export function remountWireframes(root: Element): void {
     const source = block.querySelector(':scope > .seqnotes-wireframe-src')?.textContent;
     const screen = block.querySelector<HTMLElement>(':scope > .seqnotes-wireframe-frame > .seqnotes-wireframe-screen');
     if (typeof source === 'string' && screen && !screen.shadowRoot) {
-      observe(block, showPage(screen, source));
+      observe(block, showPage(screen, source, false));
     }
   }
   layoutWireframes(root);
+}
+
+/**
+ * What an event happened on, for the links: the box of the part of a wireframe when it happened in one (the events of
+ * its shadow root have its host as their target), else its target.
+ */
+export function linkTarget(e: Event): Element | null {
+  const path = e.composedPath();
+  const screen = path.find((el): el is HTMLElement => el instanceof HTMLElement && el.matches('.seqnotes-wireframe-screen'));
+  const inner = path[0];
+  if (!screen || !(inner instanceof Element) || inner === screen) {
+    return e.target as Element | null;
+  }
+  const number = partNumber(inner.closest('[data-item]')?.getAttribute('data-item') ?? '');
+  const box = number === undefined ? null : screen.parentElement?.querySelector(`:scope > .seqnotes-wireframe-parts > .seqnotes-part[data-seqnotes-part="${number}"]`);
+  return box ?? screen;
 }

@@ -11,6 +11,16 @@ export interface Active {
 
 const ACTIVE = 'seqnotes-active';
 
+/** A pointer that moves farther than this (px) between its press and its release drags (e.g. selects text) instead of clicking. */
+const DRAG_THRESHOLD = 4;
+
+/** Where the pointer was pressed last. */
+let pressed: { x: number; y: number } | undefined;
+document.addEventListener('pointerdown', (e) => (pressed = { x: e.clientX, y: e.clientY }), true);
+
+/** true when the click `e` ends a drag, such as a selection of text, which does not pin a step. */
+export const endsDrag = (e: MouseEvent): boolean => pressed !== undefined && Math.hypot(e.clientX - pressed.x, e.clientY - pressed.y) > DRAG_THRESHOLD;
+
 const isWide = (): boolean => document.body.classList.contains('seqnotes-wide');
 
 /** true when `el` is in a pair laid out side by side now (a stacked pair never is). */

@@ -788,11 +788,15 @@ body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-overvi
 .seqnotes-part {
   position: absolute;
   box-sizing: border-box;
+  /* The page under it takes the pointer, so that its text can be selected (`linkTarget` in webview/wireframe.ts). */
+  pointer-events: none;
   border: 2px solid transparent;
   border-radius: 3px;
   transition: background-color 0.15s, border-color 0.15s;
 }
 .seqnotes-part.seqnotes-active { border-color: var(--seqnotes-accent); background: var(--seqnotes-accent-bg); }
+/* The zoom overlay shows an inert copy, whose boxes take the clicks. */
+.seqnotes-zoom .seqnotes-part.seqnotes-linked { pointer-events: auto; cursor: pointer; }
 /* The number of a part, at the top left corner of its box like the markers of a screen design. */
 .seqnotes-part-number {
   position: absolute;

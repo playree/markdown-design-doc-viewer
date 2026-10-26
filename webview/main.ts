@@ -7,10 +7,10 @@ import { markChanges } from './diff';
 import { setupDiffBar } from './diffBar';
 import { setupFootnotePopup } from './footnotePopup';
 import { setUpIndexList } from './indexList';
-import { activeFor, isSideBySide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, type Active } from './linking';
+import { activeFor, endsDrag, isSideBySide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, type Active } from './linking';
 import { foldedRows, isFoldedAway, plainTables, restoreFolded, restorePlain, setupTableTree } from './tableTree';
 import { setupToc } from './toc';
-import { layoutWireframe, layoutWireframes, mountWireframe } from './wireframe';
+import { layoutWireframe, layoutWireframes, linkTarget, mountWireframe } from './wireframe';
 
 interface VsCodeApi {
   postMessage(message: FromWebview): void;
@@ -215,7 +215,8 @@ function renderWireframes(container: HTMLElement): void {
       continue;
     }
     // Kept sanitized for an exported page, which shows it from there (`remountWireframes`).
-    const html = DOMPurify.sanitize(pre.textContent ?? '', { WHOLE_DOCUMENT: true });
+    // Without `autofocus`, which would take the focus (and scroll to it) at each update.
+    const html = DOMPurify.sanitize(pre.textContent ?? '', { WHOLE_DOCUMENT: true, FORBID_ATTR: ['autofocus'] });
     pre.textContent = html;
     diagramSources.set(mountWireframe(block, html, metaOf(block)), html);
   }
@@ -506,7 +507,7 @@ function showActive(active: Active | undefined): void {
   showActiveIn(root, active);
 }
 
-root.addEventListener('mouseover', (e) => showActive(activeFor(e.target as Element) ?? pinned));
+root.addEventListener('mouseover', (e) => showActive(activeFor(linkTarget(e)) ?? pinned));
 root.addEventListener('mouseleave', () => showActive(pinned));
 
 root.addEventListener('click', (e) => {
@@ -520,7 +521,7 @@ root.addEventListener('click', (e) => {
   if (openImageZoom(target)) {
     return;
   }
-  const active = activeFor(target);
+  const active = endsDrag(e) ? undefined : activeFor(linkTarget(e));
   if (active) {
     activate(active);
   }
@@ -778,7 +779,8 @@ function setZoomWireframe(frame: HTMLElement): void {
   copy.style.padding = '0';
   copy.style.width = `${Number(block.dataset.seqnotesWidth) || frame.offsetWidth}px`;
   zoomStage.replaceChildren(copy);
-  mountWireframe(copy, diagramSources.get(frame) ?? '', metaOf(block));
+  // Only shown: the overlay pans on drag, and its boxes take the clicks.
+  mountWireframe(copy, diagramSources.get(frame) ?? '', metaOf(block), true);
   layoutWireframe(copy);
   if (zoom) {
     zoom.width = copy.offsetWidth;
