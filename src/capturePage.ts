@@ -55,12 +55,13 @@ export function unreadableSheets(): string[] {
  *   apply to the window taken in, the others left out, so that the page is laid out as in the window it was captured in;
  *   its lengths relative to the window in pixels.
  * - Its images, and the fonts it loaded, by placeholders of their URLs (`assets`).
- * `sheetTexts` are the texts of the style sheets it cannot read, by their URLs (`unreadableSheets`).
+ * `sheetTexts` are the texts of the style sheets it cannot read, by their URLs (`unreadableSheets`), and `requested` the
+ * URLs of the files the page loaded.
  */
-export function capturePage(sheetTexts: Record<string, string>, h: CaptureHelpers): CapturedPage {
+export function capturePage(sheetTexts: Record<string, string>, requested: string[], h: CaptureHelpers): CapturedPage {
   const width = window.innerWidth;
   const height = window.innerHeight;
-  const loaded = new Set(performance.getEntriesByType('resource').map((entry) => entry.name));
+  const loaded = new Set(requested);
   const assets: string[] = [];
   const absolute = (url: string, base: string): string | undefined => {
     try {

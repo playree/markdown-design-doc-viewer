@@ -9,7 +9,7 @@ import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { BrowserContext, Page } from 'playwright-core';
-import { assetPlaceholder, assetType, replaceAssets, splitTopLevel, styleText, viewportUnitsToPx } from './captureCss';
+import { assetPlaceholder, assetType, capturedFrom, inlineImports, replaceAssets, splitTopLevel, styleText, viewportUnitsToPx } from './captureCss';
 import { isInFolder, type CaptureOptions } from './cliOptions';
 import { capturePage, unreadableSheets, type CapturedPage } from './capturePage';
 import { launchChrome } from './headless';
@@ -81,8 +81,10 @@ export async function capture(options: CaptureOptions): Promise<string[]> {
       bypassCSP: true,
     });
     const page = await context.newPage();
-    // The fonts and images the page loaded are found in its resource timings.
-    await page.addInitScript(() => performance.setResourceTimingBufferSize(100_000));
+    // The fonts and images the page loaded, also those of the style sheets of other origins, which its resource
+    // timings leave out.
+    const requested = new Set<string>();
+    page.on('requestfinished', (request) => requested.add(request.url()));
     await script?.setup?.(page, context);
     await page.goto(options.url, { waitUntil: 'networkidle' });
     await script?.default?.(page, context);
@@ -108,17 +110,21 @@ export async function capture(options: CaptureOptions): Promise<string[]> {
     const warnings: string[] = [];
     const folders = localFolders(page.url());
     const sheetTexts: Record<string, string> = {};
+    const fetchText = async (url: string): Promise<string | undefined> => (await fetchFile(context, url, folders))?.body.toString('utf8');
     for (const href of await page.evaluate(unreadableSheets)) {
-      const file = await fetchFile(context, href, folders);
-      if (file) {
-        sheetTexts[href] = file.body.toString('utf8');
+      const text = await fetchText(href);
+      const missing: string[] = [];
+      if (text !== undefined) {
+        // The page parses its text without its `@import`s.
+        sheetTexts[href] = await inlineImports(text, href, fetchText, missing);
       } else {
-        warnings.push(`Style sheet left out (could not be fetched): ${href}`);
+        missing.push(href);
       }
+      warnings.push(...missing.map((url) => `Style sheet left out (could not be fetched): ${url}`));
     }
     // Given as their source: the functions run in the page.
     const helpers = `{ viewportUnitsToPx: ${viewportUnitsToPx}, splitTopLevel: ${splitTopLevel}, assetPlaceholder: ${assetPlaceholder}, styleText: ${styleText} }`;
-    const captured = await page.evaluate<CapturedPage>(`(${capturePage})(${JSON.stringify(sheetTexts)}, ${helpers})`);
+    const captured = await page.evaluate<CapturedPage>(`(${capturePage})(${JSON.stringify(sheetTexts)}, ${JSON.stringify([...requested])}, ${helpers})`);
 
     const urls = await Promise.all(
       captured.assets.map(async (url) => {
@@ -130,7 +136,7 @@ export async function capture(options: CaptureOptions): Promise<string[]> {
       }),
     );
     // Not `--` in the comment.
-    const source = `${options.url.replace(/-(?=-)/g, '%2D')} at ${options.width}x${options.height}`;
+    const source = `${capturedFrom(options.url).replace(/-(?=-)/g, '%2D')} at ${options.width}x${options.height}`;
     const html = `<!DOCTYPE html>\n<!-- Captured by md-design-doc capture from ${source} -->\n${replaceAssets(captured.html, urls)}\n`;
     mkdirSync(dirname(options.out), { recursive: true });
     writeFileSync(options.out, html);

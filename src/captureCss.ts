@@ -1,7 +1,9 @@
 /**
- * The texts of a screen captured as a wireframe (capture.ts). `viewportUnitsToPx` and `splitTopLevel` also run in the
- * captured page (capturePage.ts), given as their source: they refer to nothing outside them.
+ * The texts of a screen captured as a wireframe (capture.ts). `viewportUnitsToPx`, `splitTopLevel`, `assetPlaceholder`
+ * and `styleText` also run in the captured page (capturePage.ts), given as their source: they refer to nothing outside them.
  */
+import { basename } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /**
  * `text` (CSS declarations) with its lengths relative to the window (`100vh`, `50vw`, `10dvmin`...) in pixels of a
@@ -85,3 +87,137 @@ export function assetType(url: string, contentType: string | undefined): string 
  * URIs), which would end it early or have it removed by the sanitizer of the preview (DOMPurify).
  */
 export const styleText = (css: string): string => css.replace(/<(?=[\w/!?])/g, '\\3c ');
+
+/** `css` without its comments, which are not in its strings. */
+function withoutComments(css: string): string {
+  let text = '';
+  let quote = '';
+  for (let i = 0; i < css.length; i++) {
+    const c = css[i];
+    if (quote) {
+      if (c === '\\') {
+        text += c + (css[++i] ?? '');
+        continue;
+      }
+      if (c === quote) {
+        quote = '';
+      }
+    } else if (c === '"' || c === "'") {
+      quote = c;
+    } else if (c === '/' && css[i + 1] === '*') {
+      const end = css.indexOf('*/', i + 2);
+      i = end < 0 ? css.length : end + 1;
+      continue;
+    }
+    text += c;
+  }
+  return text;
+}
+
+const STRING = `"((?:[^"\\\\]|\\\\.)*)"|'((?:[^'\\\\]|\\\\.)*)'`;
+const URL_RE = new RegExp(`url\\(\\s*(?:${STRING}|([^)\\s'"]*))\\s*\\)`, 'gi');
+/** `@import` with its URL (a `url()` or a string) and its conditions. */
+const IMPORT_RE = new RegExp(`@import\\s*(?:url\\(\\s*(?:${STRING}|([^)\\s'"]*))\\s*\\)|${STRING})((?:[^;"']|"(?:[^"\\\\]|\\\\.)*"|'(?:[^'\\\\]|\\\\.)*')*);`, 'gi');
+const unescape = (text: string): string => text.replace(/\\(.)/g, '$1');
+
+/** `css` with the URLs of its `url()` absolute, from `base`. */
+function absoluteUrls(css: string, base: string): string {
+  return css.replace(URL_RE, (match, double?: string, single?: string, bare?: string) => {
+    const url = unescape(double ?? single ?? bare ?? '');
+    if (url === '' || url.startsWith('#') || /^data:/i.test(url)) {
+      return match;
+    }
+    try {
+      return `url("${new URL(url, base).href.replace(/["\\]/g, '\\$&')}")`;
+    } catch {
+      return match;
+    }
+  });
+}
+
+/** The conditions of an `@import` after its URL: its layer (`''` for an anonymous one), `supports()` and media queries. */
+export function importConditions(text: string): { layer?: string; supports?: string; media: string } {
+  let rest = text.trim();
+  let layer: string | undefined;
+  let supports: string | undefined;
+  const m = /^layer(?:\(([^)]*)\))?(?=\s|$)/i.exec(rest);
+  if (m) {
+    layer = m[1]?.trim() ?? '';
+    rest = rest.slice(m[0].length).trim();
+  }
+  if (/^supports\(/i.test(rest)) {
+    let depth = 0;
+    let end = 'supports'.length;
+    for (; end < rest.length; end++) {
+      depth += rest[end] === '(' ? 1 : rest[end] === ')' ? -1 : 0;
+      if (depth === 0) {
+        break;
+      }
+    }
+    supports = rest.slice('supports('.length, end).trim();
+    rest = rest.slice(end + 1).trim();
+  }
+  return { ...(layer === undefined ? {} : { layer }), ...(supports === undefined ? {} : { supports }), media: rest };
+}
+
+/**
+ * The text of the style sheet at `base` with its `@import`s replaced by the style sheets they import (from `fetchText`,
+ * themselves with theirs), in rules of their conditions, and its URLs absolute: for a style sheet that the page cannot
+ * read, whose text the page parses, without its `@import`s. The style sheets that cannot be fetched are added to `missing`.
+ */
+export async function inlineImports(
+  css: string,
+  base: string,
+  fetchText: (url: string) => Promise<string | undefined>,
+  missing: string[],
+  seen: ReadonlySet<string> = new Set([base]),
+): Promise<string> {
+  const text = withoutComments(css).replace(/@charset\s*"[^"]*"\s*;/gi, '');
+  const imports = Array.from(text.matchAll(IMPORT_RE), async (m) => {
+    let url: string;
+    try {
+      url = new URL(unescape(m[1] ?? m[2] ?? m[3] ?? m[4] ?? m[5] ?? ''), base).href;
+    } catch {
+      return '';
+    }
+    if (seen.has(url)) {
+      return '';
+    }
+    const imported = await fetchText(url);
+    if (imported === undefined) {
+      missing.push(url);
+      return '';
+    }
+    let rules = await inlineImports(imported, url, fetchText, missing, new Set([...seen, url]));
+    const { layer, supports, media } = importConditions(m[6]);
+    if (layer !== undefined) {
+      rules = `@layer ${layer}${layer ? ' ' : ''}{\n${rules}\n}`;
+    }
+    if (supports !== undefined) {
+      rules = `@supports (${supports}) {\n${rules}\n}`;
+    }
+    return media ? `@media ${media} {\n${rules}\n}` : rules;
+  });
+  const sheets = await Promise.all(imports);
+  let n = 0;
+  return absoluteUrls(
+    text.replace(IMPORT_RE, () => sheets[n++]),
+    base,
+  );
+}
+
+/**
+ * The page captured, as written in the file: without the credentials, query and fragment of its URL, which may have
+ * secrets (e.g. the token of a password reset), and of a local file only its name.
+ */
+export function capturedFrom(url: string): string {
+  const shown = new URL(url);
+  if (shown.protocol === 'file:') {
+    return basename(fileURLToPath(shown));
+  }
+  shown.username = '';
+  shown.password = '';
+  shown.search = '';
+  shown.hash = '';
+  return shown.href;
+}
