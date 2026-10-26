@@ -3,6 +3,7 @@
  * images and links, and its wireframes (src/wireframe.ts).
  */
 import type { MarkdownIt } from 'markdown-it';
+import { realpath } from 'node:fs/promises';
 import * as vscode from 'vscode';
 import { loadWireframes, wireframeDependencies, wireframeSources, type WireframeFiles } from './wireframe';
 
@@ -29,6 +30,21 @@ export function embeddableFolders(document: vscode.Uri): vscode.Uri[] {
   return [vscode.Uri.joinPath(document, '..'), ...(vscode.workspace.workspaceFolders ?? []).map((f) => f.uri)];
 }
 
+/**
+ * `uri` with its symbolic links resolved when it is a local file (undefined when it cannot be), so that a link in a
+ * folder does not let a file out of it be read, as in the CLI and the desktop app.
+ */
+async function realUri(uri: vscode.Uri): Promise<vscode.Uri | undefined> {
+  if (uri.scheme !== 'file') {
+    return uri;
+  }
+  try {
+    return vscode.Uri.file(await realpath(uri.fsPath));
+  } catch {
+    return undefined;
+  }
+}
+
 /** The text of a file: that of its editor when it is open (with the changes not saved yet), or else read. */
 async function readText(uri: vscode.Uri): Promise<string | undefined> {
   const open = vscode.workspace.textDocuments.find((d) => d.uri.toString() === uri.toString());
@@ -50,11 +66,12 @@ export interface DocumentWireframes {
 
 /** Reads the wireframes of `document` (`source`) and their style sheets, from the folders of `embeddableFolders`. */
 export async function readWireframes(md: MarkdownIt, document: vscode.Uri, source: string): Promise<DocumentWireframes> {
-  const folders = embeddableFolders(document);
+  const folders = (await Promise.all(embeddableFolders(document).map(realUri))).filter((folder) => folder !== undefined);
   const srcs = wireframeSources(md.parse(source, {}));
   const files = await loadWireframes(md, srcs, async (path) => {
     const uri = resolveDocumentPath(document, path);
-    return folders.some((folder) => isIn(uri, folder)) ? readText(uri) : undefined;
+    const real = await realUri(uri);
+    return real && folders.some((folder) => isIn(real, folder)) ? readText(uri) : undefined;
   });
   const dependencies = new Set(
     srcs.flatMap((src) => wireframeDependencies(md, src, files[src]).map((path) => resolveDocumentPath(document, path).toString())),

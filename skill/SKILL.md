@@ -16,7 +16,7 @@ When the diagnostics of VS Code cannot be read, check the document yourself afte
 - Every arrow (node) of a diagram with `%% @link-headings` has a step heading with the same text after the diagram, or a `%% @ref` on the line just before it that names one of those headings.
 - Every heading at the step level, between the diagram and `<!-- link-headings:end -->`, is linked to an arrow (node).
 - Every column named in a `<!-- table: … -->` comment is a header of the table right after it, and the level column has an integer in every row.
-- Every part (`data-item`) of a wireframe with `link-headings` has a row with its number in the `item=` column of an item table, or a heading numbered like it, after the wireframe; and every such row and heading has a part.
+- Every part (`data-item`) of a wireframe with `link-headings` has a row with its number in the `item=` column of an item table, a heading numbered like it, or the heading its `data-ref` names, after the wireframe; and every such row and heading has a part.
 - If the command line can run (see [Export to HTML](#export-to-html)), export the document with `--strict`. It fails on `@ref` targets that do not exist, markers that have no effect and table options that cannot be applied, but it does not report arrows and headings that are only not linked.
 
 ## Export to HTML
