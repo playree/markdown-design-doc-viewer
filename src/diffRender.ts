@@ -36,8 +36,25 @@ const WRAPPED = new Set(['fence', 'html_block', 'front_matter']);
 /** A mermaid block has the attributes (`mermaidFence` in render.ts), and must stay a block of its own to be laid out with its steps. */
 const isWrapped = (token: Token): boolean => WRAPPED.has(token.type) && !isMermaidFence(token);
 
-/** An HTML block of comments only (such as `<!-- link-headings:end -->`) shows nothing. */
-const COMMENTS_RE = /^\s*(?:<!--[^]*?-->\s*)+$/;
+/**
+ * true for an HTML block of comments only (such as `<!-- link-headings:end -->`), which shows nothing. Read without a
+ * regular expression, which would take exponential time on many comments followed by something else.
+ */
+function isCommentsOnly(html: string): boolean {
+  let s = html.trim();
+  if (!s.startsWith('<!--')) {
+    return false;
+  }
+  while (s.startsWith('<!--')) {
+    // A comment ends at its first `-->`, as in HTML.
+    const end = s.indexOf('-->', 4);
+    if (end < 0) {
+      return false;
+    }
+    s = s.slice(end + 3).trimStart();
+  }
+  return s === '';
+}
 
 /** A list item's marker, left out of the comparison so that numbering the items again does not change them. */
 const LIST_MARKER_RE = /^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]?/;
@@ -103,7 +120,7 @@ function unitsOf(tokens: Token[], lines: string[], start: number, end: number, l
         key = key.replace(LIST_MARKER_RE, '');
       }
       key = SPACED.has(kind) ? key.trimEnd() : key.replace(/\s+/g, ' ').trim();
-      const hidden = (token.type === 'html_block' && COMMENTS_RE.test(token.content)) || (token.type === 'front_matter' && env.frontMatter === false);
+      const hidden = (token.type === 'html_block' && isCommentsOnly(token.content)) || (token.type === 'front_matter' && env.frontMatter === false);
       units.push({ start: i, end: close + 1, key, kind, hidden });
     }
     i = close + 1;
