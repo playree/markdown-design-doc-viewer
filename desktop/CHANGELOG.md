@@ -9,6 +9,7 @@ The desktop app has its own version, apart from the extension and the command li
 - Wireframes can be numbered without `data-item` in their HTML: `item.<number>="<CSS selector>"` in their options (which may span several lines) numbers the elements matching the selector, and a selector that matches nothing is noted below the wireframe. Their `:root` rules, `@font-face` and `@property` (e.g. of Tailwind CSS) work as in a browser. A screen of a running web app can be captured as a wireframe with the command line's `capture` (see [Capturing screens](../docs/cli.md#capturing-screens)).
 - **File** > **Export as HTML...** adds the table of contents of the window to the exported page (hover its right edge), unless it is turned off in **View** > **Settings...**. It is not printed.
 - Fixed local images written as HTML `<img>` tags (for example `<img src="images/a.png" width="49%">`) not showing in the window and not being embedded in exported HTML.
+- Fixed the comparison with a commit in the **History** tab (also in exported HTML) taking a very long time on an HTML block of many comments followed by something else. Text after the end of a comment (`<!-- a --> b`) is no longer taken as part of it there.
 
 ## 0.3.0
 

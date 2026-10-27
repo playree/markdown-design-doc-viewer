@@ -64,6 +64,14 @@ describe('renderDiff', () => {
   it('ignores the changes of HTML comments', () => {
     const { stats } = renderDiff(md, doc('Text.', '', '<!-- link-headings:end -->'), doc('Text.'));
     expect(stats).toEqual({ added: 0, changed: 0, deleted: 0 });
+    expect(renderDiff(md, doc('Text.', '', '<!-- a -->  <!-- b -->'), doc('Text.')).stats).toEqual({ added: 0, changed: 0, deleted: 0 });
+  });
+
+  it('shows the changes of an HTML block with something after its comments, at once', () => {
+    const block = '<!-- a -->'.repeat(30) + '<b>x</b>';
+    expect(renderDiff(md, doc('Text.', '', block), doc('Text.')).stats).toEqual({ added: 0, changed: 0, deleted: 1 });
+    // Text after the end of a comment is shown, though it ends with `-->`.
+    expect(renderDiff(md, doc('Text.', '', '<!-- a --> b -->'), doc('Text.')).stats).toEqual({ added: 0, changed: 0, deleted: 1 });
   });
 
   it('keeps a diagram beside its steps, and the deleted steps out of the links', () => {
