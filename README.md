@@ -89,7 +89,7 @@ Issue a JWT valid for one hour.
 |---|---|
 | `%% @link-headings` | Required. Marks the diagram (a sequence diagram, a flowchart, an ER diagram or a state diagram) to be linked to and shown side by side with its descriptions. Write it anywhere inside the mermaid block. |
 | Arrow label equals a heading | `Auth->>DB: Fetch user` links to the heading `Fetch user` automatically. |
-| Numbered heading | `### 3. Fetch user` also links to `Fetch user` (`3.`, `3)`, `(3)`, `③`, `1.2.3` and similar prefixes are ignored when no heading matches exactly). |
+| Numbered heading | `### 3. Fetch user` also links to `Fetch user` (`3.`, `3)`, `(3)`, `③`, `1.2.3` and similar prefixes are ignored when no heading matches exactly). To number the steps, `autonumber` is recommended instead (see below). |
 | `%% @ref <heading>` | Links the **next** arrow to `<heading>` when its label differs from the heading. |
 | `<!-- link-headings:end -->` | Optional. Ends the description column. Without it, the column extends to the next diagram with `%% @link-headings` or the end of the document. |
 | Front matter | Optional. The metadata between the `---` lines is shown at the top as a table, or as the document's header with `type: design_doc` (see [Design document header](#design-document-header)). |
@@ -102,9 +102,10 @@ Rules:
 - `%% @link-headings` has no effect on a diagram inside a list or blockquote; this is reported as a warning.
 - An `@ref` whose heading cannot be found is reported as a warning at the top of the preview. The × button hides the warnings temporarily; they are shown again when they change.
 - With `autonumber`, linked headings show the arrow's number, unless the heading already starts with it (`### 3. Fetch user`). Turn `mdDesignDoc.headingNumbers` off to hide them.
+- To number the steps, use `autonumber` and write the headings without numbers. Numbers written in the headings drift from the arrows' when arrows are added or removed, or when several arrows are linked to one heading. A numbered heading whose number differs from that of an arrow linked to it is reported in the Problems panel, with a quick fix that removes the number.
 - To help spot missing descriptions, arrows without a linked heading are shown faded, and headings at the same level as the linked ones but without an arrow get a "no arrow" mark. Diagrams with no links at all get no marks.
 - The same warnings and missing links are also reported in the Problems panel for open Markdown files, even when no preview is open. A diagram with `%% @link-headings` but no links at all is reported there too.
-- In the editor, the headings of the overview are completed after `%% @ref ` (those without an arrow first). The missing-link diagnostics come with quick fixes (light bulb, `Ctrl+.`): link the arrow to a heading without an arrow by writing a `@ref`, add a heading with the arrow's text to the overview, or point a broken `@ref` to an existing heading.
+- In the editor, the headings of the overview are completed after `%% @ref ` (those without an arrow first). The missing-link diagnostics come with quick fixes (light bulb, `Ctrl+.`): link the arrow to a heading without an arrow by writing a `@ref`, add a heading with the arrow's text to the overview, point a broken `@ref` to an existing heading, or remove the number of a heading that differs from its arrow's.
 - Warnings, marks and tooltips are shown in English or Japanese, following the VS Code display language.
 
 ![The arrow "Refund ID" without a heading is faded, and the heading "Restock items" without an arrow gets a "no arrow" mark](images/screenshot-link-checks.png)

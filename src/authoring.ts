@@ -1,8 +1,8 @@
 import type { MarkdownIt } from 'markdown-it';
 import { diagramWording } from './diagramWording';
 import { formatMessage, type Translate } from './l10n';
-import { diagramKind, linkDiagrams, type DiagramInfo, type LinkedMessage, type MermaidKind, type OverviewHeading } from './linker';
-import { normalizeLabel } from './sequence';
+import { diagramKind, linkDiagrams, numberMismatches, type DiagramInfo, type LinkedMessage, type MermaidKind, type OverviewHeading } from './linker';
+import { normalizeLabel, stripStepNumber } from './sequence';
 
 /** A 0-based position in the Markdown document. */
 export interface Position {
@@ -155,8 +155,36 @@ function addHeadingFix(lines: string[], tokens: ReturnType<MarkdownIt['parse']>,
 }
 
 /**
+ * Removes the number written at the start of a step heading (`### 3. Fetch user` → `### Fetch user`), so that the preview shows
+ * the numbers of its arrows instead. Undefined when the number is not plain text at the start of the line (e.g. emphasized), or when another heading
+ * would have the text without the number.
+ */
+function removeNumberFix(lines: string[], diagram: DiagramInfo, heading: OverviewHeading, t: Translate): QuickFix | undefined {
+  const shown = stripStepNumber(heading.text);
+  // Another heading with the text would take the links of this one.
+  if (!shown || diagram.headings.some((h) => h !== heading && (stripStepNumber(h.text)?.text ?? h.text) === shown.text)) {
+    return undefined;
+  }
+  const source = lines[heading.line] ?? '';
+  // The `#`s of an ATX heading, or the indent of the first line of a setext heading.
+  const marker = /^ {0,3}(?:#{1,6}[ \t]+)?/.exec(source)![0];
+  const rest = source.slice(marker.length);
+  const written = stripStepNumber(rest);
+  if (!written || written.value !== shown.value) {
+    return undefined;
+  }
+  // `stripStepNumber` trims the text it is given.
+  const start = marker.length + rest.length - rest.trimStart().length;
+  const end = start + rest.trim().length - written.text.length;
+  return {
+    title: t('Remove the number from the heading'),
+    edit: { start: { line: heading.line, character: start }, end: { line: heading.line, character: end }, text: '' },
+  };
+}
+
+/**
  * Fixes for the link problems reported on `line` by `collectIssues`: an arrow without a heading,
- * a `%% @ref` to a missing heading and a step heading without an arrow.
+ * a `%% @ref` to a missing heading, a step heading without an arrow and a step heading numbered unlike its arrows.
  */
 export function quickFixes(md: MarkdownIt, source: string, line: number, t: Translate = formatMessage): QuickFix[] {
   return quickFixesByLine(md, source, [line], t).get(line) ?? [];
@@ -197,6 +225,13 @@ function fixesAt(lines: string[], tokens: ReturnType<MarkdownIt['parse']>, diagr
         const label = normalizeLabel(m.text) || `#${m.index + 1}`;
         fixes.push(linkFix(lines, m, step.text, wording.linkItemFix(label)));
       }
+    }
+
+    // A step heading numbered unlike its arrows.
+    const mismatch = numberMismatches(diagram).find((m) => m.heading.line === line);
+    const remove = mismatch && removeNumberFix(lines, diagram, mismatch.heading, t);
+    if (remove) {
+      fixes.push(remove);
     }
   }
   return fixes;

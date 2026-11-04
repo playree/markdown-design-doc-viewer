@@ -48,14 +48,14 @@ sequenceDiagram
     deactivate API
 ```
 
-### 1. Place order
+### Place order
 
 The customer presses "Place order" on the cart page.
 
 - The button is disabled until the shipping address and payment method are chosen.
 - The cart is sent with an idempotency key, so pressing the button twice creates only one order.
 
-### 2. POST /orders
+### POST /orders
 
 ```http
 POST /orders HTTP/1.1
@@ -78,7 +78,7 @@ Idempotency-Key: 6f1c2a9e-0b7d-4f3a-9c55-1d2e8a7b4c10
 | 402 | Payment declined |
 | 409 | An item is out of stock |
 
-### 3. Reserve stock
+### Reserve stock
 
 Reserves every item of the cart in one transaction. If one item is short, nothing is reserved and the API returns `409 Conflict`.
 
@@ -92,7 +92,7 @@ WHERE sku = $1 AND quantity - reserved >= $2;
 
 The reservation expires after 15 minutes[^expiry] if the order is not confirmed.
 
-### 5. Authorize payment
+### Authorize payment
 
 Authorizes the order total. The amount is captured later, when the order is shipped.
 
@@ -119,7 +119,7 @@ export async function confirmOrder(tx: Tx, order: NewOrder, auth: Authorization)
 
 Returns the order ID and the expected delivery date.
 
-### 9. Show order confirmation
+### Show order confirmation
 
 Shows the order number and sends a confirmation email.
 

@@ -104,14 +104,14 @@ const LOCALES: Locale[] = [
     t: formatMessage,
     names: {
       sequence: 'Checkout sequence',
-      sequenceStep: '3. Reserve stock',
+      sequenceStep: 'Reserve stock',
       flowchart: 'Payment retry flow',
       flowchartStep: 'Retryable error?',
       linkChecks: 'Refund (draft)',
       markdown: 'Open items',
       tables: 'Request body of POST /orders',
       wireframe: 'Order confirmation screen',
-      demo: { hover: '1. Place order', click: '5. Authorize payment', heading: '3. Reserve stock' },
+      demo: { hover: 'Place order', click: 'Authorize payment', heading: 'Reserve stock' },
     },
   },
   {
@@ -122,14 +122,14 @@ const LOCALES: Locale[] = [
     t: translatorFor(jaBundle),
     names: {
       sequence: '注文確定のシーケンス',
-      sequenceStep: '3. 在庫を引き当て',
+      sequenceStep: '在庫を引き当て',
       flowchart: '決済リトライのフロー',
       flowchartStep: 'リトライ可能?',
       linkChecks: '返金（草案）',
       markdown: '未決事項',
       tables: 'POST /orders のリクエスト本文',
       wireframe: '注文完了画面',
-      demo: { hover: '1. 注文を確定', click: '5. オーソリ', heading: '3. 在庫を引き当て' },
+      demo: { hover: '注文を確定', click: 'オーソリ', heading: '在庫を引き当て' },
     },
   },
 ];
