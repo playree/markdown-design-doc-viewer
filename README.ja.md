@@ -296,8 +296,8 @@ AI アシスタント（Claude Code、GitHub Copilot、Cursor など）にこの
 
 ガイドは[コマンドライン](#コマンドラインci)の使い方とあわせて [Agent Skill](https://agentskills.io/) にもしてあります。指示ファイルにガイドをコピーしなくても、設計書を書くよう頼むと AI がこれを使います。Skill は英語で書いてありますが、設計書は依頼の言語で書きます。
 
-- **VS Code の GitHub Copilot**: 拡張機能に Skill が入っているので、拡張機能をインストールすれば Copilot が使えます。
-- **Claude Code・ほかの AI アシスタント**: コマンドパレットから「**AI 向けの Agent Skill をインストール...**」を実行し、`~/.claude/skills`（Claude Code、すべてのプロジェクト）、ワークスペースのフォルダの `.claude/skills`（Claude Code、そのプロジェクト。コミットするとチームで共有できます）、またはほかの AI アシスタントのスキルのフォルダを選びます。その中の `markdown-design-doc` フォルダに Skill をコピーします。拡張機能の更新で Skill が新しくなると、インストールした Skill の更新を 1 回だけ案内します（プロジェクトに入れたものは、そのプロジェクトを開いたウィンドウで案内します。ファイルを変更したものは案内しません）。コマンドを実行し直しても更新でき、ファイルが変更されていれば確認してから上書きします。
+- **VS Code の GitHub Copilot**: 拡張機能に Skill が入っているので、拡張機能をインストールすれば Copilot が使えます（VS Code 1.109 以降）。
+- **Claude Code・ほかの AI アシスタント**: コマンドパレットから「**AI 向けの Agent Skill をインストール...**」を実行し、`~/.claude/skills`（Claude Code、すべてのプロジェクト）、ワークスペースのフォルダの `.claude/skills`（Claude Code、そのプロジェクト。コミットするとチームで共有できます）、またはほかの AI アシスタントのスキルのフォルダを選びます。その中の `markdown-design-doc` フォルダに Skill をコピーします。拡張機能の更新で Skill が新しくなると、インストールした Skill の更新を 1 回だけ（Markdown ファイルを開いたときなど、拡張機能が動き始めたときに）案内します（プロジェクトに入れたものは、そのプロジェクトを開いたウィンドウで案内します。ファイルを変更したものは案内しません）。コマンドを実行し直しても更新でき、ファイルが変更されていれば確認してから上書きします。
 - **Claude（claude.ai）・VS Code を使わない場合**: [markdown-design-doc-skill.zip](https://github.com/playree/markdown-design-doc-viewer/releases/latest/download/markdown-design-doc-skill.zip) をダウンロードし、Claude ではスキルの設定からアップロード、ほかの AI アシスタントではそのスキルのフォルダ（Claude Code では `~/.claude/skills/` かプロジェクトの `.claude/skills/`）に展開します。
 
 ガイドでは、ファイルの診断を確認するよう AI に指示しています。VS Code の診断を読めるエージェント（Copilot のエージェントモードや、VS Code に接続した Claude Code など）は、紐付いていない矢印や見出しを自分で見つけて直せます。

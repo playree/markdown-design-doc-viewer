@@ -6,6 +6,8 @@ export interface SkillInstall {
   folder: string;
   /** The hash of the files written there (`hashSkill`). */
   hash: string;
+  /** The version of the extension that wrote them: a copy written by a newer one is not offered to be replaced by an older skill. */
+  version?: string;
   /** The paths of the files written there, relative to the folder: those the next version no longer has are removed by its update. */
   files?: string[];
   /** The URI of the workspace folder the copy is in (its `.claude/skills`): its update is offered only in a window with that folder. */
@@ -16,13 +18,14 @@ export interface SkillInstall {
 
 /**
  * What to do with an installed copy of the skill:
- * - `missing`: its SKILL.md is gone (forget it),
+ * - `missing`: its files are gone (forget it),
  * - `current`: it is the extension's skill,
  * - `outdated`: it is as installed, and the extension has another (offer to update it),
  * - `modified`: its files were changed since it was installed (leave it to the user, who can install it again),
- * - `offered`: outdated, but its update to the extension's skill was already offered.
+ * - `offered`: outdated, but its update to the extension's skill was already offered,
+ * - `newer`: as installed by a newer version of the extension (which was then downgraded).
  */
-export type SkillInstallStatus = 'missing' | 'current' | 'outdated' | 'modified' | 'offered';
+export type SkillInstallStatus = 'missing' | 'current' | 'outdated' | 'modified' | 'offered' | 'newer';
 
 /**
  * Hashes the files of a skill: those at `paths` (the files of the extension's skill, relative to its folder) in
@@ -48,8 +51,11 @@ export interface InstalledHashes {
   recorded: string;
 }
 
-/** The status of `install`, whose files hash to `installed` (undefined without its SKILL.md), when the extension's skill hashes to `bundled`. */
-export function skillInstallStatus(install: SkillInstall, installed: InstalledHashes | undefined, bundled: string): SkillInstallStatus {
+/**
+ * The status of `install`, whose files hash to `installed` (undefined without any of them), when the skill of the
+ * extension (of version `version`) hashes to `bundled`.
+ */
+export function skillInstallStatus(install: SkillInstall, installed: InstalledHashes | undefined, bundled: string, version: string): SkillInstallStatus {
   if (installed === undefined) {
     return 'missing';
   }
@@ -59,13 +65,23 @@ export function skillInstallStatus(install: SkillInstall, installed: InstalledHa
   if (installed.recorded !== install.hash) {
     return 'modified';
   }
+  if (install.version !== undefined && compareVersions(install.version, version) > 0) {
+    return 'newer';
+  }
   return install.offered === bundled ? 'offered' : 'outdated';
 }
 
-/** `installs` with `install` in place of the one of the same folder, or added at the end. */
-export function withSkillInstall(installs: readonly SkillInstall[], install: SkillInstall): SkillInstall[] {
-  const index = installs.findIndex((other) => other.folder === install.folder);
-  return index < 0 ? [...installs, install] : installs.map((other, i) => (i === index ? install : other));
+/** Compares the versions `a` and `b` (`1.4.0`, `1.5.0-rc.1`) by their numbers: negative if `a` is older, positive if newer. */
+export function compareVersions(a: string, b: string): number {
+  const numbers = (version: string) => (/^(\d+)\.(\d+)\.(\d+)/.exec(version) ?? []).slice(1).map(Number);
+  const [x, y] = [numbers(a), numbers(b)];
+  for (let i = 0; i < 3; i++) {
+    const difference = (x[i] ?? 0) - (y[i] ?? 0);
+    if (difference !== 0) {
+      return difference;
+    }
+  }
+  return 0;
 }
 
 /**

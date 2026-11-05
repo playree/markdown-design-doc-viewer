@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hashSkill, type InstalledHashes, type SkillInstall, skillInstallStatus, staleSkillFiles, withSkillInstall } from '../src/skillInstallState';
+import { compareVersions, hashSkill, type InstalledHashes, type SkillInstall, skillInstallStatus, staleSkillFiles } from '../src/skillInstallState';
 
 const bytes = (text: string): Uint8Array => new TextEncoder().encode(text);
 
@@ -39,42 +39,44 @@ describe('skillInstallStatus', () => {
   const hashes = (bundle: string, recorded = bundle): InstalledHashes => ({ bundle, recorded });
 
   it('is missing without the installed files', () => {
-    expect(skillInstallStatus(install, undefined, 'new')).toBe('missing');
+    expect(skillInstallStatus(install, undefined, 'new', '1.5.0')).toBe('missing');
   });
 
   it('is current when the installed files are the bundled ones, even if changed since', () => {
-    expect(skillInstallStatus(install, hashes('new'), 'new')).toBe('current');
-    expect(skillInstallStatus({ ...install, hash: 'new' }, hashes('new'), 'new')).toBe('current');
+    expect(skillInstallStatus(install, hashes('new'), 'new', '1.5.0')).toBe('current');
+    expect(skillInstallStatus({ ...install, hash: 'new' }, hashes('new'), 'new', '1.5.0')).toBe('current');
   });
 
   it('is outdated when the installed files are as written and the bundled ones differ', () => {
-    expect(skillInstallStatus(install, hashes('old'), 'new')).toBe('outdated');
+    expect(skillInstallStatus(install, hashes('old'), 'new', '1.5.0')).toBe('outdated');
   });
 
   it('is outdated when the skill of the extension has a file the installed one does not', () => {
-    expect(skillInstallStatus(install, hashes('old without the new file', 'old'), 'new')).toBe('outdated');
+    expect(skillInstallStatus(install, hashes('old without the new file', 'old'), 'new', '1.5.0')).toBe('outdated');
   });
 
   it('is modified when the installed files were changed', () => {
-    expect(skillInstallStatus(install, hashes('edited'), 'new')).toBe('modified');
+    expect(skillInstallStatus(install, hashes('edited'), 'new', '1.5.0')).toBe('modified');
+  });
+
+  it('is newer when installed by a newer version of the extension, unless changed', () => {
+    expect(skillInstallStatus({ ...install, version: '1.6.0' }, hashes('old'), 'new', '1.5.0')).toBe('newer');
+    expect(skillInstallStatus({ ...install, version: '1.6.0' }, hashes('edited'), 'new', '1.5.0')).toBe('modified');
+    expect(skillInstallStatus({ ...install, version: '1.4.0' }, hashes('old'), 'new', '1.5.0')).toBe('outdated');
   });
 
   it('is offered until the bundled files change again', () => {
-    expect(skillInstallStatus({ ...install, offered: 'new' }, hashes('old'), 'new')).toBe('offered');
-    expect(skillInstallStatus({ ...install, offered: 'new' }, hashes('old'), 'newer')).toBe('outdated');
+    expect(skillInstallStatus({ ...install, offered: 'new' }, hashes('old'), 'new', '1.5.0')).toBe('offered');
+    expect(skillInstallStatus({ ...install, offered: 'new' }, hashes('old'), 'newer', '1.5.0')).toBe('outdated');
   });
 });
 
-describe('withSkillInstall', () => {
-  const a: SkillInstall = { folder: 'file:///a', hash: '1' };
-  const b: SkillInstall = { folder: 'file:///b', hash: '2' };
-
-  it('replaces the install of the same folder', () => {
-    expect(withSkillInstall([a, b], { folder: 'file:///a', hash: '3' })).toEqual([{ folder: 'file:///a', hash: '3' }, b]);
-  });
-
-  it('adds the install of another folder', () => {
-    expect(withSkillInstall([a], b)).toEqual([a, b]);
+describe('compareVersions', () => {
+  it('compares the numbers of the versions', () => {
+    expect(compareVersions('1.4.0', '1.5.0')).toBeLessThan(0);
+    expect(compareVersions('1.10.0', '1.9.3')).toBeGreaterThan(0);
+    expect(compareVersions('2.0.0', '1.99.99')).toBeGreaterThan(0);
+    expect(compareVersions('1.5.0-rc.1', '1.5.0')).toBe(0);
   });
 });
 
