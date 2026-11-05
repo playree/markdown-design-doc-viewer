@@ -12,6 +12,7 @@
   "mdDesignDoc.showDesignDocs.title": "Show Design Docs",
   "mdDesignDoc.refreshDesignDocs.title": "Refresh Design Docs",
   "mdDesignDoc.openDesignDocInEditor.title": "Open in Editor",
+  "mdDesignDoc.installAgentSkill.title": "Install Agent Skill for AI...",
   "mdDesignDoc.designDocs.name": "Design Docs",
   "mdDesignDoc.designDocs.welcome": "There are no design docs in the workspace. A design doc is a Markdown file with `type: design_doc` in its front matter.",
   "mdDesignDoc.editor.displayName": "Design Doc Preview",

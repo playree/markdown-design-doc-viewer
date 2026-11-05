@@ -60,6 +60,11 @@
     "onWebviewPanel:mdDesignDoc.designDocs"
   ],
   "contributes": {
+    "chatSkills": [
+      {
+        "path": "./dist/skill/markdown-design-doc/SKILL.md"
+      }
+    ],
     "commands": [
       {
         "command": "mdDesignDoc.openPreview",
@@ -119,6 +124,11 @@
         "title": "%mdDesignDoc.openDesignDocInEditor.title%",
         "category": "%category%",
         "icon": "$(go-to-file)"
+      },
+      {
+        "command": "mdDesignDoc.installAgentSkill",
+        "title": "%mdDesignDoc.installAgentSkill.title%",
+        "category": "%category%"
       }
     ],
     "views": {
