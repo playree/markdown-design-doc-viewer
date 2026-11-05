@@ -4,6 +4,7 @@
 !dist/webview.css
 !dist/export.js
 !dist/export.css
+!dist/skill/**
 !images/icon.png
 !images/preview.svg
 !images/design-docs.svg

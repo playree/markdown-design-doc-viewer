@@ -294,7 +294,11 @@ reviewers:
 
 AI アシスタント（Claude Code、GitHub Copilot、Cursor など）にこの形式で設計書を書かせるには、[AI 向けの記法ガイド](docs/ai-authoring-guide.ja.md)（[English](docs/ai-authoring-guide.md)）を渡してください。プロジェクトの指示ファイル（`CLAUDE.md`、`AGENTS.md`、`.github/copilot-instructions.md` など）にコピーするか、AI に読ませます。
 
-ガイドは[コマンドライン](#コマンドラインci)の使い方とあわせて [Agent Skill](https://agentskills.io/) にもしてあります。[markdown-design-doc-skill.zip](https://github.com/playree/markdown-design-doc-viewer/releases/latest/download/markdown-design-doc-skill.zip) をダウンロードし、Claude（claude.ai）ではスキルの設定からアップロード、Claude Code では `~/.claude/skills/` かプロジェクトの `.claude/skills/` に展開します（Agent Skills に対応したほかの AI アシスタントでは、そのスキルのフォルダに展開します）。指示ファイルにガイドをコピーしなくても、設計書を書くよう頼むと AI がこれを使います。Skill は英語で書いてありますが、設計書は依頼の言語で書きます。
+ガイドは[コマンドライン](#コマンドラインci)の使い方とあわせて [Agent Skill](https://agentskills.io/) にもしてあります。指示ファイルにガイドをコピーしなくても、設計書を書くよう頼むと AI がこれを使います。Skill は英語で書いてありますが、設計書は依頼の言語で書きます。
+
+- **VS Code の GitHub Copilot**: 拡張機能に Skill が入っているので、拡張機能をインストールすれば Copilot が使えます。
+- **Claude Code・ほかの AI アシスタント**: コマンドパレットから「**AI 向けの Agent Skill をインストール...**」を実行し、`~/.claude/skills`（Claude Code、すべてのプロジェクト）、ワークスペースのフォルダの `.claude/skills`（Claude Code、そのプロジェクト。コミットするとチームで共有できます）、またはほかの AI アシスタントのスキルのフォルダを選びます。その中の `markdown-design-doc` フォルダに Skill をコピーします。拡張機能の更新で Skill が新しくなると、インストールした Skill の更新を案内します（ファイルを変更したものは案内しません。コマンドを実行し直すと、確認してから上書きします）。
+- **Claude（claude.ai）・VS Code を使わない場合**: [markdown-design-doc-skill.zip](https://github.com/playree/markdown-design-doc-viewer/releases/latest/download/markdown-design-doc-skill.zip) をダウンロードし、Claude ではスキルの設定からアップロード、ほかの AI アシスタントではそのスキルのフォルダ（Claude Code では `~/.claude/skills/` かプロジェクトの `.claude/skills/`）に展開します。
 
 ガイドでは、ファイルの診断を確認するよう AI に指示しています。VS Code の診断を読めるエージェント（Copilot のエージェントモードや、VS Code に接続した Claude Code など）は、紐付いていない矢印や見出しを自分で見つけて直せます。
 

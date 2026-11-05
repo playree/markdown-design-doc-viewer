@@ -4,6 +4,7 @@ This changelog covers the extension and the command line. The desktop app has it
 
 ## Unreleased
 
+- The extension comes with the Agent Skill for AI assistants: GitHub Copilot in VS Code can use it as soon as the extension is installed, and the new command **Install Agent Skill for AI...** copies it into the skills folder of Claude Code (`~/.claude/skills` or a workspace folder's `.claude/skills`) or of another assistant. When an update of the extension has a newer skill, it offers to update the copies it installed. See [Writing with AI](README.md#writing-with-ai).
 - A step heading numbered by hand (`### 3. Fetch user`) whose number differs from that of an arrow linked to it (with `autonumber`) is reported in the Problems panel, with a quick fix that removes the number. Numbering the steps with `autonumber` instead of in the headings is now recommended in the README and the guide for AI agents (Agent Skill).
 
 ## 1.4.0

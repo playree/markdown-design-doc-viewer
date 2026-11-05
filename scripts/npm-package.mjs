@@ -34,8 +34,8 @@ const FILES = [
 /** The page of the command line, instead of the repository's README (the extension's). */
 const HOMEPAGE = 'https://github.com/playree/markdown-design-doc-viewer/blob/main/docs/cli.md';
 
-/** The files of dist/ the command line does not use: the extension, and the screenshot script (`pnpm screenshots`). */
-const DIST_EXCLUDED = ['extension.js', 'screenshots.cjs'];
+/** The files of dist/ the command line does not use: the extension, its Agent Skill, and the screenshot script (`pnpm screenshots`). */
+const DIST_EXCLUDED = ['extension.js', 'skill', 'screenshots.cjs'];
 
 /** The fields of package.json that npm uses for the command line. The others are the extension's. */
 const FIELDS = ['name', 'version', 'description', 'license', 'repository', 'bugs', 'homepage', 'keywords', 'bin', 'engines', 'dependencies'];

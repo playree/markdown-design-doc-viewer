@@ -1,6 +1,7 @@
 import { copyFileSync, mkdirSync } from 'node:fs';
 import * as esbuild from 'esbuild';
 import { buildOptions } from './scripts/build-options.mjs';
+import { writeSkill } from './scripts/skill-files.mjs';
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
@@ -12,6 +13,10 @@ const contexts = await Promise.all(buildOptions({ production, desktop }).map((op
 if (desktop) {
   mkdirSync('desktop/dist', { recursive: true });
   copyFileSync('desktop/index.html', 'desktop/dist/index.html');
+} else {
+  // The Agent Skill for AI assistants, registered for Copilot (`chatSkills` in package.json) and installed by the
+  // extension's command. Not rebuilt on changes while watching: it is made of documents that seldom change.
+  writeSkill('dist/skill');
 }
 
 if (watch) {

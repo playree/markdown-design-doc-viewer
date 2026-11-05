@@ -7,6 +7,7 @@ import { DiagnosticsManager } from './diagnostics';
 import { exportHtml } from './exportHtml';
 import { compareWithRevision } from './history';
 import { PreviewManager, readSettings } from './previewPanel';
+import { registerSkillInstaller } from './skillInstall';
 
 function targetUri(arg: unknown): vscode.Uri | undefined {
   if (arg instanceof vscode.Uri) {
@@ -41,6 +42,7 @@ export function activate(context: vscode.ExtensionContext): void {
     new DesignDocsView(designDocs),
     new DiagnosticsManager(),
     registerAuthoringProviders(),
+    registerSkillInstaller(context),
     vscode.commands.registerCommand('mdDesignDoc.openPreview', open(vscode.ViewColumn.Active)),
     vscode.commands.registerCommand('mdDesignDoc.openPreviewToSide', open(vscode.ViewColumn.Beside)),
     vscode.commands.registerCommand('mdDesignDoc.exportHtml', (arg: unknown) => {
