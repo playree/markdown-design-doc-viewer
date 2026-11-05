@@ -172,6 +172,14 @@ describe('quickFixes', () => {
     const setext = doc('```mermaid', '%% @link-headings', 'sequenceDiagram', '    autonumber', '    A->>B: 一', '```', '', ' (3) 一', '---');
     const fix = quickFixes(md, setext, 7).find((f) => f.title === 'Remove the number from the heading');
     expect(fix && apply(setext, fix.edit).split('\n')[7]).toBe(' 一');
+    // Without the number, the line would be an ATX heading and the underline a thematic break.
+    const block = doc('```mermaid', '%% @link-headings', 'sequenceDiagram', '    autonumber', '    A->>B: # 一', '```', '', '(3) # 一', '---');
+    expect(collectIssues(md, block).map((i) => i.line)).toEqual([7]);
+    expect(quickFixes(md, block, 7)).toEqual([]);
+    // A @ref names the heading with its number.
+    const ref = doc('```mermaid', '%% @link-headings', 'sequenceDiagram', '    autonumber', '    A->>B: 一', '    %% @ref 3. 一', '    B-->>A: 応答', '```', '', '## 3. 一');
+    expect(collectIssues(md, ref).map((i) => i.line)).toEqual([9]);
+    expect(quickFixes(md, ref, 9)).toEqual([]);
   });
 
   it('offers nothing for linked lines and translates the titles', () => {
