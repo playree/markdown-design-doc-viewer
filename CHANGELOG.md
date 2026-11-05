@@ -2,6 +2,10 @@
 
 This changelog covers the extension and the command line. The desktop app has its own version and [changelog](desktop/CHANGELOG.md).
 
+## Unreleased
+
+- A step heading numbered by hand (`### 3. Fetch user`) whose number differs from that of an arrow linked to it (with `autonumber`) is reported in the Problems panel, with a quick fix that removes the number. Numbering the steps with `autonumber` instead of in the headings is now recommended in the README and the guide for AI agents (Agent Skill).
+
 ## 1.4.0
 
 - ER diagrams (`erDiagram`) and state diagrams (`stateDiagram` / `stateDiagram-v2`) marked with `%% @link-headings` are linked to the headings after them like flowcharts: each entity (by its alias, or its name) and each state (by its description, or its id; composite states included) is linked to the heading with the same text, or to the one of a `%% @ref` above the line defining it, for example to put the definition of each table or the description of each state beside the diagram. Hovering and clicking highlight and scroll both ways, entities and states without a heading are faded, headings without one get a "no entity" / "no state" mark, and the Problems panel, quick fixes and `@ref` completion work as for flowcharts. With `direction LR` / `RL`, the headings are shown below the diagram. See [examples/er-diagram.md](examples/er-diagram.md) and [examples/state-diagram.md](examples/state-diagram.md).

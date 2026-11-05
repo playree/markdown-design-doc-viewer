@@ -343,6 +343,36 @@ export function linkDiagrams(tokens: Token[], translate: Translate = formatMessa
   return { diagrams, warnings };
 }
 
+/** A step heading numbered by hand (`### 3. Fetch user`) with a number other than that of an arrow linked to it. */
+export interface NumberMismatch {
+  heading: OverviewHeading;
+  /** The `autonumber` numbers of the arrows linked to the heading, in ascending order. */
+  numbers: number[];
+}
+
+/**
+ * The headings of a diagram with `autonumber` whose own number differs from that of an arrow linked to them, where the
+ * preview shows the arrow's number next to the heading's: the numbers drift apart as arrows are added or removed.
+ * A heading with the very text of the arrow (or of its `%% @ref`), such as `2.0 Upgrade`, is not numbered by hand.
+ */
+export function numberMismatches(diagram: DiagramInfo): NumberMismatch[] {
+  const text = new Map(diagram.headings.map((h) => [h.id, h.text]));
+  const mismatched = new Set(
+    diagram.messages
+      .filter((m) => m.numberInHeading === false && normalizeLabel(m.ref ?? m.text) !== text.get(m.target!))
+      .map((m) => m.target),
+  );
+  return diagram.headings
+    .filter((h) => mismatched.has(h.id))
+    .map((heading) => ({
+      heading,
+      numbers: diagram.messages
+        .filter((m) => m.target === heading.id && m.number !== undefined)
+        .map((m) => m.number!)
+        .sort((a, b) => a - b),
+    }));
+}
+
 /**
  * Links the parts of a wireframe to the headings of its overview range numbered like them (or to the heading of their
  * `data-ref`, as `%% @ref`), and to the rows of its item tables with their numbers. A part linked to rows only gets a target of its own,

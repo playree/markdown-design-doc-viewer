@@ -46,19 +46,19 @@ sequenceDiagram
 
 ## Steps
 
-### 1. Authenticate user
+### Authenticate user
 
 What happens, inputs, validation, errors.
 
-### 2. Fetch user
+### Fetch user
 
 The query and the conditions under which authentication fails.
 
-### 3. User record
+### User record
 
 The columns returned.
 
-### 4. Issue token
+### Issue token
 
 The token's claims. It expires after 1 hour[^expiry].
 
@@ -75,7 +75,7 @@ The token's claims. It expires after 1 hour[^expiry].
 - Put `%% @link-headings` on a line of its own inside the block. Without it, the diagram is not shown side by side and nothing is linked.
 - Put the diagram at the top level of the document, not inside a list or blockquote.
 - Keep each arrow label (the text after `:`) short and unique within the diagram. It becomes the step heading.
-- `autonumber` may be used. The preview then shows the arrow's number next to its heading (unless `mdDesignDoc.headingNumbers` is off).
+- To number the steps, use `autonumber`. The preview then shows the arrow's number next to its heading (unless `mdDesignDoc.headingNumbers` is off), so do not write the numbers in the headings.
 - Other mermaid diagrams (class diagrams, Gantt charts, diagrams without `%% @link-headings`…) are rendered normally. Do not put `%% @ref` in them.
 
 ## Flowchart
@@ -129,7 +129,7 @@ A screen design can show the wireframe of the screen beside the description of i
 - Write the descriptions **after** the diagram, as headings in the order of the arrows, one heading per arrow.
 - Use the same heading level for all steps, usually one level below the heading of the section that holds the diagram.
 - Make the heading text equal to the arrow label. Whitespace is trimmed and collapsed before comparing, and `<br/>` in a label counts as a space.
-- A heading may start with a step number: `### 3. Fetch user` links to the arrow `Fetch user`. If you number the headings, use the arrow numbers given by `autonumber`.
+- Do not start the step headings with a number (`### 3. Fetch user`). Such a heading still links to the arrow `Fetch user`, but its number drifts from the arrow's when arrows are added or removed or when several arrows are linked to it, which the diagnostics report. Number the steps with `autonumber` instead, which shows the arrow numbers on the headings. When you edit a document whose step headings are numbered, remove the numbers that differ from their arrows'.
 - When the heading has to differ from the arrow label, write `%% @ref <heading text>` on the line just before the arrow, inside the diagram. Several arrows (for example a request and its response) may be linked to the same heading this way.
 - Do not add headings at the step level that no arrow links to. They are marked "no arrow" ("no node" for a flowchart, "no entity" for an ER diagram, "no state" for a state diagram). Write extra notes as paragraphs, as lower-level headings, or after the end marker.
 - Headings inside lists or blockquotes are not steps.

@@ -148,6 +148,40 @@ describe('quickFixes', () => {
     expect(refCandidates(md, state, 4)?.kind).toBe('state');
   });
 
+  it('removes the number of a step heading numbered unlike its arrows', () => {
+    const numbered = (heading: string): string =>
+      doc('```mermaid', '%% @link-headings', 'sequenceDiagram', '    autonumber', '    A->>B: 一', '    A->>B: 二', '```', '', '## 一', '', heading);
+    const fixed = (heading: string): string | undefined => {
+      const src = numbered(heading);
+      const fix = quickFixes(md, src, 10).find((f) => f.title === 'Remove the number from the heading');
+      return fix && apply(src, fix.edit).split('\n')[10];
+    };
+    expect(fixed('## 3. 二')).toBe('## 二');
+    expect(fixed('##   (3)  二 ##')).toBe('##   二 ##');
+    expect(fixed('### ③二')).toBe('### 二');
+    expect(fixed('## 1.2.3 二')).toBe('## 二');
+    // The number matches: nothing to fix.
+    expect(fixed('## 2. 二')).toBeUndefined();
+    // Not plain text at the start of the line.
+    expect(fixed('## **3.** 二')).toBeUndefined();
+    // Another heading would have the text.
+    const twice = doc('```mermaid', '%% @link-headings', 'sequenceDiagram', '    autonumber', '    A->>B: 応答', '    A->>B: 応答', '```', '', '## 3. 応答', '', '## 4. 応答');
+    expect(collectIssues(md, twice).map((i) => i.line)).toEqual([8, 10]);
+    expect(quickFixes(md, twice, 8)).toEqual([]);
+    // A setext heading (`3. 一` would be a list item).
+    const setext = doc('```mermaid', '%% @link-headings', 'sequenceDiagram', '    autonumber', '    A->>B: 一', '```', '', ' (3) 一', '---');
+    const fix = quickFixes(md, setext, 7).find((f) => f.title === 'Remove the number from the heading');
+    expect(fix && apply(setext, fix.edit).split('\n')[7]).toBe(' 一');
+    // Without the number, the line would be an ATX heading and the underline a thematic break.
+    const block = doc('```mermaid', '%% @link-headings', 'sequenceDiagram', '    autonumber', '    A->>B: # 一', '```', '', '(3) # 一', '---');
+    expect(collectIssues(md, block).map((i) => i.line)).toEqual([7]);
+    expect(quickFixes(md, block, 7)).toEqual([]);
+    // A @ref names the heading with its number.
+    const ref = doc('```mermaid', '%% @link-headings', 'sequenceDiagram', '    autonumber', '    A->>B: 一', '    %% @ref 3. 一', '    B-->>A: 応答', '```', '', '## 3. 一');
+    expect(collectIssues(md, ref).map((i) => i.line)).toEqual([9]);
+    expect(quickFixes(md, ref, 9)).toEqual([]);
+  });
+
   it('offers nothing for linked lines and translates the titles', () => {
     expect(quickFixes(md, base, 3)).toEqual([]);
     expect(quickFixes(md, base, 9)).toEqual([]);

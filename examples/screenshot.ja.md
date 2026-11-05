@@ -48,14 +48,14 @@ sequenceDiagram
     deactivate API
 ```
 
-### 1. 注文を確定
+### 注文を確定
 
 顧客がカート画面で「注文を確定」を押す。
 
 - 配送先と支払い方法を選ぶまで、ボタンは押せない。
 - カートは冪等キーを付けて送るので、ボタンを 2 回押しても注文は 1 件しかできない。
 
-### 2. POST /orders
+### POST /orders
 
 ```http
 POST /orders HTTP/1.1
@@ -78,7 +78,7 @@ Idempotency-Key: 6f1c2a9e-0b7d-4f3a-9c55-1d2e8a7b4c10
 | 402 | 決済拒否 |
 | 409 | 在庫切れの商品がある |
 
-### 3. 在庫を引き当て
+### 在庫を引き当て
 
 カートのすべての商品を 1 つのトランザクションで引き当てる。1 つでも足りなければ何も引き当てず、`409 Conflict` を返す。
 
@@ -92,7 +92,7 @@ WHERE sku = $1 AND quantity - reserved >= $2;
 
 注文が確定しなければ、引き当ては 15 分で失効する[^expiry]。
 
-### 5. オーソリ
+### オーソリ
 
 注文金額をオーソリする。売上の確定は出荷時に行う。
 
@@ -119,7 +119,7 @@ export async function confirmOrder(tx: Tx, order: NewOrder, auth: Authorization)
 
 注文 ID とお届け予定日を返す。
 
-### 9. 注文完了画面を表示
+### 注文完了画面を表示
 
 注文番号を表示し、注文確認メールを送る。
 

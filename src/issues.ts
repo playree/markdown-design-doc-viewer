@@ -1,7 +1,7 @@
 import type { MarkdownIt } from 'markdown-it';
 import { diagramWording, rowWording } from './diagramWording';
 import { formatMessage, type Translate } from './l10n';
-import { headingText, linkDiagrams } from './linker';
+import { headingText, linkDiagrams, numberMismatches } from './linker';
 import { normalizeLabel } from './sequence';
 import { tableWarnings } from './tables';
 import type { WireframeFiles } from './wireframe';
@@ -56,6 +56,17 @@ export function collectIssues(md: MarkdownIt, source: string, t: Translate = for
     }
     for (const row of diagram.rows.filter((r) => r.unlinked)) {
       issues.push({ line: row.line, message: rowWording(t).unlinked(row.item), severity: 'info' });
+    }
+    for (const { heading, numbers } of numberMismatches(diagram)) {
+      issues.push({
+        line: heading.line,
+        message: t(
+          'The number of heading "{0}" does not match the numbers of the arrows linked to it ({1}). Remove the number from the heading: autonumber shows the arrow numbers on it.',
+          heading.text,
+          numbers.join(', '),
+        ),
+        severity: 'info',
+      });
     }
   }
 

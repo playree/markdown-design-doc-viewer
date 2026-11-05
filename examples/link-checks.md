@@ -31,11 +31,11 @@ sequenceDiagram
 
 ### 1. Fetch profile
 
-Linked, and the number matches the arrow, so no extra number is shown.
+Linked, and the number matches the arrow, so no extra number is shown. Numbering the steps with `autonumber` alone (as under "Profile") is recommended, as numbers written in the headings drift from the arrows'.
 
 ### 3. Read cache
 
-Linked to arrow 2. The number in the heading is different, so the arrow's number is shown next to it as well.
+Linked to arrow 2. The number in the heading is different, so the arrow's number is shown next to it as well, and the Problems panel reports it with a quick fix that removes the number from the heading.
 
 ### Profile
 

@@ -44,14 +44,14 @@ sequenceDiagram
 
 ## Overview
 
-### 1. Request reset link
+### Request reset link
 
 The user enters their email address on the "Forgot password?" page.
 
 - The email field is required and must look like an email address.
 - After submitting, the page always shows "If the address is registered, we sent you an email." whatever the result.
 
-### 2. POST /password-reset
+### POST /password-reset
 
 ```http
 POST /password-reset HTTP/1.1
@@ -63,7 +63,7 @@ Content-Type: application/json
 - Rate limit: 3 requests per hour per email address and 20 per hour per IP address.
 - Requests over the limit still return `202 Accepted` but do nothing.
 
-### 3. Look up user by email
+### Look up user by email
 
 ```sql
 SELECT user_id, status
@@ -146,7 +146,7 @@ The page then checks the link and the new password:
 - If the token is expired or already used, the page shows "This link has expired." and a link to request a new one.
 - The new password must be 8–128 characters and must not be the same as the current one.
 
-### 8. POST /password-reset/confirm
+### POST /password-reset/confirm
 
 ```json
 {
@@ -161,7 +161,7 @@ The page then checks the link and the new password:
 | 400 | Password does not meet the rules |
 | 410 | Token expired or already used |
 
-### 9. Update password
+### Update password
 
 Updates `password_hash` and marks the token as used in one transaction.
 The token is consumed with a conditional update, so that two concurrent requests with the same token cannot both succeed[^race]:
@@ -185,11 +185,11 @@ Acceptance criteria:
 - [x] Other sessions are logged out
 - [ ] A "Your password was changed" email is sent
 
-### 10. 204 No Content
+### 204 No Content
 
 No body. The frontend treats any other status as a failure.
 
-### 11. Show completion message
+### Show completion message
 
 Shows "Your password has been reset." and a button to the login page. The user is not logged in automatically.
 

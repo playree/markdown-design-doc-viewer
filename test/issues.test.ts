@@ -104,6 +104,42 @@ describe('collectIssues', () => {
     ]);
   });
 
+  it('reports the step headings numbered unlike the autonumber of their arrows', () => {
+    const src = doc(
+      '```mermaid',
+      '%% @link-headings',
+      'sequenceDiagram',
+      '    autonumber',
+      '    A->>B: 一',
+      '    A->>B: 二',
+      '    %% @ref 二',
+      '    B-->>A: 応答',
+      '    A->>B: 三',
+      '```',
+      '',
+      '## 1. 一',
+      '',
+      '## 2. 二',
+      '',
+      '## 5. 三',
+    );
+    const t = (message: string, ...args: (string | number)[]): string => `${message}|${args.join(';')}`;
+    expect(collectIssues(md, src, t)).toEqual([
+      { line: 13, message: expect.stringMatching(/^The number of heading "\{0\}" .*\|2\. 二;2, 3$/), severity: 'info' },
+      { line: 15, message: expect.stringMatching(/\|5\. 三;4$/), severity: 'info' },
+    ]);
+  });
+
+  it('does not report numbered headings without autonumber, of flowcharts or of wireframes', () => {
+    const seq = doc('```mermaid', '%% @link-headings', 'sequenceDiagram', '    A->>B: 一', '```', '', '## 3. 一');
+    expect(collectIssues(md, seq)).toEqual([]);
+    const flow = doc('```mermaid', '%% @link-headings', 'flowchart TD', '    A[一] --> B[二]', '```', '', '## 3. 一', '', '## 二');
+    expect(collectIssues(md, flow)).toEqual([]);
+    // The number is part of the text of the arrow or of its @ref.
+    const label = doc('```mermaid', '%% @link-headings', 'sequenceDiagram', '    autonumber', '    A->>B: 2.0 移行', '    %% @ref 5. 応答', '    B-->>A: 応答', '```', '', '## 2.0 移行', '', '## 5. 応答');
+    expect(collectIssues(md, label)).toEqual([]);
+  });
+
   it('ignores diagrams without the marker', () => {
     expect(collectIssues(md, doc('```mermaid', 'sequenceDiagram', '    A->>B: 一', '```'))).toEqual([]);
   });
