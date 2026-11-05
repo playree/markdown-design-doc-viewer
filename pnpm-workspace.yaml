@@ -1,3 +1,9 @@
 allowBuilds:
   '@vscode/vsce-sign': true
   esbuild: true
+# Dependabot のアラートのための固定。親のパッケージが修正版を許すようになったら外す。
+overrides:
+  # vsce は ^10.2.6 だが、GHSA-g3hv-75wg-m249 は 11.0.1 で修正（vsce ls の一覧が変わらないことを確認済み）
+  '@vscode/vsce>minimatch': ^11.0.1
+  # mermaid は ^0.18.0 だが、0.18.11 は誤って破壊的変更を含めたため deprecated（0.19.0 として出し直し）。GHSA-238p-pmpm-9mq7 は 0.18.2 で修正
+  'mermaid>katex': 0.18.10

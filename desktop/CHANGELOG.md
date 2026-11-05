@@ -10,6 +10,7 @@ The desktop app has its own version, apart from the extension and the command li
 - **File** > **Export as HTML...** adds the table of contents of the window to the exported page (hover its right edge), unless it is turned off in **View** > **Settings...**. It is not printed.
 - Fixed local images written as HTML `<img>` tags (for example `<img src="images/a.png" width="49%">`) not showing in the window and not being embedded in exported HTML.
 - Fixed the comparison with a commit in the **History** tab (also in exported HTML) taking a very long time on an HTML block of many comments followed by something else. Text after the end of a comment (`<!-- a --> b`) is no longer taken as part of it there.
+- Updated the bundled mermaid (12.3.0), KaTeX (0.18.10, used by mermaid for math), markdown-it (15.0.3) and DOMPurify (3.4.17) for their security fixes: slow rendering of some Markdown (a long multi-line link reference definition, or inline HTML), and bypasses of the HTML sanitizer.
 
 ## 0.3.0
 
