@@ -25,6 +25,6 @@ const preview = createPreview({
   setState: (state) => vscode.setState(state),
 });
 
-window.addEventListener('message', (event: MessageEvent<ToWebview>) => preview.handle(event.data));
+window.addEventListener('message', (event: MessageEvent<ToWebview>) => void preview.handle(event.data));
 
 vscode.postMessage({ type: 'ready' });

@@ -1,0 +1,36 @@
+/*
+ * The styles of a viewer embedded in a page (embed/viewer.ts): those of the preview, the variables VS Code would give
+ * it (webview/theme.css), and the layout of a viewer that scrolls inside its element instead of the window.
+ */
+@import "../webview/preview.css";
+@import "../webview/theme.css";
+
+/* Fills its element, and keeps its overlays (table of contents, bar of the differences) in it. */
+.seqnotes-viewer.seqnotes-embedded {
+  position: relative;
+  box-sizing: border-box;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* What scrolls, with the padding of the body of the preview. */
+.seqnotes-embedded > .seqnotes-viewer-scroller {
+  box-sizing: border-box;
+  height: 100%;
+  overflow: auto;
+  padding: 2px 26px calc(var(--seqnotes-viewport-height, 0px) * 0.4);
+}
+
+/* At the right of the viewer, before its scrollbar, instead of the window. */
+.seqnotes-embedded > .seqnotes-toc {
+  position: absolute;
+  right: calc(4px + var(--seqnotes-scrollbar-width, 0px));
+  max-height: 70%;
+}
+
+/* At the bottom of the viewer, instead of the window. */
+.seqnotes-embedded > .seqnotes-diff-bar {
+  position: absolute;
+  max-width: calc(100% - 32px);
+}

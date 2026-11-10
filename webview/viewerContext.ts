@@ -1,8 +1,10 @@
 /**
  * Where a viewer is: the element it is shown in and what scrolls it. The preview in VS Code and the desktop app, and an
- * exported page, take the whole page (the body, the window); other viewers in the same page each keep to their element.
+ * exported page, take the whole page (the body, the window); a viewer embedded in another page (embed/viewer.ts) takes
+ * an element of it, which scrolls by itself.
  */
-import type { FromWebview, WebviewState } from '../src/protocol';
+import type { Translate } from '../src/l10n';
+import { WEBVIEW_TITLES, type FromWebview, type WebviewState } from '../src/protocol';
 
 /** A rectangle in client coordinates (of `getBoundingClientRect`). */
 export interface ViewportRect {
@@ -12,6 +14,9 @@ export interface ViewportRect {
   width: number;
   height: number;
 }
+
+/** Where `ScrollHost.reveal` puts an element: as `block` of `scrollIntoView`. */
+export type RevealBlock = 'start' | 'center' | 'nearest';
 
 /** What scrolls the document of a viewer: the window, or an element. */
 export interface ScrollHost {
@@ -27,6 +32,11 @@ export interface ScrollHost {
   onScroll(listener: () => void): () => void;
   /** Calls `listener` when the viewport changes size. Returns what removes it. */
   onResize(listener: () => void): () => void;
+  /**
+   * Scrolls `el` into view, as `scrollIntoView` does in the page. An embedded viewer scrolls only itself, not the page
+   * around it.
+   */
+  reveal(el: Element, block: RevealBlock, behavior?: ScrollBehavior): void;
 }
 
 /** The window scrolls the document: the page is the viewer's. */
@@ -45,10 +55,79 @@ export function windowScrollHost(): ScrollHost {
       window.addEventListener('resize', listener);
       return () => window.removeEventListener('resize', listener);
     },
+    reveal: (el, block, behavior) => el.scrollIntoView({ block, behavior }),
   };
 }
 
-/** A viewer: the preview of a document (preview.ts), which its host (main.ts) talks to. */
+/** `scroller` scrolls the document by itself (`overflow: auto`). */
+export function elementScrollHost(scroller: HTMLElement): ScrollHost {
+  const host: ScrollHost = {
+    top: () => scroller.scrollTop,
+    scrollTo: (top) => scroller.scrollTo(0, top),
+    scrollBy: (dy) => scroller.scrollBy(0, dy),
+    viewport() {
+      // Inside its borders, without its scrollbars.
+      const r = scroller.getBoundingClientRect();
+      const top = r.top + scroller.clientTop;
+      // The width with its scrollbar, as that of the window: whether the diagrams are beside their steps does not depend
+      // on whether the document is long enough to scroll.
+      return { top, bottom: top + scroller.clientHeight, left: r.left + scroller.clientLeft, width: scroller.offsetWidth, height: scroller.clientHeight };
+    },
+    scrollHeight: () => scroller.scrollHeight,
+    onScroll(listener) {
+      scroller.addEventListener('scroll', listener, { passive: true });
+      return () => scroller.removeEventListener('scroll', listener);
+    },
+    onResize(listener) {
+      // Also called once when it starts observing.
+      const observer = new ResizeObserver(() => listener());
+      observer.observe(scroller);
+      return () => observer.disconnect();
+    },
+    reveal(el, block, behavior = 'auto') {
+      // scrollIntoView would also scroll the page to show the viewer: computed for the scroller only, with the
+      // scroll-margin of the element.
+      const r = el.getBoundingClientRect();
+      const viewport = host.viewport();
+      const style = getComputedStyle(el);
+      const marginTop = parseFloat(style.scrollMarginTop) || 0;
+      const marginBottom = parseFloat(style.scrollMarginBottom) || 0;
+      const offset = scroller.scrollTop - viewport.top;
+      const start = r.top - marginTop + offset;
+      let top: number | undefined;
+      if (block === 'start') {
+        top = start;
+      } else if (block === 'center') {
+        top = r.top + r.height / 2 - viewport.height / 2 + offset;
+      } else {
+        const above = r.top - marginTop < viewport.top;
+        const below = r.bottom + marginBottom > viewport.bottom;
+        // Not taller than the viewport: its end at the bottom when it is below. Else its start at the top.
+        if (above || (below && r.height + marginTop + marginBottom > viewport.height)) {
+          top = start;
+        } else if (below) {
+          top = r.bottom + marginBottom - viewport.bottom + scroller.scrollTop;
+        }
+      }
+      if (top !== undefined) {
+        scroller.scrollTo({ top, behavior });
+      }
+    },
+  };
+  return host;
+}
+
+/**
+ * Writes the titles of the viewer's controls translated with `t` on its element, as the extension host does on the body
+ * (`shell()` in src/previewPanel.ts).
+ */
+export function writeTitles(el: HTMLElement, t: Translate): void {
+  for (const [name, title] of Object.entries(WEBVIEW_TITLES)) {
+    el.setAttribute(`data-seqnotes-${name}`, t(title));
+  }
+}
+
+/** A viewer: the preview of a document (preview.ts), which its host (main.ts, embed/viewer.ts) talks to. */
 export interface ViewerContext {
   /**
    * The element of the viewer: its classes (`seqnotes-wide`, `vscode-light`…) and data attributes (the translated

@@ -2,7 +2,8 @@
  * What VS Code gives the preview webview: `acquireVsCodeApi`, whose messages go to the app (host.ts), and the
  * translated titles that the extension host writes on the body (`shell()` in src/previewPanel.ts).
  */
-import { WEBVIEW_TITLES, type FromWebview, type IndexListState, type WebviewState } from '../src/protocol';
+import type { FromWebview, IndexListState, WebviewState } from '../src/protocol';
+import { writeTitles } from '../webview/viewerContext';
 import { onWebviewMessage } from './host';
 import { lang, t } from './l10n';
 
@@ -40,6 +41,4 @@ function setState({ indexList: list, ...state }: WebviewState): void {
 });
 
 document.documentElement.lang = lang;
-for (const [name, title] of Object.entries(WEBVIEW_TITLES)) {
-  document.body.setAttribute(`data-seqnotes-${name}`, t(title));
-}
+writeTitles(document.body, t);

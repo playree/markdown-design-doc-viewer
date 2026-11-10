@@ -47,7 +47,7 @@ setupFootnotePopup(
     if (!href.startsWith('#')) {
       return false;
     }
-    scrollToFragment(root, href);
+    scrollToFragment(root, href, scroll);
     return true;
   },
   { container: document.body, id: 'seqnotes-footnote-popup' },
@@ -84,7 +84,7 @@ root.addEventListener('click', (e) => {
   const link = target.closest('a[href^="#"]');
   if (link) {
     e.preventDefault();
-    scrollToFragment(root, link.getAttribute('href')!);
+    scrollToFragment(root, link.getAttribute('href')!, scroll);
     return;
   }
   const active = endsDrag(e) ? undefined : activeFor(linkTarget(e));
