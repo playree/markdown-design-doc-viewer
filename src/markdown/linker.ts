@@ -1,7 +1,7 @@
 import type { Token } from 'markdown-it';
 import { formatMessage, type Translate } from '../shared/l10n';
 import type { ParsedNodeDiagram } from '../diagrams/diagramNodes';
-import { diagramWording, type LinkWording } from '../diagrams/diagramWording';
+import { diagramWording, type DiagramKind, type LinkWording, type MermaidKind } from '../diagrams/diagramWording';
 import { isErDiagram, parseErDiagram } from '../diagrams/erDiagram';
 import { isFlowchart, parseFlowchart } from '../diagrams/flowchart';
 import { isSequenceDiagram, normalizeLabel, parseSequence, stripStepNumber, type SequenceMessage, type StepNumber } from '../diagrams/sequence';
@@ -14,15 +14,7 @@ export const END_MARKER_RE = /^\s*<!--\s*link-headings:end\s*-->\s*$/;
 /** The end marker before it was renamed. No longer recognized, only reported. */
 const LEGACY_END_MARKER_RE = /^\s*<!--\s*seq-notes:end\s*-->\s*$/;
 
-/**
- * Diagrams whose items can be linked to headings: the arrows of a sequence diagram, the nodes of a flowchart,
- * the entities of an ER diagram, the states of a state diagram and the parts of a wireframe (src/markdown/wireframe.ts),
- * which are also linked to the rows of item tables.
- */
-export type DiagramKind = MermaidKind | 'wireframe';
-
-/** The diagrams written in mermaid, where `%% @link-headings` and `%% @ref` are written. */
-export type MermaidKind = 'sequence' | 'flowchart' | 'er' | 'state';
+export type { DiagramKind, MermaidKind };
 
 /** The diagrams whose items are nodes, with their parsers. */
 const NODE_DIAGRAMS: { kind: Exclude<MermaidKind, 'sequence'>; is: (source: string) => boolean; parse: (source: string, firstLine: number) => ParsedNodeDiagram }[] = [

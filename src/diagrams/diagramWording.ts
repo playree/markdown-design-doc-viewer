@@ -1,5 +1,14 @@
 import type { Translate } from '../shared/l10n';
-import type { DiagramKind, MermaidKind } from '../markdown/linker';
+
+/**
+ * Diagrams whose items can be linked to headings: the arrows of a sequence diagram, the nodes of a flowchart,
+ * the entities of an ER diagram, the states of a state diagram and the parts of a wireframe (src/markdown/wireframe.ts),
+ * which are also linked to the rows of item tables.
+ */
+export type DiagramKind = MermaidKind | 'wireframe';
+
+/** The diagrams written in mermaid, where `%% @link-headings` and `%% @ref` are written. */
+export type MermaidKind = 'sequence' | 'flowchart' | 'er' | 'state';
 
 /** The texts about the links of a kind of diagram, which name its items: arrows, nodes, entities, states or parts. */
 export interface LinkWording {

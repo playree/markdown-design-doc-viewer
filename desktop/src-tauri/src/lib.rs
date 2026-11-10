@@ -750,7 +750,7 @@ fn shown_document(window: &Window, windows: &Windows) -> Option<String> {
 // Git history of the document of a window, which the webview compares it with (the sidebar's History tab).
 
 /// The arguments of `git log` listing the commits of a file (given after them), the same as `gitLogArgs` in
-/// src/gitLog.ts (whose test checks them), which parses the output (`parseGitLog`).
+/// src/git/gitLog.ts (whose test checks them), which parses the output (`parseGitLog`).
 const GIT_LOG_ARGS: &[&str] = &[
     "log",
     "--follow",
@@ -762,7 +762,7 @@ const GIT_LOG_ARGS: &[&str] = &[
     "--",
 ];
 
-/// Why git could not give the history (`GitErrorKind` in src/gitCli.ts).
+/// Why git could not give the history (`GitErrorKind` in src/git/gitCli.ts).
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 enum GitErrorKind {
@@ -928,7 +928,7 @@ async fn git_log(window: Window, windows: State<'_, Windows>, histories: State<'
 }
 
 /// The commits of the output of `git log` with `GIT_LOG_ARGS`, each with the path of the file in it, as `parseGitLog`
-/// in src/gitLog.ts reads them: `\x1e<hash>\x1f…\0`, then `\n<path>\0` (none for a merge, which has the path of the
+/// in src/git/gitLog.ts reads them: `\x1e<hash>\x1f…\0`, then `\n<path>\0` (none for a merge, which has the path of the
 /// commit before it, or else after it).
 fn logged_revisions(output: &str) -> HashSet<(String, String)> {
     let mut revisions: Vec<(String, Option<String>)> = Vec::new();
