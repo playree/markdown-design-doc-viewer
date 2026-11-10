@@ -27,8 +27,8 @@ function queueRender<T>(render: () => Promise<T>): Promise<T> {
 
 /** A preview of a document, which its host updates with its messages. */
 export interface Preview {
-  /** Handles a message of the host (`ToWebview`). */
-  handle(message: ToWebview): void;
+  /** Handles a message of the host (`ToWebview`). Resolves once an `update` is shown (or superseded). */
+  handle(message: ToWebview): Promise<void>;
   /**
    * Removes what the preview added outside its root (and the classes it put on the viewer's element), and its listeners.
    * Its pending renders and exports are dropped. The document rendered in the root is left there.
@@ -503,7 +503,7 @@ export function createPreview(ctx: ViewerContext): Preview {
     root.querySelectorAll('.seqnotes-seq-col').forEach((col, i) => (col.scrollTop = colScroll[i] ?? 0));
     toc.build(tocEnabled);
     if (pending?.fragment) {
-      scrollToFragment(root, `#${pending.fragment}`);
+      scrollToFragment(root, `#${pending.fragment}`, scroll);
     }
 
     const pair = pinnedState && root.querySelector(`.seqnotes-pair[data-diagram="${pinnedState.diagram}"]`);
@@ -600,7 +600,7 @@ export function createPreview(ctx: ViewerContext): Preview {
 
   function openLink(href: string): void {
     if (href.startsWith('#')) {
-      scrollToFragment(root, href);
+      scrollToFragment(root, href, scroll);
     } else {
       ctx.post({ type: 'openLink', href });
     }
@@ -1210,7 +1210,7 @@ export function createPreview(ctx: ViewerContext): Preview {
     if (found) {
       found.classList.add(CURRENT);
       if (reveal && !isVisible(found)) {
-        found.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        scroll.reveal(found, 'center', 'smooth');
       }
     }
   }
@@ -1232,7 +1232,7 @@ export function createPreview(ctx: ViewerContext): Preview {
   // ---------------------------------------------------------------------------
   // Wiring
 
-  function handle(message: ToWebview): void {
+  async function handle(message: ToWebview): Promise<void> {
     if (destroyed) {
       return;
     }
@@ -1253,7 +1253,7 @@ export function createPreview(ctx: ViewerContext): Preview {
         }
         currentUri = message.uri;
         applyLayout();
-        void update(message.html, message.diff);
+        await update(message.html, message.diff);
         break;
       case 'scrollToLine':
         scrollToLine(message.line);

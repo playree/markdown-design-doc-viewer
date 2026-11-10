@@ -124,7 +124,7 @@ export function setupDiffBar(root: HTMLElement, action: DiffBarAction, { contain
     current?.classList.remove('seqnotes-diff-focus');
     current = target;
     target.classList.add('seqnotes-diff-focus');
-    target.scrollIntoView({ block: 'start' });
+    scroll.reveal(target, 'start');
     currentScroll = scroll.top();
     clearTimeout(focusTimer);
     focusTimer = setTimeout(() => target.classList.remove('seqnotes-diff-focus'), FOCUS_MS);

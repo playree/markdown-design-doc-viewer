@@ -716,7 +716,8 @@ html:has(> body[data-seqnotes-theme="dark"]:is(.vscode-light, .vscode-high-contr
   align-self: start;
   position: sticky;
   top: 0;
-  max-height: 100vh;
+  /* The height of the viewport: of the window, or of an embedded viewer (embed/viewer.ts). */
+  max-height: var(--seqnotes-viewport-height, 100vh);
   overflow: auto;
   box-sizing: border-box;
   padding: 8px 0;

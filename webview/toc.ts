@@ -30,12 +30,12 @@ function headingText(heading: Element): string {
   return (clone.textContent ?? '').trim();
 }
 
-function revealHeading(heading: Element): void {
+function revealHeading(heading: Element, scroll: ScrollHost): void {
   // A heading in a closed <details> is not displayed and would not scroll.
   for (let details = heading.closest('details'); details; details = details.parentElement?.closest('details') ?? null) {
     details.open = true;
   }
-  heading.scrollIntoView({ block: 'start' });
+  scroll.reveal(heading, 'start');
 }
 
 /** Sets up the table of contents of the headings in `root`, empty until `build` is called. */
@@ -80,7 +80,7 @@ export function setupToc(root: HTMLElement, { container, title, scroll }: TocPla
         button.append(label);
         // Keeps mouse clicks from focusing the button: the list then closes when the mouse leaves, and keys still scroll the page.
         button.addEventListener('mousedown', (e) => e.preventDefault());
-        button.addEventListener('click', () => revealHeading(heading));
+        button.addEventListener('click', () => revealHeading(heading, scroll));
         item.append(button);
         return item;
       }),

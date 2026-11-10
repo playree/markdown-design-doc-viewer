@@ -11,8 +11,9 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": false,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "jsx": "react-jsx"
   },
-  "include": ["src", "webview", "desktop", "test", "scripts"],
+  "include": ["src", "webview", "desktop", "embed", "test", "scripts"],
   "exclude": ["desktop/dist", "desktop/src-tauri"]
 }

@@ -73,10 +73,10 @@ export function scrollColumnTo(el: Element, smooth: boolean, scroll: ScrollHost)
     const pr = col.parentElement!.getBoundingClientRect();
     const viewport = scroll.viewport();
     if (pr.top > viewport.top || pr.bottom < viewport.top + viewport.height / 2) {
-      col.parentElement!.scrollIntoView({ block: 'start', behavior });
+      scroll.reveal(col.parentElement!, 'start', behavior);
     }
   } else {
-    el.scrollIntoView({ block: 'center', behavior });
+    scroll.reveal(el, 'center', behavior);
   }
 }
 
@@ -85,7 +85,10 @@ export function revealCounterpart(active: Active & { kind: 'message' | 'heading'
   const escaped = CSS.escape(active.target);
   if (active.kind === 'message') {
     // 'nearest' keeps the page still when the section is already visible, so the sticky diagram stays in view.
-    active.pair.querySelector(`[data-seqnotes-section="${escaped}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    const section = active.pair.querySelector(`[data-seqnotes-section="${escaped}"]`);
+    if (section) {
+      scroll.reveal(section, 'nearest', 'smooth');
+    }
   } else {
     const item = active.pair.querySelector(`.seqnotes-item[data-seqnotes-target="${escaped}"]`);
     if (item) {
@@ -106,7 +109,7 @@ export function elementById(root: Element, id: string): Element | null {
  * Scrolls to the heading (or element) in `root` a `#fragment` link points to. Heading ids carry a prefix, so the link may
  * be written without it.
  */
-export function scrollToFragment(root: Element, href: string): void {
+export function scrollToFragment(root: Element, href: string, scroll: ScrollHost): void {
   let name = href.slice(1);
   try {
     name = decodeURIComponent(name);
@@ -117,5 +120,7 @@ export function scrollToFragment(root: Element, href: string): void {
   // A footnote first: its id (`fn1`) may also be the slug of a heading.
   const raw = byId(name);
   const target = (raw?.closest('.footnote-item, .footnote-ref') ? raw : null) ?? byId(HEADING_ID_PREFIX + name) ?? byId(HEADING_ID_PREFIX + slugify(name)) ?? raw;
-  target?.scrollIntoView({ block: 'start' });
+  if (target) {
+    scroll.reveal(target, 'start');
+  }
 }
