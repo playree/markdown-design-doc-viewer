@@ -11,10 +11,10 @@
  * The element needs a height: the viewer fills it and scrolls inside it.
  */
 import ja from '../l10n/bundle.l10n.ja.json';
-import { formatMessage, translatorFor, type Translate } from '../src/l10n';
-import type { DiagramLook, FromWebview, WebviewState } from '../src/protocol';
-import { createMarkdown, renderDocument } from '../src/render';
-import { loadWireframes, wireframeSources } from '../src/wireframe';
+import { formatMessage, translatorFor, type Translate } from '../src/shared/l10n';
+import type { DiagramLook, FromWebview, WebviewState } from '../src/shared/protocol';
+import { createMarkdown, renderDocument } from '../src/markdown/render';
+import { loadWireframes, wireframeSources } from '../src/markdown/wireframe';
 import { createPreview } from '../webview/preview';
 import { elementScrollHost, writeTitles } from '../webview/viewerContext';
 

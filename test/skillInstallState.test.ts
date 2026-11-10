@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareVersions, hashSkill, type InstalledHashes, type SkillInstall, skillInstallStatus, staleSkillFiles } from '../src/skillInstallState';
+import { compareVersions, hashSkill, type InstalledHashes, type SkillInstall, skillInstallStatus, staleSkillFiles } from '../src/extension/skillInstallState';
 
 const bytes = (text: string): Uint8Array => new TextEncoder().encode(text);
 

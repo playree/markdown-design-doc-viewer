@@ -1,8 +1,8 @@
 /**
  * What VS Code gives the preview webview: `acquireVsCodeApi`, whose messages go to the app (host.ts), and the
- * translated titles that the extension host writes on the body (`shell()` in src/previewPanel.ts).
+ * translated titles that the extension host writes on the body (`shell()` in src/extension/previewPanel.ts).
  */
-import type { FromWebview, IndexListState, WebviewState } from '../src/protocol';
+import type { FromWebview, IndexListState, WebviewState } from '../src/shared/protocol';
 import { writeTitles } from '../webview/viewerContext';
 import { onWebviewMessage } from './host';
 import { lang, t } from './l10n';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { renderDiff } from '../src/diffRender';
-import { createMarkdown, renderDocument } from '../src/render';
+import { renderDiff } from '../src/diff/diffRender';
+import { createMarkdown, renderDocument } from '../src/markdown/render';
 
 const md = createMarkdown();
 const doc = (...lines: string[]): string => lines.join('\n');

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { collectIssues } from '../src/issues';
-import { createMarkdown } from '../src/render';
+import { collectIssues } from '../src/authoring/issues';
+import { createMarkdown } from '../src/markdown/render';
 
 const md = createMarkdown();
 

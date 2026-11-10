@@ -3,18 +3,18 @@
  * its paragraph, or an image in a link (`![Login](screens/login.html)`, `[Login](screens/login.html)`,
  * `[![Login](screens/login.png)](screens/login.html)`, the image being shown elsewhere, e.g. on GitHub).
  * Their parts are numbered with `data-item="<number>"`, or by CSS selectors in their options (`item.1="#email"`, for the
- * HTML of a real screen, e.g. captured by `md-design-doc capture`: src/capture.ts), and an HTML comment right before them
+ * HTML of a real screen, e.g. captured by `md-design-doc capture`: src/cli/capture.ts), and an HTML comment right before them
  * gives their options (`<!-- wireframe: link-headings width=375 -->`): `link-headings` lays them out with the headings
- * and the item table rows after them, linked by the numbers (src/linker.ts).
+ * and the item table rows after them, linked by the numbers (src/markdown/linker.ts).
  *
  * The host reads the files (`loadWireframes`) and gives them to the render (`RenderEnv.wireframes`).
  * No dependency on vscode or Node: `partNumber` is used by the webview too.
  */
 import type { MarkdownIt, StateCore, Token } from 'markdown-it';
 import { ATTR_RE, decodeAttribute, RAW_TEXT } from './htmlTags';
-import { formatMessage, type Translate } from './l10n';
+import { formatMessage, type Translate } from '../shared/l10n';
 import type { LinkWarning } from './linker';
-import { toAsciiDigits } from './sequence';
+import { toAsciiDigits } from '../diagrams/sequence';
 import { parseTableOptions } from './tables';
 
 /** Type of the token that takes the place of the paragraph of a wireframe. */

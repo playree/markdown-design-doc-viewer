@@ -2,7 +2,7 @@
  * The preview webview of VS Code (and of the desktop app, whose desktop/vscodeShim.ts stands in for VS Code): the
  * preview (preview.ts) takes the whole page, and talks to the extension host with the messages of the webview.
  */
-import type { FromWebview, ToWebview, WebviewState } from '../src/protocol';
+import type { FromWebview, ToWebview, WebviewState } from '../src/shared/protocol';
 import { createPreview } from './preview';
 import { windowScrollHost } from './viewerContext';
 

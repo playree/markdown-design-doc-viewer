@@ -3,15 +3,15 @@
  * changed block, and the diagram of the revision under a changed diagram. The bar to go from one change to the next is
  * in diffBar.ts.
  */
-import type { DiffView } from '../src/protocol';
-import { diffWordLists, groupChanges, splitWords, wordSegmenter } from '../src/textDiff';
+import type { DiffView } from '../src/shared/protocol';
+import { diffWordLists, groupChanges, splitWords, wordSegmenter } from '../src/diff/textDiff';
 
 const segmenter = wordSegmenter(document.documentElement.lang || navigator.language);
 
 /** The texts not compared word by word: those of the diagrams and wireframes, compared as a whole. */
 const SKIPPED = '.seqnotes-mermaid, .seqnotes-wireframe, script, style';
 /**
- * The cells hidden by the table options (src/tables.ts), shown in a plain table, and their text merged into another
+ * The cells hidden by the table options (src/markdown/tables.ts), shown in a plain table, and their text merged into another
  * cell, shown otherwise. Only one of them is compared at a time, so that the words are not changed twice.
  */
 const HIDDEN = '.seqnotes-cell-hidden';

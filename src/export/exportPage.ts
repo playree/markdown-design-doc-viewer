@@ -3,12 +3,12 @@
  * and the command line (cli.ts).
  */
 import type { MarkdownIt, Token } from 'markdown-it';
-import { renderDiff, type DiffRender, type DiffStats } from './diffRender';
-import type { Translate } from './l10n';
-import { headingText } from './linker';
-import { frontMatterValue, parseFrontMatter, type FrontMatterEntry } from './markdownExtras';
-import { WEBVIEW_TITLES, type DiffView } from './protocol';
-import { escapeHtml, renderDocument, type RenderEnv } from './render';
+import { renderDiff, type DiffRender, type DiffStats } from '../diff/diffRender';
+import type { Translate } from '../shared/l10n';
+import { headingText } from '../markdown/linker';
+import { frontMatterValue, parseFrontMatter, type FrontMatterEntry } from '../markdown/markdownExtras';
+import { WEBVIEW_TITLES, type DiffView } from '../shared/protocol';
+import { escapeHtml, renderDocument, type RenderEnv } from '../markdown/render';
 
 export const IMAGE_TYPES: Record<string, string> = {
   apng: 'image/apng',

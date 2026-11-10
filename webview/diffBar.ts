@@ -3,7 +3,7 @@
  * changed, and buttons to go from one change to the next. In the preview, it closes the differences; in an exported
  * file (export.ts), it hides and shows them.
  */
-import type { DiffView } from '../src/protocol';
+import type { DiffView } from '../src/shared/protocol';
 import type { ScrollHost } from './viewerContext';
 
 /** Where a change is put on the screen when the bar's buttons go to it (also `scroll-margin` in preview.css). */

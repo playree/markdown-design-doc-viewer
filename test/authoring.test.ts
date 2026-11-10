@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { linkableDiagramAt, quickFixes, quickFixesByLine, refCandidates, type TextEdit } from '../src/authoring';
-import { collectIssues } from '../src/issues';
-import { createMarkdown } from '../src/render';
+import { linkableDiagramAt, quickFixes, quickFixesByLine, refCandidates, type TextEdit } from '../src/authoring/authoring';
+import { collectIssues } from '../src/authoring/issues';
+import { createMarkdown } from '../src/markdown/render';
 
 const md = createMarkdown();
 

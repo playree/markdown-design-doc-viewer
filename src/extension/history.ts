@@ -1,7 +1,7 @@
 /** The command comparing a document with one of its revisions in git, shown as differences in its preview. */
 import * as vscode from 'vscode';
-import { GitError, gitLog, gitShow } from './gitCli';
-import { formatRevisionDate, type Revision } from './gitLog';
+import { GitError, gitLog, gitShow } from '../git/gitCli';
+import { formatRevisionDate, type Revision } from '../git/gitLog';
 import type { PreviewManager } from './previewPanel';
 
 /** The git of VS Code's setting `git.path` (a path, or paths tried in turn), else the one on the PATH. */

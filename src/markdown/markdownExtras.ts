@@ -4,7 +4,7 @@
  */
 import hljs from 'highlight.js/lib/common';
 import type { MarkdownIt, StateBlock, StateCore, Token } from 'markdown-it';
-import { formatMessage } from './l10n';
+import { formatMessage } from '../shared/l10n';
 import type { RenderEnv } from './render';
 
 /** `highlight` option of markdown-it. An empty string makes markdown-it escape the code itself. */

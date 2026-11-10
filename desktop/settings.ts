@@ -3,7 +3,7 @@
  * that apply without an editor, as kept in the localStorage. The theme is kept on its own (View > Theme). Without the
  * DOM, so that it is tested on its own.
  */
-import type { DiagramLook } from '../src/protocol';
+import type { DiagramLook } from '../src/shared/protocol';
 
 export interface DesktopSettings {
   splitMinWidth: number;

@@ -1,8 +1,8 @@
 /**
- * The search box and the sortable columns of a list of documents (`indexBody` in src/exportIndex.ts), in the preview
+ * The search box and the sortable columns of a list of documents (`indexBody` in src/export/exportIndex.ts), in the preview
  * (the list of the design documents of VS Code and the desktop app) and in an exported index.html.
  */
-import type { IndexListState } from '../src/protocol';
+import type { IndexListState } from '../src/shared/protocol';
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 

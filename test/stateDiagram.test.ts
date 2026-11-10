@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isStateDiagram, parseStateDiagram } from '../src/stateDiagram';
+import { isStateDiagram, parseStateDiagram } from '../src/diagrams/stateDiagram';
 
 const labels = (src: string): [string, string][] => parseStateDiagram(src, 0).nodes.map((n) => [n.nodeId, n.text]);
 

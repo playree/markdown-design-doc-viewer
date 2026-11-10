@@ -181,7 +181,7 @@ html:has(> body[data-seqnotes-theme="dark"]:is(.vscode-light, .vscode-high-contr
   background: linear-gradient(var(--seqnotes-th-bg), var(--seqnotes-th-bg)), var(--vscode-editor-background);
 }
 
-/* Table options (src/tables.ts): columns merged into one, and rows shown as a tree with `level=` */
+/* Table options (src/markdown/tables.ts): columns merged into one, and rows shown as a tree with `level=` */
 .seqnotes-cell-hidden { display: none; }
 .seqnotes-cell-sub { display: block; font-size: 0.9em; font-weight: normal; color: var(--seqnotes-muted); }
 /* As large as the code in the text, not smaller again. */
@@ -343,7 +343,7 @@ html:has(> body[data-seqnotes-theme="dark"]:is(.vscode-light, .vscode-high-contr
 }
 .seqnotes-doc-header .seqnotes-doc-more > summary:hover { color: var(--vscode-foreground, inherit); }
 
-/* A list of documents (`indexBody` in src/exportIndex.ts), with a search box and sortable columns (webview/indexList.ts) */
+/* A list of documents (`indexBody` in src/export/exportIndex.ts), with a search box and sortable columns (webview/indexList.ts) */
 .seqnotes-index table { width: 100%; }
 .seqnotes-index th { text-align: left; }
 .seqnotes-index-file { color: var(--seqnotes-muted); font-family: var(--vscode-editor-font-family); font-size: 0.9em; }

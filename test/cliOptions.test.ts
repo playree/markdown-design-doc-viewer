@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { collectDocuments, indexPath, isInFolder, outputPath, parseCommandLine, splitFill, UsageError } from '../src/cliOptions';
+import { collectDocuments, indexPath, isInFolder, outputPath, parseCommandLine, splitFill, UsageError } from '../src/cli/cliOptions';
 
 const cwd = join(tmpdir(), 'work');
 

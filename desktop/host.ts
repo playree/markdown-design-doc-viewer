@@ -1,5 +1,5 @@
 /**
- * The desktop app's side of the preview, in place of the extension host (Preview in src/previewPanel.ts): opens a
+ * The desktop app's side of the preview, in place of the extension host (Preview in src/extension/previewPanel.ts): opens a
  * Markdown file through the Rust commands (src-tauri/src/lib.rs), renders it with `renderDocument` and sends it to
  * the webview, and follows its changes. Also the sidebar of the files of its folder and of its git history, with
  * which it is compared (`renderDiff`) (sidebar.ts), the menu, the files opened recently, the dropped files, the theme,
@@ -12,13 +12,13 @@ import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu } from '@tau
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { ask, message, open } from '@tauri-apps/plugin-dialog';
-import { renderDiff } from '../src/diffRender';
-import { documentInfo, indexBody, NO_DESIGN_DOCS, type IndexEntry } from '../src/exportIndex';
-import { documentTitle, exportDiff, exportFileName, exportPage, imageType, renderDiffForExport, renderForExport, stripSourceMap } from '../src/exportPage';
-import { formatRevisionDate, parseGitLog, type Revision } from '../src/gitLog';
-import { WEBVIEW_TITLES, type DiffView, type FromWebview, type PreviewTheme, type ToWebview } from '../src/protocol';
-import { createMarkdown, escapeHtml, renderDocument, type RenderEnv } from '../src/render';
-import { loadWireframes, wireframeSources, type WireframeFiles } from '../src/wireframe';
+import { renderDiff } from '../src/diff/diffRender';
+import { documentInfo, indexBody, NO_DESIGN_DOCS, type IndexEntry } from '../src/export/exportIndex';
+import { documentTitle, exportDiff, exportFileName, exportPage, imageType, renderDiffForExport, renderForExport, stripSourceMap } from '../src/export/exportPage';
+import { formatRevisionDate, parseGitLog, type Revision } from '../src/git/gitLog';
+import { WEBVIEW_TITLES, type DiffView, type FromWebview, type PreviewTheme, type ToWebview } from '../src/shared/protocol';
+import { createMarkdown, escapeHtml, renderDocument, type RenderEnv } from '../src/markdown/render';
+import { loadWireframes, wireframeSources, type WireframeFiles } from '../src/markdown/wireframe';
 import type { FolderTree } from './folderTree';
 import { lang, t } from './l10n';
 import { isInside, isMarkdownPath, linkTarget, relativeLink, resolveDocumentPath, resourcePath, splitPath } from './paths';
@@ -551,7 +551,7 @@ async function openLink(href: string): Promise<void> {
 
 // ---------------------------------------------------------------------------
 // The list of the design documents of the folder (View > Design Docs), the same as the extension's "Show Design Docs"
-// (src/designDocsPanel.ts): in place of the document, until one is opened.
+// (src/extension/designDocsPanel.ts): in place of the document, until one is opened.
 
 /** `uri` of the updates of the list, for the webview (which tells it from a document): the same for any folder. */
 const DESIGN_DOCS_URI = 'mdDesignDoc:designDocs';
@@ -611,7 +611,7 @@ async function renderDesignDocs(): Promise<void> {
 
 // ---------------------------------------------------------------------------
 // Git history: the commits of the document in the sidebar's History tab, and its differences from the one chosen,
-// as the extension's "Compare Design Doc with Git Revision" (src/history.ts).
+// as the extension's "Compare Design Doc with Git Revision" (src/extension/history.ts).
 
 /** The document whose history the sidebar shows or is reading, so that it is not read again for nothing. */
 let historyOf: string | undefined;
@@ -876,7 +876,7 @@ function stopComparing(rerender = true): void {
 }
 
 // ---------------------------------------------------------------------------
-// HTML export: the same file as the extension's "Export Design Doc as HTML" (src/exportHtml.ts).
+// HTML export: the same file as the extension's "Export Design Doc as HTML" (src/extension/exportHtml.ts).
 
 /** An exported document is rendered by the webview; it gives up after this long. */
 const EXPORT_TIMEOUT_MS = 60_000;

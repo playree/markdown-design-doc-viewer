@@ -10,16 +10,16 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import { pathToFileURL } from 'node:url';
 import { capture } from './capture';
 import { collectDocuments, indexPath, isInFolder, outputPath, parseCommandLine, UsageError, USAGE, type CaptureOptions, type ExportOptions } from './cliOptions';
-import { documentInfo, indexBody, type IndexEntry } from './exportIndex';
-import { exportDiff, exportPage, imagePath, imageType, renderDiffForExport, renderForExport, stripSourceMap } from './exportPage';
-import { GitError, gitFilesAt, gitRevision, gitShowAt } from './gitCli';
-import { formatRevisionDate, type Revision } from './gitLog';
+import { documentInfo, indexBody, type IndexEntry } from '../export/exportIndex';
+import { exportDiff, exportPage, imagePath, imageType, renderDiffForExport, renderForExport, stripSourceMap } from '../export/exportPage';
+import { GitError, gitFilesAt, gitRevision, gitShowAt } from '../git/gitCli';
+import { formatRevisionDate, type Revision } from '../git/gitLog';
 import { HeadlessRenderer } from './headless';
-import { collectIssues } from './issues';
-import { formatMessage, translatorFor, type Translate } from './l10n';
-import { WEBVIEW_TITLES, type DiffView } from './protocol';
-import { createMarkdown, type RenderEnv } from './render';
-import { loadWireframes, wireframeSources, type WireframeFiles } from './wireframe';
+import { collectIssues } from '../authoring/issues';
+import { formatMessage, translatorFor, type Translate } from '../shared/l10n';
+import { WEBVIEW_TITLES, type DiffView } from '../shared/protocol';
+import { createMarkdown, type RenderEnv } from '../markdown/render';
+import { loadWireframes, wireframeSources, type WireframeFiles } from '../markdown/wireframe';
 
 /** dist/, where the script runs from. */
 const DIST = __dirname;

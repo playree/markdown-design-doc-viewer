@@ -1,8 +1,8 @@
 import type { MarkdownIt } from 'markdown-it';
-import { diagramWording } from './diagramWording';
-import { formatMessage, type Translate } from './l10n';
-import { diagramKind, linkDiagrams, numberMismatches, type DiagramInfo, type LinkedMessage, type MermaidKind, type OverviewHeading } from './linker';
-import { normalizeLabel, stripStepNumber } from './sequence';
+import { diagramWording } from '../diagrams/diagramWording';
+import { formatMessage, type Translate } from '../shared/l10n';
+import { diagramKind, linkDiagrams, numberMismatches, type DiagramInfo, type LinkedMessage, type MermaidKind, type OverviewHeading } from '../markdown/linker';
+import { normalizeLabel, stripStepNumber } from '../diagrams/sequence';
 
 /** A 0-based position in the Markdown document. */
 export interface Position {

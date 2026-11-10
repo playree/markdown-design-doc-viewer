@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { renderDiff } from '../src/diffRender';
-import { collectIssues } from '../src/issues';
-import { createMarkdown, renderDocument } from '../src/render';
-import { parseTableOptions, rowDepths, treeGuides } from '../src/tables';
+import { renderDiff } from '../src/diff/diffRender';
+import { collectIssues } from '../src/authoring/issues';
+import { createMarkdown, renderDocument } from '../src/markdown/render';
+import { parseTableOptions, rowDepths, treeGuides } from '../src/markdown/tables';
 
 const md = createMarkdown();
 const doc = (...lines: string[]): string => lines.join('\n');

@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import { linkableDiagramAt, quickFixesByLine, refCandidates, type TextEdit } from './authoring';
+import { linkableDiagramAt, quickFixesByLine, refCandidates, type TextEdit } from '../authoring/authoring';
 import { DIAGNOSTIC_SOURCE } from './diagnostics';
-import { diagramWording } from './diagramWording';
-import { createMarkdown } from './render';
+import { diagramWording } from '../diagrams/diagramWording';
+import { createMarkdown } from '../markdown/render';
 
 const SELECTOR: vscode.DocumentSelector = { language: 'markdown' };
 

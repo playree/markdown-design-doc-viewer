@@ -1,6 +1,6 @@
 ================================================================================
 GitHub Octicons (https://github.com/primer/octicons)
-Used for the icons of GitHub alerts (src/markdownExtras.ts).
+Used for the icons of GitHub alerts (src/markdown/markdownExtras.ts).
 ================================================================================
 
 MIT License

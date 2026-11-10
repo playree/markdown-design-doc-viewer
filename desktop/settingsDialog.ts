@@ -2,8 +2,8 @@
  * The page of the settings of the desktop app (View > Settings...): a modal dialog over the preview, whose changes
  * apply at once. The settings are kept by the app (host.ts).
  */
-import type { Translate } from '../src/l10n';
-import type { DiagramLook, PreviewTheme } from '../src/protocol';
+import type { Translate } from '../src/shared/l10n';
+import type { DiagramLook, PreviewTheme } from '../src/shared/protocol';
 import { DEFAULT_SETTINGS, isWidth, type DesktopSettings } from './settings';
 
 export interface SettingsDialogOptions {

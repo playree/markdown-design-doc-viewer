@@ -2,7 +2,7 @@
  * Paths of the local files of the desktop app, as the operating system gives them: `C:\docs\a.md` on Windows,
  * `/home/me/docs/a.md` elsewhere. Without Node's `path`, which is not in the webview.
  */
-import { imagePath, isExternalUrl, safeDecode, SCHEME_RE } from '../src/exportPage';
+import { imagePath, isExternalUrl, safeDecode, SCHEME_RE } from '../src/export/exportPage';
 
 /** `C:\…`, `C:/…` or a UNC path `\\server\…`. */
 const WINDOWS_RE = /^(?:[a-z]:[\\/]|\\\\)/i;
@@ -82,7 +82,7 @@ export function fileUrl(path: string): string {
 /**
  * A link from the file `from` (an exported HTML file) to the file `to`: relative to the folder of `from`, so that it
  * works as long as both stay where they are, or a `file:` URL on another drive or share. As `linkFrom` of the export
- * command (src/exportHtml.ts) and of the command line (src/cli.ts).
+ * command (src/extension/exportHtml.ts) and of the command line (src/cli/cli.ts).
  */
 export function relativeLink(from: string, to: string): string {
   const source = parsePath(from);

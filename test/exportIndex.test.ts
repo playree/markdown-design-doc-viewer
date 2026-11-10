@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { documentInfo, groupByFolder, indexBody, mayHaveFrontMatter, type IndexEntry } from '../src/exportIndex';
-import { formatMessage, type Translate } from '../src/l10n';
-import { createMarkdown } from '../src/render';
+import { documentInfo, groupByFolder, indexBody, mayHaveFrontMatter, type IndexEntry } from '../src/export/exportIndex';
+import { formatMessage, type Translate } from '../src/shared/l10n';
+import { createMarkdown } from '../src/markdown/render';
 
 const md = createMarkdown();
 

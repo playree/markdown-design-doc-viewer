@@ -1,5 +1,5 @@
 /**
- * The wireframes of a document (src/wireframe.ts), shared by the preview (preview.ts) and exported HTML (export.ts).
+ * The wireframes of a document (src/markdown/wireframe.ts), shared by the preview (preview.ts) and exported HTML (export.ts).
  * Their HTML is shown in a shadow root, so that its styles and those of the page do not apply to each other, and works
  * as a page (its text can be selected, its form controls used), without leaving the document: its links and forms do not
  * navigate. A box is drawn over each of their parts (`data-item`), with its number: it stands for the part like a node
@@ -10,11 +10,11 @@
  * matches its <html>, and the rules that a shadow root ignores (`@font-face`, `@property`) are given to the document. The
  * parts written as selectors in its options are numbered as if they had `data-item`.
  *
- * The block of a wireframe (`wireframeBlock` in src/render.ts) keeps its HTML in a <pre>, sanitized by the preview,
+ * The block of a wireframe (`wireframeBlock` in src/markdown/render.ts) keeps its HTML in a <pre>, sanitized by the preview,
  * from which exported HTML shows it again (the shadow root is not part of the exported body).
  */
-import type { DiagramMeta } from '../src/render';
-import { partNumber } from '../src/wireframe';
+import type { DiagramMeta } from '../src/markdown/render';
+import { partNumber } from '../src/markdown/wireframe';
 
 /** Before the styles of the wireframe: its page shown as in a browser, whatever the colors and font of the page around it. */
 const BASE_STYLE = ':host { all: initial; display: block; } html { display: block; background: #fff; color: #000; color-scheme: light; } head { display: none; }';
@@ -106,7 +106,7 @@ function adoptStyles(shadow: ShadowRoot, page: HTMLElement): void {
  */
 function numberParts(shadow: ShadowRoot, items: [number, string][], block: HTMLElement): string[] {
   const notes: string[] = [];
-  // Translated by the host (`data-seqnotes-item-*` by src/render.ts).
+  // Translated by the host (`data-seqnotes-item-*` by src/markdown/render.ts).
   const message = (template: string | undefined, number: number, selector: string): string =>
     (template ?? '').replace(/\{([01])\}/g, (_match, n: string) => (n === '0' ? String(number) : selector));
   const numbered = new Set<Element>();
@@ -129,7 +129,7 @@ function numberParts(shadow: ShadowRoot, items: [number, string][], block: HTMLE
   return notes;
 }
 
-/** The parts of a wireframe written as selectors in its options (`data-seqnotes-items`, by src/render.ts). */
+/** The parts of a wireframe written as selectors in its options (`data-seqnotes-items`, by src/markdown/render.ts). */
 function itemsOf(block: HTMLElement): [number, string][] {
   try {
     return JSON.parse(block.dataset.seqnotesItems ?? '[]') as [number, string][];

@@ -5,8 +5,8 @@
  * the window; the body makes room for it (desktop/sidebar.css), and the webview lays out the preview in the width left
  * (`data-seqnotes-inset-left`).
  */
-import { formatRevisionDate, type Revision } from '../src/gitLog';
-import type { Translate } from '../src/l10n';
+import { formatRevisionDate, type Revision } from '../src/git/gitLog';
+import type { Translate } from '../src/shared/l10n';
 import { foldersOf, sortFolder, type FolderNode, type FolderTree } from './folderTree';
 
 export type SidebarTab = 'files' | 'history';

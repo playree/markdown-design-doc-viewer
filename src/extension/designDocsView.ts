@@ -4,8 +4,8 @@
  */
 import * as vscode from 'vscode';
 import type { DesignDoc, DesignDocIndex } from './designDocs';
-import { groupByFolder } from './exportIndex';
-import { DESIGN_DOC_META } from './markdownExtras';
+import { groupByFolder } from '../export/exportIndex';
+import { DESIGN_DOC_META } from '../markdown/markdownExtras';
 
 export const VIEW_ID = 'mdDesignDoc.designDocs';
 

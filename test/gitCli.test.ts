@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { devNull, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { GitError, gitFilesAt, gitRevision, gitShowAt } from '../src/gitCli';
+import { GitError, gitFilesAt, gitRevision, gitShowAt } from '../src/git/gitCli';
 
 // Runs git (the command line's --diff-base), in a repository made without the user's settings (e.g. signed commits).
 describe('the revision of --diff-base', () => {

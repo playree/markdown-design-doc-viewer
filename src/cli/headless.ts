@@ -6,9 +6,9 @@ import { existsSync, globSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright-core';
-import { formatMessage, type Translate } from './l10n';
-import { WEBVIEW_TITLES, type DiagramLook, type DiffView, type FromWebview, type ToWebview } from './protocol';
-import { escapeHtml } from './render';
+import { formatMessage, type Translate } from '../shared/l10n';
+import { WEBVIEW_TITLES, type DiagramLook, type DiffView, type FromWebview, type ToWebview } from '../shared/protocol';
+import { escapeHtml } from '../markdown/render';
 
 /** An exported document is given up after this long. */
 const EXPORT_TIMEOUT_MS = 60_000;

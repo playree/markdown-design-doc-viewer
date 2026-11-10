@@ -1,5 +1,5 @@
 /**
- * Folding and highlighting of the rows of a table shown as a tree (`level=` of the table options in src/tables.ts),
+ * Folding and highlighting of the rows of a table shown as a tree (`level=` of the table options in src/markdown/tables.ts),
  * and the button showing a table with options as a plain table, shared by the preview (`preview.ts`) and exported HTML
  * (`export.ts`).
  */

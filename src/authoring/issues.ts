@@ -1,10 +1,10 @@
 import type { MarkdownIt } from 'markdown-it';
-import { diagramWording, rowWording } from './diagramWording';
-import { formatMessage, type Translate } from './l10n';
-import { headingText, linkDiagrams, numberMismatches } from './linker';
-import { normalizeLabel } from './sequence';
-import { tableWarnings } from './tables';
-import type { WireframeFiles } from './wireframe';
+import { diagramWording, rowWording } from '../diagrams/diagramWording';
+import { formatMessage, type Translate } from '../shared/l10n';
+import { headingText, linkDiagrams, numberMismatches } from '../markdown/linker';
+import { normalizeLabel } from '../diagrams/sequence';
+import { tableWarnings } from '../markdown/tables';
+import type { WireframeFiles } from '../markdown/wireframe';
 
 export interface Issue {
   /** 0-based line in the Markdown document. */

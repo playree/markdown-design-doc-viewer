@@ -1,11 +1,11 @@
 /**
  * The files a Markdown document uses besides itself, for its preview, its export and its diagnostics: the paths of its
- * images and links, and its wireframes (src/wireframe.ts).
+ * images and links, and its wireframes (src/markdown/wireframe.ts).
  */
 import type { MarkdownIt } from 'markdown-it';
 import { realpath } from 'node:fs/promises';
 import * as vscode from 'vscode';
-import { loadWireframes, wireframeDependencies, wireframeSources, type WireframeFiles } from './wireframe';
+import { loadWireframes, wireframeDependencies, wireframeSources, type WireframeFiles } from '../markdown/wireframe';
 
 /** Resolves a link or image path of a Markdown document: relative to it, or to its workspace folder with a leading `/`. */
 export function resolveDocumentPath(document: vscode.Uri, path: string): vscode.Uri {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { documentTitle, exportDiff, exportFileName, exportPage, imagePath, imageType, isExternalUrl, renderDiffForExport, renderForExport, stripSourceMap } from '../src/exportPage';
-import type { Translate } from '../src/l10n';
-import { createMarkdown } from '../src/render';
+import { documentTitle, exportDiff, exportFileName, exportPage, imagePath, imageType, isExternalUrl, renderDiffForExport, renderForExport, stripSourceMap } from '../src/export/exportPage';
+import type { Translate } from '../src/shared/l10n';
+import { createMarkdown } from '../src/markdown/render';
 
 const md = createMarkdown();
 

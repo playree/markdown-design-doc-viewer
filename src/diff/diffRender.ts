@@ -4,8 +4,8 @@
  */
 import { diffArrays } from 'diff';
 import markdownit, { type MarkdownIt, type Token } from 'markdown-it';
-import { isMermaidFence } from './linker';
-import { RENDERED_HTML, renderTokens, type RenderEnv } from './render';
+import { isMermaidFence } from '../markdown/linker';
+import { RENDERED_HTML, renderTokens, type RenderEnv } from '../markdown/render';
 import { similarity, wordSegmenter } from './textDiff';
 
 /** `data-seqnotes-diff` of a block. A changed one has `data-seqnotes-diff-old`, the index of the revision's block in `DiffRender.old`. */

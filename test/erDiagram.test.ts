@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isErDiagram, parseErDiagram } from '../src/erDiagram';
+import { isErDiagram, parseErDiagram } from '../src/diagrams/erDiagram';
 
 const labels = (src: string): [string, string][] => parseErDiagram(src, 0).nodes.map((n) => [n.nodeId, n.text]);
 

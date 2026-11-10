@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { quickFixes } from '../src/authoring';
-import { renderDiff } from '../src/diffRender';
-import { collectIssues } from '../src/issues';
-import { linkDiagrams } from '../src/linker';
-import { createMarkdown, HEADING_ID_PREFIX, renderDocument, slugify } from '../src/render';
+import { quickFixes } from '../src/authoring/authoring';
+import { renderDiff } from '../src/diff/diffRender';
+import { collectIssues } from '../src/authoring/issues';
+import { linkDiagrams } from '../src/markdown/linker';
+import { createMarkdown, HEADING_ID_PREFIX, renderDocument, slugify } from '../src/markdown/render';
 import {
   composeWireframe,
   loadWireframes,
@@ -14,7 +14,7 @@ import {
   wireframeParts,
   wireframeSources,
   type WireframeFiles,
-} from '../src/wireframe';
+} from '../src/markdown/wireframe';
 
 const md = createMarkdown();
 const doc = (...lines: string[]): string => lines.join('\n');

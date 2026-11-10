@@ -47,7 +47,7 @@ export function buildOptions({ production, desktop }) {
   return [
     {
       ...common,
-      entryPoints: ['src/extension.ts'],
+      entryPoints: ['src/extension/extension.ts'],
       outfile: 'dist/extension.js',
       platform: 'node',
       format: 'cjs',
@@ -57,7 +57,7 @@ export function buildOptions({ production, desktop }) {
     // The command line (`md-design-doc export`). Without `vscode`, so that it fails to build if it gets imported.
     {
       ...common,
-      entryPoints: ['src/cli.ts'],
+      entryPoints: ['src/cli/cli.ts'],
       outfile: 'dist/cli.js',
       platform: 'node',
       format: 'cjs',
