@@ -16,12 +16,17 @@ function useExample(name: string): { name: string; text: string } | undefined {
   const [example, setExample] = useState<{ name: string; text: string }>();
   useEffect(() => {
     let cancelled = false;
-    void fetch(new URL(name, baseUrl)).then(async (response) => {
-      const text = await response.text();
-      if (!cancelled) {
-        setExample({ name, text });
-      }
-    });
+    fetch(new URL(name, baseUrl))
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`${name}: ${response.status} ${response.statusText}`);
+        }
+        const text = await response.text();
+        if (!cancelled) {
+          setExample({ name, text });
+        }
+      })
+      .catch((error: unknown) => console.error(error));
     return () => {
       cancelled = true;
     };

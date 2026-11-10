@@ -60,7 +60,8 @@ export const DesignDocViewer = forwardRef<DesignDocViewerHandle, DesignDocViewer
       return;
     }
     void viewer.current?.update(viewerOptions());
-  }, [markdown, documentId, baseUrl, readFile, resolveResource, theme, diagramLook, splitMinWidth, toc, limitContentWidth, stickyTableHeader, tableTreeHighlight, frontMatter, headingNumbers, revealing]);
+    // With `lang`: also run after the viewer is created again for another language, so that the flag is reset there.
+  }, [options.lang, markdown, documentId, baseUrl, readFile, resolveResource, theme, diagramLook, splitMinWidth, toc, limitContentWidth, stickyTableHeader, tableTreeHighlight, frontMatter, headingNumbers, revealing]);
 
   useImperativeHandle(ref, () => ({
     scrollToLine: (line) => viewer.current?.scrollToLine(line),
