@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { linkDiagrams } from '../src/linker';
-import { createMarkdown, HEADING_ID_PREFIX, renderDocument, slugify } from '../src/render';
+import { linkDiagrams } from '../src/markdown/linker';
+import { createMarkdown, HEADING_ID_PREFIX, renderDocument, slugify } from '../src/markdown/render';
 
 const md = createMarkdown();
 

@@ -1,11 +1,11 @@
 import type { Token } from 'markdown-it';
-import { formatMessage, type Translate } from './l10n';
-import type { ParsedNodeDiagram } from './diagramNodes';
-import { diagramWording, type LinkWording } from './diagramWording';
-import { isErDiagram, parseErDiagram } from './erDiagram';
-import { isFlowchart, parseFlowchart } from './flowchart';
-import { isSequenceDiagram, normalizeLabel, parseSequence, stripStepNumber, type SequenceMessage, type StepNumber } from './sequence';
-import { isStateDiagram, parseStateDiagram } from './stateDiagram';
+import { formatMessage, type Translate } from '../shared/l10n';
+import type { ParsedNodeDiagram } from '../diagrams/diagramNodes';
+import { diagramWording, type LinkWording } from '../diagrams/diagramWording';
+import { isErDiagram, parseErDiagram } from '../diagrams/erDiagram';
+import { isFlowchart, parseFlowchart } from '../diagrams/flowchart';
+import { isSequenceDiagram, normalizeLabel, parseSequence, stripStepNumber, type SequenceMessage, type StepNumber } from '../diagrams/sequence';
+import { isStateDiagram, parseStateDiagram } from '../diagrams/stateDiagram';
 import { itemRows } from './tables';
 import { partNumber, sourcePath, wireframeOf, wireframeWarnings } from './wireframe';
 
@@ -16,7 +16,7 @@ const LEGACY_END_MARKER_RE = /^\s*<!--\s*seq-notes:end\s*-->\s*$/;
 
 /**
  * Diagrams whose items can be linked to headings: the arrows of a sequence diagram, the nodes of a flowchart,
- * the entities of an ER diagram, the states of a state diagram and the parts of a wireframe (src/wireframe.ts),
+ * the entities of an ER diagram, the states of a state diagram and the parts of a wireframe (src/markdown/wireframe.ts),
  * which are also linked to the rows of item tables.
  */
 export type DiagramKind = MermaidKind | 'wireframe';

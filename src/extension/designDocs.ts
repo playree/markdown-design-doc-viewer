@@ -4,8 +4,8 @@
  * then only the files that changed; the workspace is looked through again when files are added, deleted or renamed.
  */
 import * as vscode from 'vscode';
-import { documentInfo, mayHaveFrontMatter, type DocumentInfo } from './exportIndex';
-import { createMarkdown } from './render';
+import { documentInfo, mayHaveFrontMatter, type DocumentInfo } from '../export/exportIndex';
+import { createMarkdown } from '../markdown/render';
 
 const MARKDOWN_GLOB = '**/*.{md,markdown}';
 /** The changes of the files are gathered for this long before the list is read again. */

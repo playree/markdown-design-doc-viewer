@@ -55,12 +55,12 @@ setupFootnotePopup(
 
 setupTableTree(root);
 
-// With the `toc` setting of the export (`exportPage` in src/exportPage.ts).
+// With the `toc` setting of the export (`exportPage` in src/export/exportPage.ts).
 if (titles.seqnotesToc !== undefined) {
   setupToc(root, { container: document.body, title: titles.seqnotesTocTitle ?? '', scroll }).build(true);
 }
 
-// The differences from a revision rendered in the page (`ExportPage.diff` in src/exportPage.ts), hidden and shown by the bar.
+// The differences from a revision rendered in the page (`ExportPage.diff` in src/export/exportPage.ts), hidden and shown by the bar.
 const { seqnotesDiffLabel: diffLabel, seqnotesDiffStats: diffStats } = titles;
 if (diffLabel !== undefined && diffStats !== undefined) {
   const [added = 0, changed = 0, deleted = 0] = diffStats.split(',').map(Number);

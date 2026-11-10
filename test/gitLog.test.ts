@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { formatRevisionDate, gitFilesArgs, gitLogArgs, gitRevisionArgs, gitShowArgs, gitShowFileArgs, parseGitFiles, parseGitLog, parseGitRevision } from '../src/gitLog';
+import { formatRevisionDate, gitFilesArgs, gitLogArgs, gitRevisionArgs, gitShowArgs, gitShowFileArgs, parseGitFiles, parseGitLog, parseGitRevision } from '../src/git/gitLog';
 
 const record = (hash: string, subject: string, path?: string): string =>
   `\x1e${hash}\x1f${hash.slice(0, 7)}\x1fAuthor\x1f2026-10-01T12:00:00+09:00\x1f${subject}\0` + (path === undefined ? '' : `\n${path}\0`);

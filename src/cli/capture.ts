@@ -1,6 +1,6 @@
 /**
  * `md-design-doc capture`: a screen of a running web app (e.g. a single-page app on its development server, which
- * a wireframe cannot run) captured as the HTML file of a wireframe (src/wireframe.ts). The page is opened in headless
+ * a wireframe cannot run) captured as the HTML file of a wireframe (src/markdown/wireframe.ts). The page is opened in headless
  * Chrome, prepared by the actions of the command line or a Playwright script (e.g. to show an error message or a dialog),
  * and written as it is shown (capturePage.ts): without its scripts, with its styles and its images and fonts embedded.
  * Its parts are then numbered by selectors in the options of the wireframe (`item.1="#email"`).

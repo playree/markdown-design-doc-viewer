@@ -5,9 +5,9 @@
  */
 import * as vscode from 'vscode';
 import type { DesignDoc, DesignDocIndex } from './designDocs';
-import { indexBody, NO_DESIGN_DOCS } from './exportIndex';
+import { indexBody, NO_DESIGN_DOCS } from '../export/exportIndex';
 import { readSettings, webviewShell } from './previewPanel';
-import type { FromWebview, ToWebview } from './protocol';
+import type { FromWebview, ToWebview } from '../shared/protocol';
 
 const VIEW_TYPE = 'mdDesignDoc.designDocs';
 /** `uri` of the updates of the list, for the webview (which tells it from a document). */

@@ -1,7 +1,7 @@
 /**
  * Highlighting of the linked arrows / nodes and steps, shared by the preview (`preview.ts`) and exported HTML (`export.ts`).
  */
-import { HEADING_ID_PREFIX, slugify } from '../src/slug';
+import { HEADING_ID_PREFIX, slugify } from '../src/shared/slug';
 import type { ScrollHost } from './viewerContext';
 
 /** A linked step of a side-by-side diagram: the pair and the id of the step heading. */

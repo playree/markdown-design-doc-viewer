@@ -4,15 +4,15 @@
  * - `merge=A,B…` shows the cells of columns B… under those of column A, in one column.
  * - `level=L` takes the integers of column L as the depth of each row, hides that column and shows the rows as a tree
  *   in the column right of it: indented with lines, the rows with children emphasized and foldable.
- * - `item=N` takes the texts of column N as the numbers of the parts of a wireframe (src/wireframe.ts) the rows are linked to.
+ * - `item=N` takes the texts of column N as the numbers of the parts of a wireframe (src/markdown/wireframe.ts) the rows are linked to.
  * The columns are hidden (`seqnotes-cell-hidden`), not removed, so that a button in the header shows the table as it is
  * (`seqnotes-table-plain`, in webview/tableTree.ts and preview.css).
  */
 import type { MarkdownIt, StateCore, Token } from 'markdown-it';
-import { formatMessage, type Translate } from './l10n';
+import { formatMessage, type Translate } from '../shared/l10n';
 import type { ItemRow, LinkWarning } from './linker';
 import type { RenderEnv } from './render';
-import { toAsciiDigits } from './sequence';
+import { toAsciiDigits } from '../diagrams/sequence';
 
 const DIRECTIVE_RE = /^<!--\s*table:([^]*?)-->\s*$/;
 /**

@@ -1,8 +1,8 @@
 import DOMPurify from 'dompurify';
 import mermaid, { type MermaidConfig } from 'mermaid';
-import type { DiagramLook, DiffView, PreviewTheme, ToWebview } from '../src/protocol';
-import type { DiagramMeta } from '../src/render';
-import { normalizeLabel } from '../src/sequence';
+import type { DiagramLook, DiffView, PreviewTheme, ToWebview } from '../src/shared/protocol';
+import type { DiagramMeta } from '../src/markdown/render';
+import { normalizeLabel } from '../src/diagrams/sequence';
 import { markChanges } from './diff';
 import { setupDiffBar } from './diffBar';
 import { setupFootnotePopup } from './footnotePopup';

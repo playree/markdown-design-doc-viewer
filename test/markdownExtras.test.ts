@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parseFrontMatter } from '../src/markdownExtras';
-import { createMarkdown, renderDocument } from '../src/render';
+import { parseFrontMatter } from '../src/markdown/markdownExtras';
+import { createMarkdown, renderDocument } from '../src/markdown/render';
 
 const md = createMarkdown();
 

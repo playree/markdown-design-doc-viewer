@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isFlowchart, parseFlowchart } from '../src/flowchart';
+import { isFlowchart, parseFlowchart } from '../src/diagrams/flowchart';
 
 const labels = (src: string): [string, string][] => parseFlowchart(src, 0).nodes.map((n) => [n.nodeId, n.text]);
 

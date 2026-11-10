@@ -1,5 +1,5 @@
 import ja from '../l10n/bundle.l10n.ja.json';
-import { formatMessage, translatorFor, type Translate } from '../src/l10n';
+import { formatMessage, translatorFor, type Translate } from '../src/shared/l10n';
 
 /** The language of the system (that of the webview), with the translations of the extension (l10n/). */
 export const lang = navigator.language.toLowerCase().startsWith('ja') ? 'ja' : 'en';

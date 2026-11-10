@@ -11,7 +11,7 @@
  *   pnpm screenshots demo          # the animated GIF of the README (images/demo.gif, demo.ja.gif), named like a scene
  *
  * Chrome is looked up in $CHROME_PATH, then in the Playwright browser cache (`pnpm exec playwright-core install chromium`),
- * then among the browsers installed on the system (`launchChrome` in src/headless.ts).
+ * then among the browsers installed on the system (`launchChrome` in src/cli/headless.ts).
  * The Japanese screenshots need a Japanese font (Noto Sans CJK JP, `fonts-noto-cjk` on Debian / Ubuntu); without one, their text is drawn as boxes.
  */
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -21,12 +21,12 @@ import { pathToFileURL } from 'node:url';
 import { applyPalette, GIFEncoder, quantize } from 'gifenc';
 import type { Browser, JSHandle, Page } from 'playwright-core';
 import { PNG } from 'pngjs';
-import { launchChrome } from '../src/headless';
-import { formatMessage, translatorFor, type Translate } from '../src/l10n';
-import { WEBVIEW_TITLES, type ToWebview } from '../src/protocol';
-import { imagePath, imageType, isExternalUrl } from '../src/exportPage';
-import { createMarkdown, escapeHtml, renderDocument } from '../src/render';
-import { loadWireframes, wireframeSources } from '../src/wireframe';
+import { launchChrome } from '../src/cli/headless';
+import { formatMessage, translatorFor, type Translate } from '../src/shared/l10n';
+import { WEBVIEW_TITLES, type ToWebview } from '../src/shared/protocol';
+import { imagePath, imageType, isExternalUrl } from '../src/export/exportPage';
+import { createMarkdown, escapeHtml, renderDocument } from '../src/markdown/render';
+import { loadWireframes, wireframeSources } from '../src/markdown/wireframe';
 
 /** The repository root: the script runs as dist/screenshots.cjs. */
 const ROOT = resolve(__dirname, '..');

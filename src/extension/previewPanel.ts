@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
 import { readWireframes, resolveDocumentPath, WireframeWatcher } from './documentFiles';
-import { WEBVIEW_TITLES, type DiagramLook, type DiffView, type FromWebview, type PreviewTheme, type ToWebview, type WebviewState } from './protocol';
-import { isExternalUrl, safeDecode, SCHEME_RE } from './exportPage';
-import { renderDiff } from './diffRender';
-import { createMarkdown, escapeHtml, renderDocument, type RenderEnv } from './render';
+import { WEBVIEW_TITLES, type DiagramLook, type DiffView, type FromWebview, type PreviewTheme, type ToWebview, type WebviewState } from '../shared/protocol';
+import { isExternalUrl, safeDecode, SCHEME_RE } from '../export/exportPage';
+import { renderDiff } from '../diff/diffRender';
+import { createMarkdown, escapeHtml, renderDocument, type RenderEnv } from '../markdown/render';
 
 const VIEW_TYPE = 'mdDesignDoc.preview';
 /** Custom editor shown in "Reopen Editor With..." for Markdown files. */

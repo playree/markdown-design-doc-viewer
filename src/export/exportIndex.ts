@@ -5,11 +5,11 @@
  * sortable columns are added by the script of the page (webview/indexList.ts).
  */
 import type { MarkdownIt } from 'markdown-it';
-import type { DiffStats } from './diffRender';
+import type { DiffStats } from '../diff/diffRender';
 import { frontMatterEntries, titleOf } from './exportPage';
-import type { Translate } from './l10n';
-import { DESIGN_DOC_META, frontMatterValue, isDesignDoc } from './markdownExtras';
-import { escapeHtml } from './render';
+import type { Translate } from '../shared/l10n';
+import { DESIGN_DOC_META, frontMatterValue, isDesignDoc } from '../markdown/markdownExtras';
+import { escapeHtml } from '../markdown/render';
 
 export interface DocumentInfo {
   title: string;

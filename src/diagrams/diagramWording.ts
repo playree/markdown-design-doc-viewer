@@ -1,5 +1,5 @@
-import type { Translate } from './l10n';
-import type { DiagramKind, MermaidKind } from './linker';
+import type { Translate } from '../shared/l10n';
+import type { DiagramKind, MermaidKind } from '../markdown/linker';
 
 /** The texts about the links of a kind of diagram, which name its items: arrows, nodes, entities, states or parts. */
 export interface LinkWording {

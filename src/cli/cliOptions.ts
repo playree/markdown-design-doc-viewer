@@ -5,8 +5,8 @@
 import { readdirSync, realpathSync, statSync } from 'node:fs';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { parseArgs } from 'node:util';
-import { exportFileName, type ExportSettings } from './exportPage';
-import type { DiagramLook } from './protocol';
+import { exportFileName, type ExportSettings } from '../export/exportPage';
+import type { DiagramLook } from '../shared/protocol';
 
 export const USAGE = `Usage: md-design-doc export <file|folder>... [options]
        md-design-doc capture <url> -o <file.html> [options]

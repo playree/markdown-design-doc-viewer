@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diffWordLists, groupChanges, similarity, splitWords, wordSegmenter } from '../src/textDiff';
+import { diffWordLists, groupChanges, similarity, splitWords, wordSegmenter } from '../src/diff/textDiff';
 
 describe('splitWords', () => {
   it('splits words, spaces and punctuation', () => {

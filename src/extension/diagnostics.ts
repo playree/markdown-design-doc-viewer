@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { readWireframes, WireframeWatcher } from './documentFiles';
-import { collectIssues } from './issues';
-import { createMarkdown } from './render';
+import { collectIssues } from '../authoring/issues';
+import { createMarkdown } from '../markdown/render';
 
 const UPDATE_DELAY_MS = 300;
 

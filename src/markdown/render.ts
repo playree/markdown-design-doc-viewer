@@ -1,11 +1,11 @@
 import markdownit, { type Env, type MarkdownIt, type Token } from 'markdown-it';
 import footnote from 'markdown-it-footnote';
-import { formatMessage, type Translate } from './l10n';
-import { diagramWording, rowWording } from './diagramWording';
+import { formatMessage, type Translate } from '../shared/l10n';
+import { diagramWording, rowWording } from '../diagrams/diagramWording';
 import { ATTR_RE, decodeAttribute, RAW_TEXT } from './htmlTags';
 import { isMermaidFence, linkDiagrams, type DiagramInfo, type DiagramKind } from './linker';
 import { markdownExtras } from './markdownExtras';
-import { HEADING_ID_PREFIX, slugify } from './slug';
+import { HEADING_ID_PREFIX, slugify } from '../shared/slug';
 import { tableOptions, tableWarnings } from './tables';
 import { composeWireframe, sourcePath, WIREFRAME_TOKEN, wireframeOf, wireframes, type WireframeFiles } from './wireframe';
 

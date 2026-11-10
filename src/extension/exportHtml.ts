@@ -1,10 +1,10 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { documentTitle, exportDiff, exportFileName, exportPage, imagePath, imageType, renderDiffForExport, renderForExport, stripSourceMap } from './exportPage';
+import { documentTitle, exportDiff, exportFileName, exportPage, imagePath, imageType, renderDiffForExport, renderForExport, stripSourceMap } from '../export/exportPage';
 import { embeddableFolders, isIn, readWireframes, resolveDocumentPath } from './documentFiles';
 import { readSettings, type Comparison, type PreviewManager, type Settings } from './previewPanel';
-import { WEBVIEW_TITLES, type DiffView } from './protocol';
-import { createMarkdown } from './render';
+import { WEBVIEW_TITLES, type DiffView } from '../shared/protocol';
+import { createMarkdown } from '../markdown/render';
 
 /** A link to `image` from the exported file: relative to it when possible, so that it works next to it. */
 function linkFrom(target: vscode.Uri, image: vscode.Uri): string {

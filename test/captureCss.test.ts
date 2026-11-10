@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assetPlaceholder, assetType, capturedFrom, importConditions, inlineImports, replaceAssets, splitTopLevel, styleText, viewportUnitsToPx } from '../src/captureCss';
+import { assetPlaceholder, assetType, capturedFrom, importConditions, inlineImports, replaceAssets, splitTopLevel, styleText, viewportUnitsToPx } from '../src/cli/captureCss';
 
 describe('captured styles', () => {
   it('turns the lengths relative to the window into pixels', () => {

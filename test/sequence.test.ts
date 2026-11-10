@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isSequenceDiagram, normalizeLabel, parseSequence, stripStepNumber } from '../src/sequence';
+import { isSequenceDiagram, normalizeLabel, parseSequence, stripStepNumber } from '../src/diagrams/sequence';
 
 describe('isSequenceDiagram', () => {
   it('detects sequenceDiagram after comments and blank lines', () => {

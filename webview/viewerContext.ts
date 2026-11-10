@@ -3,8 +3,8 @@
  * exported page, take the whole page (the body, the window); a viewer embedded in another page (embed/viewer.ts) takes
  * an element of it, which scrolls by itself.
  */
-import type { Translate } from '../src/l10n';
-import { WEBVIEW_TITLES, type FromWebview, type WebviewState } from '../src/protocol';
+import type { Translate } from '../src/shared/l10n';
+import { WEBVIEW_TITLES, type FromWebview, type WebviewState } from '../src/shared/protocol';
 
 /** A rectangle in client coordinates (of `getBoundingClientRect`). */
 export interface ViewportRect {
@@ -119,7 +119,7 @@ export function elementScrollHost(scroller: HTMLElement): ScrollHost {
 
 /**
  * Writes the titles of the viewer's controls translated with `t` on its element, as the extension host does on the body
- * (`shell()` in src/previewPanel.ts).
+ * (`shell()` in src/extension/previewPanel.ts).
  */
 export function writeTitles(el: HTMLElement, t: Translate): void {
   for (const [name, title] of Object.entries(WEBVIEW_TITLES)) {
