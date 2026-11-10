@@ -24,9 +24,9 @@ export const endsDrag = (e: MouseEvent): boolean => pressed !== undefined && Mat
 
 /**
  * true when `el` is in a pair laid out side by side now (a stacked pair never is): in a viewer wide enough, whose element
- * has the class `seqnotes-wide`.
+ * has the class `seqnotes-wide`. As in preview.css, not an element of the document with that class (in raw HTML).
  */
-export const isSideBySide = (el: Element): boolean => el.closest('.seqnotes-wide') !== null && !el.closest('.seqnotes-pair-stacked');
+export const isSideBySide = (el: Element): boolean => el.closest('.seqnotes-viewer.seqnotes-wide') !== null && !el.closest('.seqnotes-pair-stacked');
 
 /** Highlights the arrows and the section (and rows) of `active`, and clears the previous highlight in `root`. */
 export function showActive(root: Element, active: Active | undefined): void {
