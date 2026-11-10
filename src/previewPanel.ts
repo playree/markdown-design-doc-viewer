@@ -77,8 +77,8 @@ export function webviewShell(webview: vscode.Webview, extensionUri: vscode.Uri, 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="${style}">
 </head>
-<body data-seqnotes-theme="${theme}"${titles}>
-<div id="seqnotes-root"></div>
+<body class="seqnotes-viewer" data-seqnotes-theme="${theme}"${titles}>
+<div id="seqnotes-root" class="seqnotes-viewer-root"></div>
 <script nonce="${n}" src="${script}"></script>
 </body>
 </html>`;

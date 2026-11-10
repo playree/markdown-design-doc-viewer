@@ -4,14 +4,13 @@
  * file (export.ts), it hides and shows them.
  */
 import type { DiffView } from '../src/protocol';
-
-const titles = document.body.dataset;
+import type { ScrollHost } from './viewerContext';
 
 /** Where a change is put on the screen when the bar's buttons go to it (also `scroll-margin` in preview.css). */
 const FOCUS_RATIO = 0.25;
 const FOCUS_MS = 1500;
 
-/** Fills in the `{0}` of a text from the body's data attributes. */
+/** Fills in the `{0}` of a text from the viewer's data attributes. */
 const format = (text: string | undefined, value: number): string => (text ?? '{0}').replace('{0}', String(value));
 
 const CHEVRON_UP = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3.5 10l4.5-4.5 4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
@@ -27,6 +26,17 @@ export type DiffSummary = Pick<DiffView, 'label' | 'stats'>;
 export interface DiffBar {
   /** Shows the bar for the differences rendered in the root, or hides it without. */
   show(diff: DiffSummary | undefined): void;
+  /** Removes it. */
+  dispose(): void;
+}
+
+/** Where the bar is: the viewer's element, its translated titles, and what scrolls the document. */
+export interface DiffBarPlace {
+  /** The viewer's element, to which it is added. */
+  container: HTMLElement;
+  /** The translated titles of the viewer (`data-seqnotes-diff-*` of its element). */
+  titles: DOMStringMap;
+  scroll: ScrollHost;
 }
 
 /**
@@ -36,7 +46,7 @@ export interface DiffBar {
 export type DiffBarAction = { onClose: () => void } | { onToggle: (shown: boolean) => void };
 
 /** Sets up the bar for the changes in `root`. */
-export function setupDiffBar(root: HTMLElement, action: DiffBarAction): DiffBar {
+export function setupDiffBar(root: HTMLElement, action: DiffBarAction, { container, titles, scroll }: DiffBarPlace): DiffBar {
   const bar = document.createElement('div');
   bar.className = 'seqnotes-diff-bar';
   bar.setAttribute('role', 'toolbar');
@@ -87,7 +97,7 @@ export function setupDiffBar(root: HTMLElement, action: DiffBarAction): DiffBar 
   }
   bar.append(label, counts, buttons);
   // Outside the root, so the arrow / heading handlers on it do not see the clicks.
-  document.body.append(bar);
+  container.append(bar);
 
   /** The changed blocks displayed, in document order. */
   const targets = (): HTMLElement[] =>
@@ -98,12 +108,13 @@ export function setupDiffBar(root: HTMLElement, action: DiffBarAction): DiffBar 
     if (list.length === 0) {
       return;
     }
-    const line = window.innerHeight * FOCUS_RATIO;
+    const viewport = scroll.viewport();
+    const line = viewport.top + viewport.height * FOCUS_RATIO;
     const index = current ? list.indexOf(current) : -1;
     let target: HTMLElement | undefined;
     // From the one gone to last while the page stays where it went (which may not be at `line` near the end of the
     // page); else from what is on the screen.
-    if (index >= 0 && currentScroll !== undefined && Math.abs(window.scrollY - currentScroll) < 2) {
+    if (index >= 0 && currentScroll !== undefined && Math.abs(scroll.top() - currentScroll) < 2) {
       target = list[(index + direction + list.length) % list.length];
     } else if (direction > 0) {
       target = list.find((el) => el.getBoundingClientRect().top > line + 1) ?? list[0];
@@ -114,7 +125,7 @@ export function setupDiffBar(root: HTMLElement, action: DiffBarAction): DiffBar 
     current = target;
     target.classList.add('seqnotes-diff-focus');
     target.scrollIntoView({ block: 'start' });
-    currentScroll = window.scrollY;
+    currentScroll = scroll.top();
     clearTimeout(focusTimer);
     focusTimer = setTimeout(() => target.classList.remove('seqnotes-diff-focus'), FOCUS_MS);
   }
@@ -151,6 +162,10 @@ export function setupDiffBar(root: HTMLElement, action: DiffBarAction): DiffBar 
         counts.textContent = titles.seqnotesDiffNoChanges ?? '';
       }
       updateButtons();
+    },
+    dispose() {
+      clearTimeout(focusTimer);
+      bar.remove();
     },
   };
 }

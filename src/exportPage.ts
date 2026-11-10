@@ -186,6 +186,7 @@ export function exportDiff({ label, stats }: DiffView, t: Translate): ExportDiff
 /** The exported HTML file: a single page with its styles and script inlined. */
 export function exportPage({ lang, title, body, styles, script, settings, tocTitle, diff }: ExportPage): string {
   const classes = [
+    'seqnotes-viewer',
     'seqnotes-export',
     ...(settings.limitContentWidth ? ['seqnotes-limit-width'] : []),
     ...(settings.stickyTableHeader ? ['seqnotes-sticky-table-header'] : []),
@@ -213,7 +214,7 @@ ${styles.join('\n').replace(/<\/style/gi, '<\\/style')}
 </style>
 </head>
 <body data-seqnotes-theme="light" class="${classes.join(' ')}" data-seqnotes-split-min-width="${splitMinWidth}"${tocAttrs}${diffAttrs}>
-<div id="seqnotes-root">${body}</div>
+<div id="seqnotes-root" class="seqnotes-viewer-root">${body}</div>
 <script>
 ${script.replace(/<\/script/gi, '<\\/script')}
 </script>

@@ -117,7 +117,7 @@ describe('exportPage', () => {
     expect(html).toContain('<title>A &lt; B</title>');
     expect(html).toContain('a{}\nb{}<\\/style>');
     expect(html).toContain('x("<\\/script>")');
-    expect(html).toContain('<div id="seqnotes-root"><p>body</p></div>');
+    expect(html).toContain('<div id="seqnotes-root" class="seqnotes-viewer-root"><p>body</p></div>');
   });
 
   it('gives the differences and the texts of their bar to the script', () => {
@@ -134,8 +134,8 @@ describe('exportPage', () => {
   });
 
   it('applies the settings to the body', () => {
-    expect(page()).toContain('class="seqnotes-export seqnotes-limit-width seqnotes-sticky-table-header seqnotes-table-tree-highlight" data-seqnotes-split-min-width="1000"');
-    expect(page({ limitContentWidth: false, stickyTableHeader: false, tableTreeHighlight: false, splitMinWidth: 800, toc: false })).toContain('class="seqnotes-export" data-seqnotes-split-min-width="800">');
+    expect(page()).toContain('class="seqnotes-viewer seqnotes-export seqnotes-limit-width seqnotes-sticky-table-header seqnotes-table-tree-highlight" data-seqnotes-split-min-width="1000"');
+    expect(page({ limitContentWidth: false, stickyTableHeader: false, tableTreeHighlight: false, splitMinWidth: 800, toc: false })).toContain('class="seqnotes-viewer seqnotes-export" data-seqnotes-split-min-width="800">');
     expect(page({ limitContentWidth: false, stickyTableHeader: false, tableTreeHighlight: false, splitMinWidth: NaN, toc: false })).toContain('data-seqnotes-split-min-width="1000"');
   });
 

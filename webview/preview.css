@@ -1,5 +1,5 @@
-/* On the body, so that they follow the colors of the theme chosen with data-seqnotes-theme below. */
-body {
+/* On the viewer's element (the body of the page), so that they follow the colors of the theme chosen with data-seqnotes-theme below. */
+.seqnotes-viewer {
   --seqnotes-accent: var(--vscode-textLink-activeForeground, #3794ff);
   --seqnotes-accent-bg: color-mix(in srgb, var(--seqnotes-accent) 12%, transparent);
   --seqnotes-current: var(--vscode-editorLineNumber-activeForeground, #c6c6c6);
@@ -13,7 +13,7 @@ body {
  * the colors VS Code gives are replaced with those of Light Modern / Dark Modern. In CSS, so that
  * they apply from the first paint. Exported HTML, without VS Code's class, uses the light ones.
  */
-body[data-seqnotes-theme="light"]:not(.vscode-light, .vscode-high-contrast-light) {
+.seqnotes-viewer[data-seqnotes-theme="light"]:not(.vscode-light, .vscode-high-contrast-light) {
   color-scheme: light;
   --vscode-editor-background: #ffffff;
   --vscode-editor-foreground: #3b3b3b;
@@ -62,7 +62,7 @@ body[data-seqnotes-theme="light"]:not(.vscode-light, .vscode-high-contrast-light
   --vscode-scrollbarSlider-hoverBackground: rgba(100, 100, 100, 0.7);
   --vscode-scrollbarSlider-activeBackground: rgba(0, 0, 0, 0.6);
 }
-body[data-seqnotes-theme="dark"]:is(.vscode-light, .vscode-high-contrast-light) {
+.seqnotes-viewer[data-seqnotes-theme="dark"]:is(.vscode-light, .vscode-high-contrast-light) {
   color-scheme: dark;
   --vscode-editor-background: #1f1f1f;
   --vscode-editor-foreground: #cccccc;
@@ -123,7 +123,7 @@ html:has(> body[data-seqnotes-theme="dark"]:is(.vscode-light, .vscode-high-contr
   scrollbar-color: rgba(121, 121, 121, 0.4) #1f1f1f;
 }
 
-body {
+.seqnotes-viewer {
   padding: 2px 26px 40vh;
   font-family: var(--vscode-markdown-font-family, var(--vscode-font-family));
   font-size: var(--vscode-markdown-font-size, 14px);
@@ -135,45 +135,45 @@ body {
 
 /* ---------------------------------------------------------------- Markdown */
 
-h1, h2, h3, h4, h5, h6 {
+:where(.seqnotes-viewer) :is(h1, h2, h3, h4, h5, h6) {
   font-weight: 600;
   line-height: 1.25;
   margin: 1.4em 0 0.6em;
 }
-h1 { font-size: 2em; padding-bottom: 0.3em; border-bottom: 1px solid var(--seqnotes-border); }
-h2 { font-size: 1.5em; padding-bottom: 0.3em; border-bottom: 1px solid var(--seqnotes-border); }
-h3 { font-size: 1.25em; }
+:where(.seqnotes-viewer) h1 { font-size: 2em; padding-bottom: 0.3em; border-bottom: 1px solid var(--seqnotes-border); }
+:where(.seqnotes-viewer) h2 { font-size: 1.5em; padding-bottom: 0.3em; border-bottom: 1px solid var(--seqnotes-border); }
+:where(.seqnotes-viewer) h3 { font-size: 1.25em; }
 
-a { color: var(--vscode-textLink-foreground); text-decoration: none; }
-a:hover { color: var(--vscode-textLink-activeForeground); text-decoration: underline; }
+:where(.seqnotes-viewer) a { color: var(--vscode-textLink-foreground); text-decoration: none; }
+:where(.seqnotes-viewer) a:hover { color: var(--vscode-textLink-activeForeground); text-decoration: underline; }
 
-code {
+:where(.seqnotes-viewer) code {
   font-family: var(--vscode-editor-font-family, monospace);
   font-size: 0.9em;
   background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15));
   padding: 0.1em 0.35em;
   border-radius: 3px;
 }
-pre {
+:where(.seqnotes-viewer) pre {
   background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15));
   padding: 12px 16px;
   border-radius: 4px;
   overflow: auto;
 }
-pre code { background: none; padding: 0; }
+:where(.seqnotes-viewer) pre code { background: none; padding: 0; }
 
-blockquote {
+:where(.seqnotes-viewer) blockquote {
   margin: 0 0 1em;
   padding: 0 1em;
   border-left: 4px solid var(--vscode-textBlockQuote-border, var(--seqnotes-border));
   color: var(--vscode-textBlockQuote-foreground, inherit);
 }
 
-table { border-collapse: collapse; margin-bottom: 1em; }
-th, td { border: 1px solid var(--seqnotes-border); padding: 4px 10px; }
-th { background: var(--seqnotes-th-bg); }
+:where(.seqnotes-viewer) table { border-collapse: collapse; margin-bottom: 1em; }
+:where(.seqnotes-viewer) :is(th, td) { border: 1px solid var(--seqnotes-border); padding: 4px 10px; }
+:where(.seqnotes-viewer) th { background: var(--seqnotes-th-bg); }
 /* With mdDesignDoc.stickyTableHeader, the header row stays at the top while scrolling through a long table. */
-body.seqnotes-sticky-table-header thead th {
+.seqnotes-viewer.seqnotes-sticky-table-header thead th {
   position: sticky;
   top: 0;
   z-index: 1;
@@ -402,8 +402,8 @@ body.seqnotes-sticky-table-header thead th {
   .seqnotes-index-sort::after { display: none; }
 }
 
-img { max-width: 100%; }
-hr { border: 0; border-top: 1px solid var(--seqnotes-border); }
+:where(.seqnotes-viewer) img { max-width: 100%; }
+:where(.seqnotes-viewer) hr { border: 0; border-top: 1px solid var(--seqnotes-border); }
 
 /* GitHub alerts (`> [!NOTE]`) */
 .markdown-alert {
@@ -465,14 +465,14 @@ hr { border: 0; border-top: 1px solid var(--seqnotes-border); }
 .footnote-ref a, .footnote-item { scroll-margin-top: 1em; }
 
 /* Collapsible sections (`<details>`): a box whose summary shows a chevron and reacts to the mouse. */
-details {
+:where(.seqnotes-viewer) details {
   margin: 0 0 1em;
   padding: 0 12px;
   border: 1px solid var(--seqnotes-border);
   border-radius: 4px;
 }
-details[open] { padding-bottom: 0.8em; }
-summary {
+:where(.seqnotes-viewer) details[open] { padding-bottom: 0.8em; }
+:where(.seqnotes-viewer) summary {
   display: flex;
   align-items: center;
   gap: 0.6em;
@@ -486,8 +486,8 @@ summary {
   user-select: none;
   transition: background-color 0.15s;
 }
-summary::-webkit-details-marker { display: none; }
-summary::before {
+:where(.seqnotes-viewer) summary::-webkit-details-marker { display: none; }
+:where(.seqnotes-viewer) summary::before {
   content: '';
   flex: none;
   width: 0.4em;
@@ -498,20 +498,20 @@ summary::before {
   transform: rotate(-45deg);
   transition: transform 0.15s, border-color 0.15s;
 }
-details[open] > summary {
+:where(.seqnotes-viewer) details[open] > summary {
   margin-bottom: 0.8em;
   border-bottom: 1px solid var(--seqnotes-border);
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
-details[open] > summary::before { transform: rotate(45deg); }
-summary:hover { background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.2)); }
-summary:hover::before { border-color: var(--seqnotes-accent); }
-summary:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
-details > :last-child:not(summary) { margin-bottom: 0; }
+:where(.seqnotes-viewer) details[open] > summary::before { transform: rotate(45deg); }
+:where(.seqnotes-viewer) summary:hover { background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.2)); }
+:where(.seqnotes-viewer) summary:hover::before { border-color: var(--seqnotes-accent); }
+:where(.seqnotes-viewer) summary:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
+:where(.seqnotes-viewer) details > :last-child:not(summary) { margin-bottom: 0; }
 
 /* Code highlighting (highlight.js classes), in the colors of Dark+ / Light+. */
-body {
+.seqnotes-viewer {
   --seqnotes-hl-keyword: #569cd6;
   --seqnotes-hl-type: #4ec9b0;
   --seqnotes-hl-number: #b5cea8;
@@ -522,7 +522,7 @@ body {
   --seqnotes-hl-variable: #9cdcfe;
   --seqnotes-hl-selector: #d7ba7d;
 }
-body:is(.vscode-light, .vscode-high-contrast-light):not([data-seqnotes-theme="dark"]), body[data-seqnotes-theme="light"] {
+.seqnotes-viewer:is(.vscode-light, .vscode-high-contrast-light):not([data-seqnotes-theme="dark"]), .seqnotes-viewer[data-seqnotes-theme="light"] {
   --seqnotes-hl-keyword: #0000ff;
   --seqnotes-hl-type: #267f99;
   --seqnotes-hl-number: #098658;
@@ -678,12 +678,12 @@ body:is(.vscode-light, .vscode-high-contrast-light):not([data-seqnotes-theme="da
  * diagrams is kept in a centered column.
  * Margins rather than max-width + auto margins, so that narrower blocks such as tables stay at the left of the column.
  */
-body.seqnotes-limit-width #seqnotes-root > * { margin-inline: max(0px, (100% - 1280px) / 2); }
-body.seqnotes-limit-width.seqnotes-wide #seqnotes-root > .seqnotes-pair:not(.seqnotes-pair-stacked) { margin-inline: 0; }
+.seqnotes-viewer.seqnotes-limit-width .seqnotes-viewer-root > * { margin-inline: max(0px, (100% - 1280px) / 2); }
+.seqnotes-viewer.seqnotes-limit-width.seqnotes-wide .seqnotes-viewer-root > .seqnotes-pair:not(.seqnotes-pair-stacked) { margin-inline: 0; }
 
 /* ---------------------------------------------------------------- Side-by-side layout */
 
-body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) {
+.seqnotes-viewer.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) {
   display: grid;
   grid-template-columns: minmax(0, var(--seqnotes-split, 55%)) 24px minmax(0, 1fr);
   align-items: stretch;
@@ -691,13 +691,13 @@ body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) {
 
 .seqnotes-splitter { display: none; }
 
-body.seqnotes-wide .seqnotes-splitter {
+.seqnotes-viewer.seqnotes-wide .seqnotes-splitter {
   display: block;
   cursor: col-resize;
   position: relative;
   touch-action: none;
 }
-body.seqnotes-wide .seqnotes-splitter::after {
+.seqnotes-viewer.seqnotes-wide .seqnotes-splitter::after {
   content: '';
   position: absolute;
   top: 0;
@@ -707,12 +707,12 @@ body.seqnotes-wide .seqnotes-splitter::after {
   background: transparent;
   transition: background-color 0.15s;
 }
-body.seqnotes-wide .seqnotes-splitter:hover::after,
-body.seqnotes-wide .seqnotes-splitter:active::after {
+.seqnotes-viewer.seqnotes-wide .seqnotes-splitter:hover::after,
+.seqnotes-viewer.seqnotes-wide .seqnotes-splitter:active::after {
   background: var(--vscode-sash-hoverBorder, var(--seqnotes-accent));
 }
 
-body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-seq-col {
+.seqnotes-viewer.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-seq-col {
   align-self: start;
   position: sticky;
   top: 0;
@@ -722,11 +722,11 @@ body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-seq-co
   padding: 8px 0;
 }
 
-body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-seq-col .seqnotes-mermaid { margin: 0; }
+.seqnotes-viewer.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-seq-col .seqnotes-mermaid { margin: 0; }
 
 /* The overview column starts flush with the diagram. */
-body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-overview-col > :first-child,
-body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-overview-col > :first-child > :first-child { margin-top: 8px; }
+.seqnotes-viewer.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-overview-col > :first-child,
+.seqnotes-viewer.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-overview-col > :first-child > :first-child { margin-top: 8px; }
 
 /* ---------------------------------------------------------------- Links between arrows / nodes and steps */
 
@@ -842,11 +842,11 @@ tr.seqnotes-row.seqnotes-active > td:first-child { box-shadow: inset 3px 0 0 var
   background: var(--seqnotes-accent-bg);
 }
 /* Side by side: a line between top-level linked steps, drawn in the gap so the highlight box is unaffected. */
-body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-overview-col > .seqnotes-section ~ .seqnotes-section {
+.seqnotes-viewer.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-overview-col > .seqnotes-section ~ .seqnotes-section {
   position: relative;
   margin-top: 1.6em;
 }
-body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-overview-col > .seqnotes-section ~ .seqnotes-section::before {
+.seqnotes-viewer.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-overview-col > .seqnotes-section ~ .seqnotes-section::before {
   content: '';
   position: absolute;
   top: -0.8em;

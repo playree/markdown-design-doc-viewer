@@ -125,8 +125,8 @@ export class HeadlessRenderer {
       await page.setContent(`<!DOCTYPE html>
 <html lang="${escapeHtml(this.lang)}">
 <head><meta charset="UTF-8"></head>
-<body class="vscode-light" data-seqnotes-theme="light"${titles}>
-<div id="seqnotes-root"></div>
+<body class="seqnotes-viewer vscode-light" data-seqnotes-theme="light"${titles}>
+<div id="seqnotes-root" class="seqnotes-viewer-root"></div>
 <script>${vscodeApiStub('mdDesignDocPost')}</script>
 </body>
 </html>`);

@@ -8,10 +8,13 @@ import { setUpIndexList } from './indexList';
 import { activeFor, endsDrag, revealCounterpart, scrollToFragment, showActive, type Active } from './linking';
 import { setupTableTree } from './tableTree';
 import { setupToc } from './toc';
+import { windowScrollHost } from './viewerContext';
 import { layoutWireframes, linkTarget, remountWireframes } from './wireframe';
 
 const root = document.getElementById('seqnotes-root')!;
-const width = Number(document.body.dataset.seqnotesSplitMinWidth);
+const titles = document.body.dataset;
+const scroll = windowScrollHost();
+const width = Number(titles.seqnotesSplitMinWidth);
 const splitMinWidth = Number.isFinite(width) ? width : 1000;
 
 let pinned: Active | undefined;
@@ -38,29 +41,33 @@ window.addEventListener('afterprint', () => {
 remountWireframes(root);
 
 // Other links are left to the browser, as in the document.
-setupFootnotePopup(root, (href) => {
-  if (!href.startsWith('#')) {
-    return false;
-  }
-  scrollToFragment(href);
-  return true;
-});
+setupFootnotePopup(
+  root,
+  (href) => {
+    if (!href.startsWith('#')) {
+      return false;
+    }
+    scrollToFragment(root, href);
+    return true;
+  },
+  { container: document.body, id: 'seqnotes-footnote-popup' },
+);
 
 setupTableTree(root);
 
 // With the `toc` setting of the export (`exportPage` in src/exportPage.ts).
-if (document.body.dataset.seqnotesToc !== undefined) {
-  setupToc(root).build(true);
+if (titles.seqnotesToc !== undefined) {
+  setupToc(root, { container: document.body, title: titles.seqnotesTocTitle ?? '', scroll }).build(true);
 }
 
 // The differences from a revision rendered in the page (`ExportPage.diff` in src/exportPage.ts), hidden and shown by the bar.
-const { seqnotesDiffLabel: diffLabel, seqnotesDiffStats: diffStats } = document.body.dataset;
+const { seqnotesDiffLabel: diffLabel, seqnotesDiffStats: diffStats } = titles;
 if (diffLabel !== undefined && diffStats !== undefined) {
   const [added = 0, changed = 0, deleted = 0] = diffStats.split(',').map(Number);
   const onToggle = (shown: boolean): void => {
     document.body.classList.toggle('seqnotes-diff-off', !shown);
   };
-  setupDiffBar(root, { onToggle }).show({ label: diffLabel, stats: { added, changed, deleted } });
+  setupDiffBar(root, { onToggle }, { container: document.body, titles, scroll }).show({ label: diffLabel, stats: { added, changed, deleted } });
 }
 
 // The list of the documents (index.html).
@@ -77,14 +84,14 @@ root.addEventListener('click', (e) => {
   const link = target.closest('a[href^="#"]');
   if (link) {
     e.preventDefault();
-    scrollToFragment(link.getAttribute('href')!);
+    scrollToFragment(root, link.getAttribute('href')!);
     return;
   }
   const active = endsDrag(e) ? undefined : activeFor(linkTarget(e));
   if (active) {
     pinned = { pair: active.pair, target: active.target };
     showActive(root, pinned);
-    revealCounterpart(active);
+    revealCounterpart(active, scroll);
   }
 });
 
