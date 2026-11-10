@@ -1,5 +1,5 @@
 /**
- * The wireframes of a document (src/wireframe.ts), shared by the preview (main.ts) and exported HTML (export.ts).
+ * The wireframes of a document (src/wireframe.ts), shared by the preview (preview.ts) and exported HTML (export.ts).
  * Their HTML is shown in a shadow root, so that its styles and those of the page do not apply to each other, and works
  * as a page (its text can be selected, its form controls used), without leaving the document: its links and forms do not
  * navigate. A box is drawn over each of their parts (`data-item`), with its number: it stands for the part like a node

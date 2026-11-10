@@ -1,7 +1,8 @@
 /**
  * Shows the note of a footnote reference (`[^1]`) in a popup while the pointer is on it or it has the focus,
- * shared by the preview (`main.ts`) and exported HTML (`export.ts`).
+ * shared by the preview (`preview.ts`) and exported HTML (`export.ts`).
  */
+import { elementById } from './linking';
 
 /** Delay before showing the popup on hover, so that passing over a reference does not flash it. */
 const SHOW_DELAY = 150;
@@ -15,20 +16,31 @@ const REF = '.footnote-ref a[href^="#"]';
 
 export interface FootnotePopup {
   hide(): void;
+  /** Removes it, and its listeners. */
+  dispose(): void;
+}
+
+/** Where the popup is: the viewer's element, to which it is added, and its id, which differs from those of the other viewers. */
+export interface FootnotePopupPlace {
+  container: HTMLElement;
+  id: string;
 }
 
 /**
  * Sets up the popup for the references in `root`. `handleLink` opens a link clicked in the popup
  * and returns true, or returns false to leave it to the browser.
  */
-export function setupFootnotePopup(root: HTMLElement, handleLink: (href: string) => boolean): FootnotePopup {
+export function setupFootnotePopup(root: HTMLElement, handleLink: (href: string) => boolean, { container, id: popupId }: FootnotePopupPlace): FootnotePopup {
   const popup = document.createElement('div');
   popup.className = 'seqnotes-footnote-popup';
-  popup.id = 'seqnotes-footnote-popup';
+  popup.id = popupId;
   popup.setAttribute('role', 'tooltip');
   popup.hidden = true;
   // Outside the root, so the arrow / heading handlers on it do not see the pointer and the clicks.
-  document.body.append(popup);
+  container.append(popup);
+  /** Removes the listeners. */
+  const listeners = new AbortController();
+  const { signal } = listeners;
 
   let current: Element | undefined;
   let timer: number | undefined;
@@ -57,8 +69,8 @@ export function setupFootnotePopup(root: HTMLElement, handleLink: (href: string)
     } catch {
       // keep the raw fragment
     }
-    const item = document.getElementById(id);
-    if (!item || !root.contains(item) || !item.matches('.footnote-item')) {
+    const item = elementById(root, id);
+    if (!item || !item.matches('.footnote-item')) {
       hide();
       return;
     }
@@ -99,78 +111,105 @@ export function setupFootnotePopup(root: HTMLElement, handleLink: (href: string)
     popup.style.top = `${top}px`;
   }
 
-  root.addEventListener('mouseover', (e) => {
-    const ref = (e.target as Element).closest(REF);
-    if (ref) {
-      schedule(() => show(ref), ref === current ? 0 : SHOW_DELAY);
-    }
-  });
-  root.addEventListener('mouseout', (e) => {
-    const ref = (e.target as Element).closest(REF);
-    if (ref && !ref.contains(e.relatedTarget as Node | null)) {
-      schedule(hide, HIDE_DELAY);
-    }
-  });
-  popup.addEventListener('mouseenter', () => window.clearTimeout(timer));
-  popup.addEventListener('mouseleave', () => schedule(hide, HIDE_DELAY));
+  root.addEventListener(
+    'mouseover',
+    (e) => {
+      const ref = (e.target as Element).closest(REF);
+      if (ref) {
+        schedule(() => show(ref), ref === current ? 0 : SHOW_DELAY);
+      }
+    },
+    { signal },
+  );
+  root.addEventListener(
+    'mouseout',
+    (e) => {
+      const ref = (e.target as Element).closest(REF);
+      if (ref && !ref.contains(e.relatedTarget as Node | null)) {
+        schedule(hide, HIDE_DELAY);
+      }
+    },
+    { signal },
+  );
+  popup.addEventListener('mouseenter', () => window.clearTimeout(timer), { signal });
+  popup.addEventListener('mouseleave', () => schedule(hide, HIDE_DELAY), { signal });
 
   // From the keyboard only: a click focuses the reference too, and then jumps to the note.
-  root.addEventListener('focusin', (e) => {
-    const ref = (e.target as Element).closest(REF);
-    if (ref?.matches(':focus-visible')) {
-      show(ref);
-    }
-  });
-  root.addEventListener('focusout', (e) => {
-    // Not when a link in the popup takes the focus on a click: it would be removed before the click.
-    if ((e.target as Element).closest(REF) && !popup.contains(e.relatedTarget as Node | null)) {
-      schedule(hide, HIDE_DELAY);
-    }
-  });
+  root.addEventListener(
+    'focusin',
+    (e) => {
+      const ref = (e.target as Element).closest(REF);
+      if (ref?.matches(':focus-visible')) {
+        show(ref);
+      }
+    },
+    { signal },
+  );
+  root.addEventListener(
+    'focusout',
+    (e) => {
+      // Not when a link in the popup takes the focus on a click: it would be removed before the click.
+      if ((e.target as Element).closest(REF) && !popup.contains(e.relatedTarget as Node | null)) {
+        schedule(hide, HIDE_DELAY);
+      }
+    },
+    { signal },
+  );
   // The reference jumps to the note.
-  root.addEventListener('click', (e) => {
-    if ((e.target as Element).closest(REF)) {
-      hide();
-    }
-  });
+  root.addEventListener(
+    'click',
+    (e) => {
+      if ((e.target as Element).closest(REF)) {
+        hide();
+      }
+    },
+    { signal },
+  );
 
-  popup.addEventListener('click', (e) => {
-    const link = (e.target as Element).closest('a[href]');
-    if (link && handleLink(link.getAttribute('href')!)) {
-      e.preventDefault();
-      hide();
-    }
-  });
+  popup.addEventListener(
+    'click',
+    (e) => {
+      const link = (e.target as Element).closest('a[href]');
+      if (link && handleLink(link.getAttribute('href')!)) {
+        e.preventDefault();
+        hide();
+      }
+    },
+    { signal },
+  );
 
   // Captured, and not passed on: Escape closes only the popup, and keeps the pinned step of the preview.
-  document.addEventListener(
-    'keydown',
-    (e) => {
-      if (e.key === 'Escape' && current) {
-        e.stopImmediatePropagation();
-        hide();
-      }
-    },
-    { capture: true },
-  );
-  // Captured, to see the scrolling of the diagram columns too. The popup itself may scroll.
-  document.addEventListener(
-    'scroll',
-    (e) => {
-      if (current && !popup.contains(e.target as Node)) {
-        hide();
-      }
-    },
-    { capture: true, passive: true },
-  );
+  const onKeyDown = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape' && current) {
+      e.stopImmediatePropagation();
+      hide();
+    }
+  };
+  document.addEventListener('keydown', onKeyDown, { capture: true, signal });
+  // Captured, to see the scrolling of the diagram columns (and of an embedded viewer) too. The popup itself may scroll.
+  const onScroll = (e: Event): void => {
+    if (current && !popup.contains(e.target as Node)) {
+      hide();
+    }
+  };
+  document.addEventListener('scroll', onScroll, { capture: true, passive: true, signal });
 
-  window.addEventListener('resize', hide);
+  window.addEventListener('resize', hide, { signal });
   // Placed again when its content changes size, e.g. an image that loads.
-  new ResizeObserver(() => {
+  const observer = new ResizeObserver(() => {
     if (current) {
       place(current);
     }
-  }).observe(popup);
+  });
+  observer.observe(popup);
 
-  return { hide };
+  return {
+    hide,
+    dispose() {
+      hide();
+      listeners.abort();
+      observer.disconnect();
+      popup.remove();
+    },
+  };
 }

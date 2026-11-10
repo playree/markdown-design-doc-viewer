@@ -1,6 +1,6 @@
 /**
  * Folding and highlighting of the rows of a table shown as a tree (`level=` of the table options in src/tables.ts),
- * and the button showing a table with options as a plain table, shared by the preview (`main.ts`) and exported HTML
+ * and the button showing a table with options as a plain table, shared by the preview (`preview.ts`) and exported HTML
  * (`export.ts`).
  */
 
@@ -73,7 +73,8 @@ function setPlain(table: Element, plain: boolean): void {
   table.querySelector(PLAIN_TOGGLE)?.setAttribute('aria-pressed', String(plain));
 }
 
-export function setupTableTree(root: HTMLElement): void {
+/** Sets up the tables shown as trees in `root`. Its listeners are removed when `signal` aborts. */
+export function setupTableTree(root: HTMLElement, signal?: AbortSignal): void {
   // In the capture phase, so that the click on the buttons does not also go to the handlers of the preview
   // (e.g. a double click jumping to the editor).
   const onToggle = (e: Event): void => {
@@ -97,28 +98,32 @@ export function setupTableTree(root: HTMLElement): void {
       updateRows(row.closest('table')!);
     }
   };
-  root.addEventListener('click', onToggle, true);
-  root.addEventListener('dblclick', onToggle, true);
+  root.addEventListener('click', onToggle, { capture: true, signal });
+  root.addEventListener('dblclick', onToggle, { capture: true, signal });
 
   let current: HTMLTableRowElement | undefined;
   const clear = (): void => {
     root.querySelectorAll(`.${CURRENT}, .${RELATED}`).forEach((el) => el.classList.remove(CURRENT, RELATED));
     current = undefined;
   };
-  root.addEventListener('mouseover', (e) => {
-    // Only shown with mdDesignDoc.tableTreeHighlight (the class seqnotes-table-tree-highlight of the body, in preview.css).
-    const row = (e.target as Element).closest<HTMLTableRowElement>('.seqnotes-tree-table > tbody > tr[data-seqnotes-depth]');
-    if (row === current) {
-      return;
-    }
-    clear();
-    if (row) {
-      current = row;
-      row.classList.add(CURRENT);
-      relatives(row).forEach((el) => el.classList.add(RELATED));
-    }
-  });
-  root.addEventListener('mouseleave', clear);
+  root.addEventListener(
+    'mouseover',
+    (e) => {
+      // Only shown with mdDesignDoc.tableTreeHighlight (the class seqnotes-table-tree-highlight of the viewer, in preview.css).
+      const row = (e.target as Element).closest<HTMLTableRowElement>('.seqnotes-tree-table > tbody > tr[data-seqnotes-depth]');
+      if (row === current) {
+        return;
+      }
+      clear();
+      if (row) {
+        current = row;
+        row.classList.add(CURRENT);
+        relatives(row).forEach((el) => el.classList.add(RELATED));
+      }
+    },
+    { signal },
+  );
+  root.addEventListener('mouseleave', clear, { signal });
 }
 
 /** The tables in `root` matching `selector`, among those of the document: not the deleted ones shown by the comparison. */

@@ -1,7 +1,8 @@
 /**
- * Highlighting of the linked arrows / nodes and steps, shared by the preview (`main.ts`) and exported HTML (`export.ts`).
+ * Highlighting of the linked arrows / nodes and steps, shared by the preview (`preview.ts`) and exported HTML (`export.ts`).
  */
 import { HEADING_ID_PREFIX, slugify } from '../src/slug';
+import type { ScrollHost } from './viewerContext';
 
 /** A linked step of a side-by-side diagram: the pair and the id of the step heading. */
 export interface Active {
@@ -21,10 +22,11 @@ document.addEventListener('pointerdown', (e) => (pressed = { x: e.clientX, y: e.
 /** true when the click `e` ends a drag, such as a selection of text, which does not pin a step. */
 export const endsDrag = (e: MouseEvent): boolean => pressed !== undefined && Math.hypot(e.clientX - pressed.x, e.clientY - pressed.y) > DRAG_THRESHOLD;
 
-const isWide = (): boolean => document.body.classList.contains('seqnotes-wide');
-
-/** true when `el` is in a pair laid out side by side now (a stacked pair never is). */
-export const isSideBySide = (el: Element): boolean => isWide() && !el.closest('.seqnotes-pair-stacked');
+/**
+ * true when `el` is in a pair laid out side by side now (a stacked pair never is): in a viewer wide enough, whose element
+ * has the class `seqnotes-wide`. As in preview.css, not an element of the document with that class (in raw HTML).
+ */
+export const isSideBySide = (el: Element): boolean => el.closest('.seqnotes-viewer.seqnotes-wide') !== null && !el.closest('.seqnotes-pair-stacked');
 
 /** Highlights the arrows and the section (and rows) of `active`, and clears the previous highlight in `root`. */
 export function showActive(root: Element, active: Active | undefined): void {
@@ -59,7 +61,8 @@ export function activeFor(el: Element | null): (Active & { kind: 'message' | 'he
   return undefined;
 }
 
-export function scrollColumnTo(el: Element, smooth: boolean): void {
+/** Scrolls `el` into view: in its diagram column when it is sticky, else in the document that `scroll` scrolls. */
+export function scrollColumnTo(el: Element, smooth: boolean, scroll: ScrollHost): void {
   const col = el.closest('.seqnotes-seq-col');
   const behavior: ScrollBehavior = smooth ? 'smooth' : 'auto';
   if (col && isSideBySide(col)) {
@@ -68,7 +71,8 @@ export function scrollColumnTo(el: Element, smooth: boolean): void {
     col.scrollBy({ top: r.top - c.top - c.height / 2, behavior });
     // The sticky column itself may be off screen when the pair is only partly visible.
     const pr = col.parentElement!.getBoundingClientRect();
-    if (pr.top > 0 || pr.bottom < window.innerHeight / 2) {
+    const viewport = scroll.viewport();
+    if (pr.top > viewport.top || pr.bottom < viewport.top + viewport.height / 2) {
       col.parentElement!.scrollIntoView({ block: 'start', behavior });
     }
   } else {
@@ -77,7 +81,7 @@ export function scrollColumnTo(el: Element, smooth: boolean): void {
 }
 
 /** Scrolls the counterpart of a clicked message (its step) or heading (its arrow) into view. */
-export function revealCounterpart(active: Active & { kind: 'message' | 'heading' }): void {
+export function revealCounterpart(active: Active & { kind: 'message' | 'heading' }, scroll: ScrollHost): void {
   const escaped = CSS.escape(active.target);
   if (active.kind === 'message') {
     // 'nearest' keeps the page still when the section is already visible, so the sticky diagram stays in view.
@@ -85,25 +89,33 @@ export function revealCounterpart(active: Active & { kind: 'message' | 'heading'
   } else {
     const item = active.pair.querySelector(`.seqnotes-item[data-seqnotes-target="${escaped}"]`);
     if (item) {
-      scrollColumnTo(item, true);
+      scrollColumnTo(item, true, scroll);
     }
   }
 }
 
-/** Scrolls to the heading (or element) a `#fragment` link points to. Heading ids carry a prefix, so the link may be written without it. */
-export function scrollToFragment(href: string): void {
+/**
+ * The element of `root` with the id `id`. Not `document.getElementById`: another viewer in the page may have the same
+ * ids, before those of `root`.
+ */
+export function elementById(root: Element, id: string): Element | null {
+  return root.querySelector(`[id="${CSS.escape(id)}"]`);
+}
+
+/**
+ * Scrolls to the heading (or element) in `root` a `#fragment` link points to. Heading ids carry a prefix, so the link may
+ * be written without it.
+ */
+export function scrollToFragment(root: Element, href: string): void {
   let name = href.slice(1);
   try {
     name = decodeURIComponent(name);
   } catch {
     // keep the raw fragment
   }
+  const byId = (id: string): Element | null => elementById(root, id);
   // A footnote first: its id (`fn1`) may also be the slug of a heading.
-  const raw = document.getElementById(name);
-  const target =
-    (raw?.closest('.footnote-item, .footnote-ref') ? raw : null) ??
-    document.getElementById(HEADING_ID_PREFIX + name) ??
-    document.getElementById(HEADING_ID_PREFIX + slugify(name)) ??
-    raw;
+  const raw = byId(name);
+  const target = (raw?.closest('.footnote-item, .footnote-ref') ? raw : null) ?? byId(HEADING_ID_PREFIX + name) ?? byId(HEADING_ID_PREFIX + slugify(name)) ?? raw;
   target?.scrollIntoView({ block: 'start' });
 }

@@ -329,7 +329,7 @@ async function scrollToH2(page: Page, title: string): Promise<void> {
  */
 async function headerClip(page: Page): Promise<Clip> {
   // The header is at the top of the document: room above it for the same margin as the other scenes.
-  await page.addStyleTag({ content: '.seqnotes-toc { display: none; } body { padding-top: 24px; }' });
+  await page.addStyleTag({ content: '.seqnotes-toc { display: none; } .seqnotes-viewer { padding-top: 24px; }' });
   return page.evaluate(() => {
     const header = document.querySelector('.seqnotes-doc-header');
     const more = header?.querySelector<HTMLDetailsElement>('.seqnotes-doc-more');
@@ -577,8 +577,8 @@ function shell(update: ToWebview, locale: Locale): string {
 <style>:root {\n${vars}\n}</style>
 <link rel="stylesheet" href="${dist('webview.css')}">
 </head>
-<body class="vscode-light"${titles}>
-<div id="seqnotes-root"></div>
+<body class="seqnotes-viewer vscode-light"${titles}>
+<div id="seqnotes-root" class="seqnotes-viewer-root"></div>
 <script>
 let state;
 window.acquireVsCodeApi = () => ({

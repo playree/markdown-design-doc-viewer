@@ -11,14 +11,14 @@
   --vscode-editor-font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
 
-body.seqnotes-export {
+.seqnotes-viewer.seqnotes-export {
   max-width: 1600px;
   margin: 0 auto;
   padding: 16px 26px 40px;
 }
 
 /* No splitter in an exported file: the gap takes its place. */
-body.seqnotes-export.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) {
+.seqnotes-viewer.seqnotes-export.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) {
   grid-template-columns: minmax(0, var(--seqnotes-split, 55%)) minmax(0, 1fr);
   column-gap: 24px;
 }
@@ -27,16 +27,16 @@ body.seqnotes-export.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) {
  * The differences hidden with the bar's button (export.ts): the document as it is now. The marks of the others are
  * left out in preview.css.
  */
-body.seqnotes-diff-off :is([data-seqnotes-diff="deleted"], del.seqnotes-diff-del, .seqnotes-diff-old-diagram) { display: none; }
+.seqnotes-viewer.seqnotes-diff-off :is([data-seqnotes-diff="deleted"], del.seqnotes-diff-del, .seqnotes-diff-old-diagram) { display: none; }
 
 @media print {
-  body.seqnotes-export { max-width: none; padding: 0; }
+  .seqnotes-viewer.seqnotes-export { max-width: none; padding: 0; }
 
   /* In case the layout script did not run (e.g. printed without scripts). */
-  body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) { display: block; }
-  body.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-seq-col { position: static; max-height: none; overflow: visible; }
+  .seqnotes-viewer.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) { display: block; }
+  .seqnotes-viewer.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-seq-col { position: static; max-height: none; overflow: visible; }
   .seqnotes-splitter, .seqnotes-toc { display: none !important; }
-  body.seqnotes-sticky-table-header thead th { position: static; }
+  .seqnotes-viewer.seqnotes-sticky-table-header thead th { position: static; }
 
   .seqnotes-section.seqnotes-active { background: none; border-left-color: transparent; }
   .seqnotes-part.seqnotes-active { background: none; border-color: transparent; }

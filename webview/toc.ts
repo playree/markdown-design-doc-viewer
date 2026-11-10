@@ -1,7 +1,8 @@
 /**
  * The table of contents at the right edge of the page: a short line per heading (h1-h3), opened into the list on
- * hover by the CSS. Shared by the preview (`main.ts`) and exported HTML (`export.ts`).
+ * hover by the CSS. Shared by the preview (`preview.ts`) and exported HTML (`export.ts`).
  */
+import type { ScrollHost } from './viewerContext';
 
 const TOC_CURRENT = 'seqnotes-toc-current';
 /** A heading becomes the current one once its top is above this part of the window. */
@@ -10,6 +11,16 @@ const TOC_CURRENT_RATIO = 0.2;
 export interface Toc {
   /** Lists the headings of the root again, or none when `enabled` is false. */
   build(enabled: boolean): void;
+  /** Removes it, and stops following the scrolling. */
+  dispose(): void;
+}
+
+/** Where the table of contents is: the viewer's element, its title, and what scrolls the document. */
+export interface TocPlace {
+  /** The viewer's element, to which it is added. */
+  container: HTMLElement;
+  title: string;
+  scroll: ScrollHost;
 }
 
 /** The heading text without the `autonumber` badge added by `addStepBadge`, nor the footnote references. */
@@ -28,19 +39,19 @@ function revealHeading(heading: Element): void {
 }
 
 /** Sets up the table of contents of the headings in `root`, empty until `build` is called. */
-export function setupToc(root: HTMLElement): Toc {
+export function setupToc(root: HTMLElement, { container, title, scroll }: TocPlace): Toc {
   const toc = document.createElement('nav');
   toc.className = 'seqnotes-toc';
   toc.hidden = true;
   const tocTitle = document.createElement('div');
   tocTitle.className = 'seqnotes-toc-title';
   // Translated by the extension host (`shell()` in previewPanel.ts), or written in the exported page (`exportPage`).
-  tocTitle.textContent = document.body.dataset.seqnotesTocTitle ?? '';
+  tocTitle.textContent = title;
   toc.setAttribute('aria-label', tocTitle.textContent);
   const tocList = document.createElement('ol');
   toc.append(tocTitle, tocList);
   // Outside the root, so the arrow / heading handlers on it do not see the clicks.
-  document.body.append(toc);
+  container.append(toc);
 
   let tocHeadings: Element[] = [];
   /** Index of the current item in `tocHeadings`, -1 for none. */
@@ -84,8 +95,10 @@ export function setupToc(root: HTMLElement): Toc {
   function updateTocCurrent(): void {
     // The last headings may never reach the threshold; at the end of the page take the last one on the screen.
     // Not on a page that does not scroll: it is at the top, and everything on it is on the screen.
-    const atEnd = window.scrollY > 0 && window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 1;
-    const threshold = atEnd ? window.innerHeight : window.innerHeight * TOC_CURRENT_RATIO;
+    const viewport = scroll.viewport();
+    const top = scroll.top();
+    const atEnd = top > 0 && top + viewport.height >= scroll.scrollHeight() - 1;
+    const threshold = viewport.top + (atEnd ? viewport.height : viewport.height * TOC_CURRENT_RATIO);
     let current = -1;
     for (const [i, heading] of tocHeadings.entries()) {
       const r = heading.getBoundingClientRect();
@@ -160,10 +173,20 @@ export function setupToc(root: HTMLElement): Toc {
     }
   }
 
-  window.addEventListener('scroll', scheduleTocCurrent, { passive: true });
-  window.addEventListener('resize', scheduleTocCurrent);
+  const stopScroll = scroll.onScroll(scheduleTocCurrent);
+  const stopResize = scroll.onResize(scheduleTocCurrent);
   // Headings also move without scrolling, e.g. when a <details> is toggled or an image is loaded.
-  new ResizeObserver(scheduleTocCurrent).observe(root);
+  const observer = new ResizeObserver(scheduleTocCurrent);
+  observer.observe(root);
 
-  return { build };
+  return {
+    build,
+    dispose() {
+      stopScroll();
+      stopResize();
+      observer.disconnect();
+      cancelAnimationFrame(tocFrame);
+      toc.remove();
+    },
+  };
 }

@@ -7,7 +7,6 @@ import type { DiffView } from '../src/protocol';
 import { diffWordLists, groupChanges, splitWords, wordSegmenter } from '../src/textDiff';
 
 const segmenter = wordSegmenter(document.documentElement.lang || navigator.language);
-const titles = document.body.dataset;
 
 /** The texts not compared word by word: those of the diagrams and wireframes, compared as a whole. */
 const SKIPPED = '.seqnotes-mermaid, .seqnotes-wireframe, script, style';
@@ -20,8 +19,11 @@ const MERGED = '.seqnotes-cell-sub';
 /** Beyond this many words, a changed block is only marked as a whole. */
 const MAX_WORDS = 20_000;
 
-/** Marks the changes in `content` (the sanitized HTML of `renderDiff`), before its diagrams are rendered. */
-export function markChanges(content: HTMLElement, diff: DiffView, sanitize: (html: string) => DocumentFragment): void {
+/**
+ * Marks the changes in `content` (the sanitized HTML of `renderDiff`), before its diagrams are rendered. `oldDiagramTitle`
+ * is the translated title of the diagram of the revision.
+ */
+export function markChanges(content: HTMLElement, diff: DiffView, sanitize: (html: string) => DocumentFragment, oldDiagramTitle: string): void {
   for (const block of Array.from(content.querySelectorAll<HTMLElement>('[data-seqnotes-diff="changed"][data-seqnotes-diff-old]'))) {
     const html = diff.old[Number(block.dataset.seqnotesDiffOld)];
     if (html === undefined) {
@@ -31,7 +33,7 @@ export function markChanges(content: HTMLElement, diff: DiffView, sanitize: (htm
     // A row is parsed in a table: outside of it, its cells would be dropped, with the classes of the hidden ones.
     before.append(sanitize(block.matches('tr') ? `<table>${html}</table>` : html));
     if (block.matches('.seqnotes-mermaid')) {
-      addOldDiagram(block, before);
+      addOldDiagram(block, before, oldDiagramTitle);
     } else {
       if (block.querySelector(HIDDEN)) {
         // As shown in a plain table (webview/tableTree.ts), marked in the hidden cells only: the others are marked next.
@@ -43,7 +45,7 @@ export function markChanges(content: HTMLElement, diff: DiffView, sanitize: (htm
 }
 
 /** Puts the diagram of the revision under the changed one, folded. Rendered with the others. */
-function addOldDiagram(block: HTMLElement, before: HTMLElement): void {
+function addOldDiagram(block: HTMLElement, before: HTMLElement, title: string): void {
   const diagram = before.querySelector('.seqnotes-mermaid');
   if (!diagram) {
     return;
@@ -51,7 +53,7 @@ function addOldDiagram(block: HTMLElement, before: HTMLElement): void {
   const details = document.createElement('details');
   details.className = 'seqnotes-diff-old-diagram';
   const summary = document.createElement('summary');
-  summary.textContent = titles.seqnotesDiffOldDiagram ?? '';
+  summary.textContent = title;
   details.append(summary, diagram);
   block.after(details);
 }
