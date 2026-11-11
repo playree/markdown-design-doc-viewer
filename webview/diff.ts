@@ -6,7 +6,8 @@
 import type { DiffView } from '../src/shared/protocol';
 import { diffWordLists, groupChanges, splitWords, wordSegmenter } from '../src/diff/textDiff';
 
-const segmenter = wordSegmenter(document.documentElement.lang || navigator.language);
+/** Splits the texts into words, made on first use: not when the module is imported (on a server, without a document). */
+let segmenter: ReturnType<typeof wordSegmenter> | undefined;
 
 /** The texts not compared word by word: those of the diagrams and wireframes, compared as a whole. */
 const SKIPPED = '.seqnotes-mermaid, .seqnotes-wireframe, script, style';
@@ -83,7 +84,7 @@ function wordsOf(nodes: Text[]): Word[] {
   const words: Word[] = [];
   nodes.forEach((node, index) => {
     let offset = 0;
-    for (const text of splitWords(node.data, segmenter)) {
+    for (const text of splitWords(node.data, (segmenter ??= wordSegmenter(document.documentElement.lang || navigator.language)))) {
       words.push({ text, node: index, offset });
       offset += text.length;
     }
