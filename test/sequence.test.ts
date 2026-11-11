@@ -215,6 +215,12 @@ describe('parseSequence notes', () => {
     expect(parsed.anchors.map((a) => a.name)).toEqual(['Ⓑ']);
   });
 
+  it('reports a %% @goto on a note that %% @anchor makes a label', () => {
+    const parsed = parseSequence(['sequenceDiagram', '%% @anchor X', '%% @goto Y', 'Note over A: x'].join('\n'), 0);
+    expect(parsed.notes).toEqual([{ index: 0, line: 3, text: 'x', anchor: 'X' }]);
+    expect(parsed.strayDirectives).toEqual([{ line: 2, directive: 'gotoOnLabel' }]);
+  });
+
   it('does not count notes as messages nor give them @ref', () => {
     const src = ['sequenceDiagram', '%% @ref 見出し', 'Note over A: Ⓐ', 'A->>B: 一'].join('\n');
     const parsed = parseSequence(src, 0);

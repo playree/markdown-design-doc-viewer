@@ -491,6 +491,14 @@ describe('note jumps', () => {
     expect(diagrams[0].notes?.map((n) => [n.anchor, n.goto])).toEqual([['Ⓐ', undefined], [undefined, undefined], [undefined, undefined]]);
   });
 
+  it('ignores the notes of a diagram inside a list, for which only the marker is reported', () => {
+    const src = doc('- item', '', '  ```mermaid', '  %% @link-headings', '  sequenceDiagram', '  %% @goto Ⓩ', '  Note over A: Ⓐ', '  ```');
+    const { diagrams, warnings } = linkDiagrams(md.parse(src, {}));
+    expect(warnings.map((w) => w.message)).toEqual(['@link-headings is ignored for a sequence diagram inside a list or blockquote.']);
+    expect(diagrams[0].notes).toBeUndefined();
+    expect(diagrams[0].anchors).toBeUndefined();
+  });
+
   it('ignores the notes of a diagram without the marker, warning about its directives', () => {
     const src = doc('```mermaid', 'sequenceDiagram', '%% @anchor X', 'Note over A: x', 'Note over A: Ⓐ', 'Note over A: → Ⓐ', '```');
     const { diagrams, warnings } = linkDiagrams(md.parse(src, {}));

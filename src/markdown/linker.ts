@@ -199,7 +199,8 @@ function mermaidDiagram(token: Token, index: number, kind: MermaidKind, id: numb
   const paired = markerLine !== undefined && token.level === 0;
   const stacked = nodes?.horizontal ?? false;
   const diagram: DiagramInfo = { id, kind, fenceIndex: index, rangeEnd: index + 1, messages, unlinkedHeadings: [], headings: [], paired, stacked, rows: [] };
-  if (sequence) {
+  // Like `@ref`, not in a diagram inside a list or blockquote, for which the marker is reported.
+  if (sequence && (markerLine === undefined || paired)) {
     Object.assign(diagram, noteJumps(sequence, markerLine !== undefined, translate, warnings));
   }
   return diagram;
@@ -207,7 +208,7 @@ function mermaidDiagram(token: Token, index: number, kind: MermaidKind, id: numb
 
 /**
  * The notes and labels of a sequence diagram for jumping between them, with the problems of their directives. Only with
- * the `%% @link-headings` marker, like `%% @ref`.
+ * the `%% @link-headings` marker (`marked`), like `%% @ref`.
  */
 function noteJumps(
   sequence: ParsedSequence,
@@ -225,7 +226,8 @@ function noteJumps(
     return {};
   }
   for (const stray of strayDirectives) {
-    warnings.push({ line: stray.line, message: stray.directive === 'anchor' ? wording.strayAnchor : wording.strayGoto });
+    const messages = { anchor: wording.strayAnchor, goto: wording.strayGoto, gotoOnLabel: wording.gotoOnLabel };
+    warnings.push({ line: stray.line, message: messages[stray.directive] });
   }
   const byName = new Map<string, LinkedAnchor>();
   for (const anchor of anchors) {

@@ -777,6 +777,10 @@ text.seqnotes-anchor, text.seqnotes-anchor tspan {
 .seqnotes-note.seqnotes-anchor.seqnotes-jump-hover > rect { stroke-width: 3px !important; }
 .seqnotes-goto.seqnotes-jump-hover :is(text, tspan) { fill: var(--seqnotes-accent) !important; }
 text.seqnotes-anchor.seqnotes-jump-hover { text-decoration: underline; }
+.seqnotes-goto:focus-visible, .seqnotes-anchor:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder, var(--seqnotes-accent));
+  outline-offset: 2px;
+}
 
 /* The section of a label: tinted while a note that jumps to it is hovered, and flashed when jumped to. */
 .seqnotes-branch {

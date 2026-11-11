@@ -135,12 +135,12 @@ sequenceDiagram
 | A note with only a circled letter (`Note over S: Ⓑ`) | Labels the place of the note, from it to the end of its branch. It is shown as a small badge. |
 | A circled letter at the start of the condition of a branch (`else Ⓒ Error`) | Labels the whole branch. Works for the branches of `alt` / `else`, `opt`, `loop`, `par` / `and`, `critical` / `option` and `break`. |
 | A note with a label of the diagram in its text (`… → Ⓒ Error response`) | Jumps to the label (the first one when it has several). It is shown like a link. |
-| `%% @anchor <label>` | Makes the **next** note or branch a label, with any name (not only a circled letter). |
-| `%% @goto <label>` | Makes the **next** note jump to `<label>`, whatever its text. |
+| `%% @anchor <label>` | Makes the **next** note, or the next branch with a condition (not a bare `else`), a label with any name (not only a circled letter). |
+| `%% @goto <label>` | Makes the **next** note jump to `<label>`, whatever its text. A note is a label or a jump, not both. |
 
 - The circled letters `Ⓐ`–`Ⓩ` and `ⓐ`–`ⓩ` work without the directives. A circled letter that no label of the diagram has is plain text.
 - Hover a note that jumps to highlight its label and branch. Click it to scroll the diagram to the label and flash the branch; the step of the first linked arrow of the branch is highlighted (and, side by side, shown in the description column). The **↩** button next to the label goes back to the note. Clicking a label goes to the notes that jump to it, one after another. Esc removes the button.
-- A label defined twice, an `@goto` to a label the diagram does not have, and an `@anchor` / `@goto` not followed by a note (or a branch, for `@anchor`) are reported as warnings. In the editor, `@anchor` and `@goto` are completed after `%% @`, and the labels of the diagram after `%% @goto `.
+- A label defined twice, an `@goto` to a label the diagram does not have, an `@anchor` / `@goto` not followed by a note (or a branch with a condition, for `@anchor`), and an `@goto` on a note made a label by `@anchor` are reported as warnings. The jumps do not work in a diagram inside a list or blockquote, like `@ref`. In the editor, `@anchor` and `@goto` are completed after `%% @`, and the labels of the diagram after `%% @goto `.
 - Notes are not linked to headings and do not change the numbers of `autonumber`. The jumps work in exported HTML too.
 
 ### Flowcharts

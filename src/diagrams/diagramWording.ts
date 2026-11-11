@@ -138,6 +138,7 @@ export function noteJumpWording(t: Translate): {
   withoutMarker: string;
   strayAnchor: string;
   strayGoto: string;
+  gotoOnLabel: string;
   duplicateAnchor: (name: string) => string;
   gotoNotFound: (name: string) => string;
   anchorDoc: string;
@@ -149,6 +150,7 @@ export function noteJumpWording(t: Translate): {
     withoutMarker: t('@anchor and @goto are ignored because the sequence diagram has no "%% @link-headings" marker.'),
     strayAnchor: t('@anchor is ignored because the next line is not a note or a section of a block with a condition (alt, else, …).'),
     strayGoto: t('@goto is ignored because the next line is not a note.'),
+    gotoOnLabel: t('@goto is ignored because @anchor makes the note a label. A note is a label or a jump, not both.'),
     duplicateAnchor: (name) => t('Label "{0}" is already defined in the sequence diagram.', name),
     gotoNotFound: (name) => t('@goto target label "{0}" was not found in the sequence diagram.', name),
     anchorDoc: t('Make the next note (or section of a block) a label that notes can jump to.'),

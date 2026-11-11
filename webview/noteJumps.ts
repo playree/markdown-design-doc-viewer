@@ -12,6 +12,8 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 /** Highlight of a label and its section while a note that jumps to it is hovered, and the other way around. */
 const HOVER = 'seqnotes-jump-hover';
 const FLASH = 'seqnotes-flash';
+/** The notes that jump and the labels, which follow the jumps (`setupNoteJumps`). */
+const JUMP_ELEMENTS = 'svg [data-seqnotes-goto], svg [data-seqnotes-anchor]';
 /** How long the flash of a place jumped to lasts (as the animation in preview.css), in ms. */
 const FLASH_MS = 1200;
 
@@ -132,6 +134,39 @@ function sectionRect(boxes: BlockBox[], el: Element, fromLabel: boolean): { x: n
   return { x: box.left, y: top, width: box.right - box.left, height: bottom - top };
 }
 
+/** Makes `el` a button for the keyboard, named `label`. */
+function focusable(el: Element, label: string): void {
+  el.setAttribute('tabindex', '0');
+  el.setAttribute('role', 'button');
+  el.setAttribute('aria-label', label);
+}
+
+/**
+ * The conditions of the sections of the blocks: the texts of the lines of each, in the order of the source (from the top).
+ * mermaid draws each line of a condition as a text of its own, and breaks a long word with a hyphen (`-`) at the end of
+ * the line, so the condition is compared as joined with and without those hyphens (`compactLabel`).
+ */
+function conditionTexts(svg: SVGSVGElement): { els: Element[]; texts: string[]; y: number }[] {
+  const conditions: { els: Element[]; texts: string[]; y: number }[] = [];
+  for (const group of Array.from(svg.querySelectorAll('g[data-et="control-structure"]'))) {
+    const dividers = Array.from(group.querySelectorAll(':scope > line.loopLine'))
+      .filter((l) => l.getAttribute('y1') === l.getAttribute('y2'))
+      .map((l) => num(l, 'y1'));
+    // The condition of the first section (`loopText`), then those of the others (`sectionTitle`) by the line above them.
+    const sections = new Map<number, Element[]>();
+    for (const text of Array.from(group.querySelectorAll(':scope > text.loopText, :scope > text.sectionTitle'))) {
+      const key = text.matches('.loopText') ? -Infinity : Math.max(-Infinity, ...dividers.filter((d) => d <= num(text, 'y')));
+      sections.set(key, [...(sections.get(key) ?? []), text]);
+    }
+    for (const els of sections.values()) {
+      const lines = els.map((el) => el.textContent ?? '');
+      const unbroken = lines.map((line, i) => (i < lines.length - 1 ? line.replace(/-$/, '') : line));
+      conditions.push({ els, texts: [compact(lines.join('')), compact(unbroken.join(''))], y: Math.min(...els.map((el) => num(el, 'y'))) });
+    }
+  }
+  return conditions.sort((a, b) => a.y - b.y);
+}
+
 /**
  * Marks the notes of a sequence diagram that define labels (`.seqnotes-anchor`, shrunk to badges) and those that jump to
  * them (`.seqnotes-goto`), the conditions of block sections with a label, and the sections of the labels
@@ -156,7 +191,7 @@ export function annotateNotes(svg: SVGSVGElement, meta: DiagramMeta): void {
     });
   }
 
-  const labels: { el: Element; name: string; fromLabel: boolean }[] = [];
+  const labels: { els: Element[]; name: string; fromLabel: boolean }[] = [];
   groups.forEach((group, i) => {
     const note = assigned[i];
     if (!note) {
@@ -168,38 +203,48 @@ export function annotateNotes(svg: SVGSVGElement, meta: DiagramMeta): void {
       group.classList.add('seqnotes-anchor');
       group.setAttribute('data-seqnotes-anchor', note.anchor);
       makeBadge(group);
-      labels.push({ el: group, name: note.anchor, fromLabel: true });
+      labels.push({ els: [group], name: note.anchor, fromLabel: true });
     } else if (note.goto !== undefined) {
       group.classList.add('seqnotes-goto');
       group.setAttribute('data-seqnotes-goto', note.goto);
       const title = document.createElementNS(SVG_NS, 'title');
       title.textContent = (meta.jumpTitles?.goto ?? '{0}').replace('{0}', note.goto);
       group.prepend(title);
+      focusable(group, `${normalizeLabel(note.text)} (${title.textContent})`);
     }
   });
 
-  // The conditions of the sections with a label, drawn as `[condition]` (the first one of a block in `loopText`). The
-  // blocks are drawn from the inner ones, but from top to bottom in the order of the source.
-  const conditions = Array.from(svg.querySelectorAll('text.loopText, text.sectionTitle')).sort((a, b) => num(a, 'y') - num(b, 'y'));
+  // The conditions of the sections with a label, drawn as `[condition]`. The blocks are drawn from the inner ones, but
+  // from top to bottom in the order of the source.
+  const conditions = conditionTexts(svg);
   for (const anchor of meta.anchors ?? []) {
     if (anchor.title === undefined) {
       continue;
     }
     const wanted = compact(`[${anchor.title}]`);
-    const el = conditions.filter((c) => compact(c.textContent ?? '') === wanted)[anchor.occurrence ?? 0];
-    if (!el) {
+    const els = conditions.filter((c) => c.texts.includes(wanted))[anchor.occurrence ?? 0]?.els;
+    if (!els) {
       continue;
     }
-    el.classList.add('seqnotes-anchor');
-    el.setAttribute('data-seqnotes-anchor', anchor.name);
-    labels.push({ el, name: anchor.name, fromLabel: false });
+    for (const el of els) {
+      el.classList.add('seqnotes-anchor');
+      el.setAttribute('data-seqnotes-anchor', anchor.name);
+    }
+    labels.push({ els, name: anchor.name, fromLabel: false });
   }
 
   const boxes = blockBoxes(svg);
-  for (const { el, name, fromLabel } of labels) {
+  for (const { els, name, fromLabel } of labels) {
+    const el = els[0];
     const firstTarget = meta.anchors?.find((a) => a.name === name)?.firstTarget;
-    if (firstTarget !== undefined) {
-      el.setAttribute('data-seqnotes-first-target', firstTarget);
+    for (const e of els) {
+      if (firstTarget !== undefined) {
+        e.setAttribute('data-seqnotes-first-target', firstTarget);
+      }
+    }
+    // Only a label that notes jump to does something when clicked: it goes to them.
+    if (notes.some((n) => n.goto === name)) {
+      focusable(el, name);
     }
     const r = sectionRect(boxes, el, fromLabel);
     if (!r || !(r.height > 0)) {
@@ -297,8 +342,9 @@ export function setupNoteJumps(root: HTMLElement, { scroll, pin, signal }: NoteJ
     button.title = svg.getAttribute('data-seqnotes-back-title') ?? '';
     button.addEventListener('click', (e) => {
       e.stopPropagation();
+      const keyboard = button.matches(':focus-visible');
       removeBack();
-      go(from);
+      go(from, keyboard);
     });
     holder.append(button);
     // The diagram is scaled to the width of its column, which the window and the splitter change.
@@ -308,14 +354,20 @@ export function setupNoteJumps(root: HTMLElement, { scroll, pin, signal }: NoteJ
     place(button, anchor, holder);
   }
 
-  /** Scrolls to `el` (a note or label) in its diagram and flashes it. */
-  function go(el: Element): void {
+  /** Scrolls to `el` (a note or label) in its diagram and flashes it, and moves the focus there with the keyboard. */
+  function go(el: Element, keyboard: boolean): void {
     scrollColumnTo(el, true, scroll);
     flash(el);
+    if (keyboard) {
+      (el as SVGElement).focus({ preventScroll: true });
+    }
   }
 
-  /** Jumps from the note `from` to its label: to the section, and to the step of its first linked arrow. */
-  function jump(from: Element): void {
+  /**
+   * Jumps from the note `from` to its label: to the section, and to the step of its first linked arrow. With the keyboard,
+   * the focus moves to the button that goes back.
+   */
+  function jump(from: Element, keyboard: boolean): void {
     const svg = svgOf(from);
     const name = from.getAttribute('data-seqnotes-goto');
     const anchor = svg && name !== null ? byAttr(svg, 'data-seqnotes-anchor', name)[0] : undefined;
@@ -335,10 +387,13 @@ export function setupNoteJumps(root: HTMLElement, { scroll, pin, signal }: NoteJ
       pin({ pair, target, kind: 'message' }, isSideBySide(pair));
     }
     showBack(anchor, from);
+    if (keyboard) {
+      back?.button.focus({ preventScroll: true });
+    }
   }
 
   /** Goes from a label to the notes that jump to it, one after the other. */
-  function backFromAnchor(anchor: Element): void {
+  function backFromAnchor(anchor: Element, keyboard: boolean): void {
     const svg = svgOf(anchor);
     const name = anchor.getAttribute('data-seqnotes-anchor');
     if (!svg || name === null) {
@@ -356,21 +411,32 @@ export function setupNoteJumps(root: HTMLElement, { scroll, pin, signal }: NoteJ
     const i = (cycle.get(name) ?? 0) % notes.length;
     cycle.set(name, i + 1);
     removeBack();
-    go(notes[i]);
+    go(notes[i], keyboard);
   }
+
+  /** Follows a note that jumps, or goes back from a label. */
+  function follow(el: Element, keyboard: boolean): void {
+    if (el.hasAttribute('data-seqnotes-goto')) {
+      jump(el, keyboard);
+    } else {
+      backFromAnchor(el, keyboard);
+    }
+  }
+
 
   root.addEventListener(
     'mouseover',
     (e) => {
       clearHover();
-      const el = (e.target as Element).closest?.('svg [data-seqnotes-goto], svg [data-seqnotes-anchor]');
+      const el = (e.target as Element).closest?.(JUMP_ELEMENTS);
       const svg = el && svgOf(el);
       if (!el || !svg) {
         return;
       }
       const goto = el.getAttribute('data-seqnotes-goto');
       const name = goto ?? el.getAttribute('data-seqnotes-anchor')!;
-      const related = goto !== null ? byAttr(svg, 'data-seqnotes-anchor', name) : byAttr(svg, 'data-seqnotes-goto', name);
+      // The label (all the lines of a condition), and the notes that jump to it from the label.
+      const related = [...byAttr(svg, 'data-seqnotes-anchor', name), ...(goto !== null ? [] : byAttr(svg, 'data-seqnotes-goto', name))];
       hovered = [el, ...related, ...byAttr(svg, 'data-seqnotes-branch', name)];
       hovered.forEach((r) => r.classList.add(HOVER));
     },
@@ -382,15 +448,23 @@ export function setupNoteJumps(root: HTMLElement, { scroll, pin, signal }: NoteJ
   root.addEventListener(
     'click',
     (e) => {
-      const el = (e.target as Element).closest?.('svg [data-seqnotes-goto], svg [data-seqnotes-anchor]');
+      const el = (e.target as Element).closest?.(JUMP_ELEMENTS);
       // Not again for the second click of a double-click, which shows the line of the note in the editor.
       if (!el || endsDrag(e) || e.detail > 1) {
         return;
       }
-      if (el.hasAttribute('data-seqnotes-goto')) {
-        jump(el);
-      } else {
-        backFromAnchor(el);
+      follow(el, false);
+    },
+    { signal },
+  );
+
+  root.addEventListener(
+    'keydown',
+    (e) => {
+      const el = (e.target as Element).matches?.(JUMP_ELEMENTS) ? (e.target as Element) : null;
+      if (el && (e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        follow(el, true);
       }
     },
     { signal },

@@ -56,10 +56,13 @@ export interface SequenceAnchor {
   endMessage: number;
 }
 
-/** A `%% @anchor` or `%% @goto` directive that applies to nothing: the next line is not a note (or a block section). */
+/**
+ * A `%% @anchor` or `%% @goto` directive that applies to nothing: the next line is not a note (or a block section), or
+ * (`gotoOnLabel`) the note of the `%% @goto` is made a label by a `%% @anchor`.
+ */
 export interface StrayNoteDirective {
   line: number;
-  directive: 'anchor' | 'goto';
+  directive: 'anchor' | 'goto' | 'gotoOnLabel';
 }
 
 export interface ParsedSequence {
@@ -270,7 +273,10 @@ export function parseSequence(source: string, firstLine: number): ParsedSequence
         anchors.push(anchor);
         blocks[blocks.length - 1].push(anchor);
       }
-      if (pendingGoto) {
+      if (pendingGoto && entry.anchor !== undefined) {
+        // A note is a label or a jump, not both.
+        strayDirectives.push({ line: pendingGoto.line, directive: 'gotoOnLabel' });
+      } else if (pendingGoto) {
         entry.goto = pendingGoto.name;
         entry.gotoLine = pendingGoto.line;
       }
