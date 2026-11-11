@@ -178,6 +178,21 @@ export function createPreview(ctx: ViewerContext): Preview {
       ...lookConfig(look),
     });
 
+    // Where mermaid lays out and measures each diagram, out of sight: by default it does that in an element it adds
+    // to the end of the body, where a half-drawn diagram shows for a moment at the top left of the page.
+    const scratch = document.createElement('div');
+    scratch.className = 'seqnotes-mermaid-scratch';
+    el.append(scratch);
+    try {
+      await renderBlocks(container, idPrefix, dark, look, scratch, cache);
+    } finally {
+      scratch.remove();
+    }
+    return cache;
+  }
+
+  /** Renders the mermaid blocks of `container` with `scratch` for mermaid's work, and puts the SVGs it used in `cache`. */
+  async function renderBlocks(container: HTMLElement, idPrefix: string, dark: boolean, look: DiagramLook, scratch: HTMLElement, cache: Map<string, string>): Promise<void> {
     const blocks = Array.from(container.querySelectorAll<HTMLElement>('.seqnotes-mermaid'));
     for (const [i, block] of blocks.entries()) {
       const pre = block.querySelector('.seqnotes-mermaid-src');
@@ -188,7 +203,7 @@ export function createPreview(ctx: ViewerContext): Preview {
       try {
         // A cached SVG carries the element ids of its first render, so reuse it only once per document.
         const cached = cache.has(key) ? undefined : svgCache.get(key);
-        const svg = cached ?? (await mermaid.render(id, source)).svg;
+        const svg = cached ?? (await mermaid.render(id, source, scratch)).svg;
         cache.set(key, svg);
         const holder = document.createElement('div');
         holder.className = 'seqnotes-diagram';
@@ -205,8 +220,6 @@ export function createPreview(ctx: ViewerContext): Preview {
           }
         }
       } catch (error) {
-        // The element mermaid renders in, which it leaves in the body of the page on an error.
-        document.getElementById(`d${id}`)?.remove();
         const message = document.createElement('div');
         message.className = 'seqnotes-error-message';
         message.textContent = `Mermaid: ${error instanceof Error ? error.message : String(error)}`;
@@ -214,7 +227,6 @@ export function createPreview(ctx: ViewerContext): Preview {
         block.prepend(message);
       }
     }
-    return cache;
   }
 
   /** Raw HTML in Markdown is allowed, so sanitize like the built-in preview does. */
