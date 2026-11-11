@@ -74,7 +74,7 @@ describe('parseSequence', () => {
   it('finds the %% @link-headings marker before or after the diagram type', () => {
     expect(parseSequence('%% @link-headings\nsequenceDiagram\nA->>B: x', 3).markerLine).toBe(3);
     const after = parseSequence('sequenceDiagram\n  %%  @link-headings \nA->>B: x', 3);
-    expect(after).toEqual({ messages: [{ index: 0, line: 5, text: 'x' }], markerLine: 4 });
+    expect(after).toEqual({ messages: [{ index: 0, line: 5, text: 'x' }], notes: [], anchors: [], strayDirectives: [], markerLine: 4 });
     expect(parseSequence('sequenceDiagram\n%% @link-headings-x\nA->>B: x', 0).markerLine).toBeUndefined();
   });
 
@@ -120,5 +120,104 @@ describe('normalizeLabel', () => {
   it('normalizes line breaks, entities and whitespace', () => {
     expect(normalizeLabel('  ユーザー<br/>情報  を取得 ')).toBe('ユーザー 情報 を取得');
     expect(normalizeLabel('a#59; b')).toBe('a; b');
+  });
+});
+
+describe('parseSequence notes', () => {
+  const SRC = [
+    'sequenceDiagram',
+    '  S->>S: 応答作成',
+    '  Note over S: HNY90000 → 503 → Ⓒ エラー応答',
+    '  alt 正常',
+    '    Note over S: Ⓑ',
+    '    S->>S: 正常応答作成',
+    '    S-->>C: 200',
+    '  else Ⓒ エラー',
+    '    S->>S: エラー応答作成',
+    '    loop 再試行',
+    '      S->>S: 再送',
+    '    end',
+    '    S-->>C: 400',
+    '  end',
+    '  S->>S: 後処理',
+  ].join('\n');
+
+  it('reads the labels of notes and of block sections, with the messages of their sections', () => {
+    const parsed = parseSequence(SRC, 0);
+    expect(parsed.messages.map((m) => m.text)).toEqual(['応答作成', '正常応答作成', '200', 'エラー応答作成', '再送', '400', '後処理']);
+    expect(parsed.anchors).toEqual([
+      { name: 'Ⓑ', line: 4, note: 1, firstMessage: 1, endMessage: 3 },
+      { name: 'Ⓒ', line: 7, title: 'Ⓒ エラー', occurrence: 0, firstMessage: 3, endMessage: 6 },
+    ]);
+  });
+
+  it('makes a note with a defined label in its text jump to it', () => {
+    const { notes } = parseSequence(SRC, 0);
+    expect(notes).toEqual([
+      { index: 0, line: 2, text: 'HNY90000 → 503 → Ⓒ エラー応答', goto: 'Ⓒ' },
+      { index: 1, line: 4, text: 'Ⓑ', anchor: 'Ⓑ' },
+    ]);
+    // A circled letter no label has is only text.
+    expect(parseSequence('sequenceDiagram\nNote over A: Ⓩ を参照', 0).notes[0].goto).toBeUndefined();
+  });
+
+  it('ends the label of a note outside the blocks at the end of the diagram', () => {
+    const src = ['sequenceDiagram', 'A->>B: 一', 'Note over A: ⓐ', 'A->>B: 二', 'A->>B: 三'].join('\n');
+    expect(parseSequence(src, 0).anchors).toEqual([{ name: 'ⓐ', line: 2, note: 0, firstMessage: 1, endMessage: 3 }]);
+  });
+
+  it('names labels and jumps with %% @anchor and %% @goto', () => {
+    const src = [
+      'sequenceDiagram',
+      '  %% @anchor 認証エラー',
+      '  Note over A: 認証エラー',
+      '  A->>B: 一',
+      '  %% @anchor リトライ',
+      '  loop 3 回まで',
+      '  A->>B: 二',
+      '  end',
+      '  %% @goto 認証エラー',
+      '  Note over A: 401 の場合',
+    ].join('\n');
+    const parsed = parseSequence(src, 0);
+    expect(parsed.anchors).toEqual([
+      { name: '認証エラー', line: 2, markerLine: 1, note: 0, firstMessage: 0, endMessage: 2 },
+      { name: 'リトライ', line: 5, markerLine: 4, title: '3 回まで', occurrence: 0, firstMessage: 1, endMessage: 2 },
+    ]);
+    expect(parsed.notes[1]).toEqual({ index: 1, line: 9, text: '401 の場合', goto: '認証エラー', gotoLine: 8 });
+    expect(parsed.strayDirectives).toEqual([]);
+  });
+
+  it('reports %% @anchor and %% @goto that apply to nothing', () => {
+    const src = ['sequenceDiagram', '%% @goto Ⓐ', 'A->>B: 一', '%% @anchor Ⓑ', 'rect rgb(0, 0, 0)', 'end', '%% @goto Ⓒ', 'alt x', 'end', '%% @anchor Ⓓ'].join('\n');
+    expect(parseSequence(src, 0).strayDirectives).toEqual([
+      { line: 1, directive: 'goto' },
+      { line: 3, directive: 'anchor' },
+      { line: 6, directive: 'goto' },
+      { line: 9, directive: 'anchor' },
+    ]);
+  });
+
+  it('counts the sections with the same condition before a labeled one', () => {
+    const src = ['sequenceDiagram', 'alt エラー', 'end', 'alt 正常', '%% @anchor X', 'else エラー', 'end'].join('\n');
+    expect(parseSequence(src, 0).anchors).toEqual([{ name: 'X', line: 5, markerLine: 4, title: 'エラー', occurrence: 1, firstMessage: 0, endMessage: 0 }]);
+  });
+
+  it('takes %% @anchor only on a section with a condition, which mermaid draws', () => {
+    const parsed = parseSequence(['sequenceDiagram', 'alt x', '%% @anchor Ⓐ', 'else', 'end'].join('\n'), 0);
+    expect(parsed.anchors).toEqual([]);
+    expect(parsed.strayDirectives).toEqual([{ line: 2, directive: 'anchor' }]);
+  });
+
+  it('makes a note with only a label jump with %% @goto', () => {
+    const parsed = parseSequence(['sequenceDiagram', 'Note over A: Ⓑ', '%% @goto Ⓑ', 'Note over A: Ⓒ'].join('\n'), 0);
+    expect(parsed.notes[1]).toEqual({ index: 1, line: 3, text: 'Ⓒ', goto: 'Ⓑ', gotoLine: 2 });
+    expect(parsed.anchors.map((a) => a.name)).toEqual(['Ⓑ']);
+  });
+
+  it('does not count notes as messages nor give them @ref', () => {
+    const src = ['sequenceDiagram', '%% @ref 見出し', 'Note over A: Ⓐ', 'A->>B: 一'].join('\n');
+    const parsed = parseSequence(src, 0);
+    expect(parsed.messages).toEqual([{ index: 0, line: 3, text: '一', ref: '見出し', refLine: 1 }]);
   });
 });

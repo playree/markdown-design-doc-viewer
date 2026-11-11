@@ -247,5 +247,14 @@
   "Install the Agent Skill for writing design docs with AI": "AI で設計書を書くための Agent Skill をインストール",
   "Choose where to install it (it is copied into a folder named {0} there)": "インストール先を選んでください（その中の {0} フォルダにコピーします）",
   "Install Here": "ここにインストール",
-  "Choose the skills folder to install the Agent Skill in": "Agent Skill をインストールするスキルのフォルダを選択"
+  "Choose the skills folder to install the Agent Skill in": "Agent Skill をインストールするスキルのフォルダを選択",
+  "@anchor and @goto are ignored because the sequence diagram has no \"%% @link-headings\" marker.": "シーケンス図に \"%% @link-headings\" がないため、@anchor と @goto は無視されます。",
+  "@anchor is ignored because the next line is not a note or a section of a block with a condition (alt, else, …).": "次の行がノートまたは条件のあるブロックの分岐（alt・else など）ではないため、@anchor は無視されます。",
+  "@goto is ignored because the next line is not a note.": "次の行がノートではないため、@goto は無視されます。",
+  "Label \"{0}\" is already defined in the sequence diagram.": "ラベル「{0}」はシーケンス図ですでに定義されています。",
+  "@goto target label \"{0}\" was not found in the sequence diagram.": "@goto で指定したラベル「{0}」がシーケンス図に見つかりません。",
+  "Make the next note (or section of a block) a label that notes can jump to.": "直後のノート（またはブロックの分岐）を、ノートから移動できるラベルにします。",
+  "Make the next note jump to a label.": "直後のノートを、ラベルへ移動するノートにします。",
+  "Go to {0}": "{0} へ移動",
+  "Back to the note you jumped from": "移動元のノートに戻る"
 }

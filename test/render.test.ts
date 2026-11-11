@@ -426,3 +426,75 @@ describe('renderDocument', () => {
     expect(html).toContain('title="[No arrow in the sequence diagram is linked to this heading.|]" data-seqnotes-mark="[no arrow|]"');
   });
 });
+
+describe('note jumps', () => {
+  const JUMPS = doc(
+    '```mermaid',
+    '%% @link-headings',
+    'sequenceDiagram',
+    'C->>S: 要求',
+    'Note over S: 503 → Ⓒ エラー応答',
+    'alt 正常',
+    '  Note over S: Ⓑ',
+    '  S->>S: 正常応答作成',
+    'else Ⓒ エラー',
+    '  S->>S: 未定義の処理',
+    '  S->>S: エラー応答作成',
+    'end',
+    '```',
+    '## 要求',
+    '## 正常応答作成',
+    '## エラー応答作成',
+  );
+
+  it('gives the labels the step of the first linked arrow of their sections', () => {
+    const { diagrams, warnings } = linkDiagrams(md.parse(JUMPS, {}));
+    expect(warnings).toEqual([]);
+    const [d] = diagrams;
+    expect(d.anchors?.map((a) => [a.name, a.firstTarget])).toEqual([
+      ['Ⓑ', hid('正常応答作成')],
+      ['Ⓒ', hid('エラー応答作成')],
+    ]);
+    expect(d.notes?.map((n) => n.goto ?? n.anchor)).toEqual(['Ⓒ', 'Ⓑ']);
+  });
+
+  it('puts the notes and labels into the data of the diagram', () => {
+    const html = renderDocument(md, JUMPS);
+    expect(html).toContain('&quot;notes&quot;:[{&quot;index&quot;:0,&quot;line&quot;:4,&quot;text&quot;:&quot;503 → Ⓒ エラー応答&quot;,&quot;goto&quot;:&quot;Ⓒ&quot;}');
+    expect(html).toContain('{&quot;name&quot;:&quot;Ⓒ&quot;,&quot;title&quot;:&quot;Ⓒ エラー&quot;,&quot;occurrence&quot;:0,&quot;firstTarget&quot;:&quot;sn-エラー応答作成&quot;}');
+    expect(html).toContain('&quot;jumpTitles&quot;:{&quot;goto&quot;:&quot;Go to {0}&quot;');
+    // Without a note that labels or jumps, nothing is added.
+    expect(renderDocument(md, doc('```mermaid', '%% @link-headings', 'sequenceDiagram', 'Note over A: メモ', 'A->>B: 一', '```', '## 一'))).not.toContain('notes&quot;');
+  });
+
+  it('warns about labels defined twice, unknown @goto labels and stray directives', () => {
+    const src = doc(
+      '```mermaid',
+      '%% @link-headings',
+      'sequenceDiagram',
+      'Note over A: Ⓐ',
+      'Note over A: Ⓐ',
+      '%% @goto Ⓩ',
+      'Note over A: 未定義へ',
+      '%% @anchor X',
+      'A->>B: 一',
+      '```',
+      '## 一',
+    );
+    const { diagrams, warnings } = linkDiagrams(md.parse(src, {}));
+    expect(warnings.map((w) => [w.line, w.message])).toEqual([
+      [4, 'Label "Ⓐ" is already defined in the sequence diagram.'],
+      [5, '@goto target label "Ⓩ" was not found in the sequence diagram.'],
+      [7, '@anchor is ignored because the next line is not a note or a section of a block with a condition (alt, else, …).'],
+    ]);
+    expect(diagrams[0].anchors?.map((a) => a.name)).toEqual(['Ⓐ']);
+    expect(diagrams[0].notes?.map((n) => [n.anchor, n.goto])).toEqual([['Ⓐ', undefined], [undefined, undefined], [undefined, undefined]]);
+  });
+
+  it('ignores the notes of a diagram without the marker, warning about its directives', () => {
+    const src = doc('```mermaid', 'sequenceDiagram', '%% @anchor X', 'Note over A: x', 'Note over A: Ⓐ', 'Note over A: → Ⓐ', '```');
+    const { diagrams, warnings } = linkDiagrams(md.parse(src, {}));
+    expect(warnings.map((w) => [w.line, w.message])).toEqual([[2, '@anchor and @goto are ignored because the sequence diagram has no "%% @link-headings" marker.']]);
+    expect(diagrams[0].notes).toBeUndefined();
+  });
+});

@@ -1,18 +1,19 @@
 import * as vscode from 'vscode';
-import { linkableDiagramAt, quickFixesByLine, refCandidates, type TextEdit } from '../authoring/authoring';
+import { gotoCandidates, linkableDiagramAt, quickFixesByLine, refCandidates, type TextEdit } from '../authoring/authoring';
 import { DIAGNOSTIC_SOURCE } from './diagnostics';
-import { diagramWording } from '../diagrams/diagramWording';
+import { diagramWording, noteJumpWording } from '../diagrams/diagramWording';
 import { createMarkdown } from '../markdown/render';
 
 const SELECTOR: vscode.DocumentSelector = { language: 'markdown' };
 
 const REF_PREFIX_RE = /^\s*%%\s*@ref\s+/;
+const GOTO_PREFIX_RE = /^\s*%%\s*@goto\s+/;
 const DIRECTIVE_PREFIX_RE = /^\s*%%\s*(@[\w-]*)$/;
 
 const toRange = (edit: TextEdit): vscode.Range => new vscode.Range(edit.start.line, edit.start.character, edit.end.line, edit.end.character);
 
 /**
- * Editor support for writing the links: completion of the `%% @ref` headings and the directives,
+ * Editor support for writing the links: completion of the `%% @ref` headings, the `%% @goto` labels and the directives,
  * and quick fixes for the problems reported by the diagnostics.
  */
 export function registerAuthoringProviders(): vscode.Disposable {
@@ -38,6 +39,18 @@ export function registerAuthoringProviders(): vscode.Disposable {
         });
       }
 
+      const goto = GOTO_PREFIX_RE.exec(before);
+      if (goto) {
+        // The label replaces the rest of the line.
+        const range = new vscode.Range(position.line, goto[0].length, position.line, line.length);
+        return gotoCandidates(md, document.getText(), position.line)?.map((name, i) => {
+          const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Reference);
+          item.range = range;
+          item.sortText = String(i).padStart(4, '0');
+          return item;
+        });
+      }
+
       const directive = DIRECTIVE_PREFIX_RE.exec(before);
       const kind = directive && linkableDiagramAt(md, document.getText(), position.line);
       if (directive && kind) {
@@ -53,7 +66,12 @@ export function registerAuthoringProviders(): vscode.Disposable {
           return it;
         };
         const wording = diagramWording(kind, vscode.l10n.t);
-        return [item('@link-headings', '@link-headings', wording.markerDoc, false), item('@ref', '@ref ', wording.refDoc, true)];
+        const items = [item('@link-headings', '@link-headings', wording.markerDoc, false), item('@ref', '@ref ', wording.refDoc, true)];
+        if (kind === 'sequence') {
+          const notes = noteJumpWording(vscode.l10n.t);
+          items.push(item('@anchor', '@anchor ', notes.anchorDoc, false), item('@goto', '@goto ', notes.gotoDoc, true));
+        }
+        return items;
       }
       return undefined;
     },

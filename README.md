@@ -18,6 +18,7 @@ Each arrow (or flowchart node) in the diagram is linked to a heading in the desc
 
 - **Side-by-side layout** — when the preview is wide enough, the diagram stays on the left (sticky) while the descriptions scroll on the right, with a line between linked steps. On narrow panes it falls back to the normal vertical layout.
 - **Arrow / node ⇔ heading links** — hover or click an arrow (or a flowchart node, an ER diagram entity, a state or a part of a wireframe) to highlight its description, or click a heading to find it in the diagram.
+- **Notes that jump** — in a sequence diagram, a note like "503 → Ⓒ" that points to a branch labeled Ⓒ is shown like a link: hover it to highlight the branch, click it to scroll there (and to its step), and go back with the button next to the label (see [Notes that jump to a branch](#notes-that-jump-to-a-branch)).
 - **Editor sync** — the preview follows the editor's scroll position and cursor (an arrow or node is highlighted when the cursor is on its line). Double-click in the preview to jump to the source line.
 - **Plain Markdown** — the link syntax is made of mermaid comments and HTML comments, so the same file still renders correctly on GitHub and in the built-in Markdown preview.
 - **Design document friendly** — YAML front matter is shown as a table of the document's metadata (title, version, status...), or as a header with `type: design_doc` (see below), code blocks are syntax highlighted, and GitHub alerts (`> [!NOTE]`), task lists (`- [ ]`) and footnotes (`[^1]`, whose note pops up when hovering the reference) are rendered.
@@ -109,6 +110,38 @@ Rules:
 - Warnings, marks and tooltips are shown in English or Japanese, following the VS Code display language.
 
 ![The arrow "Refund ID" without a heading is faded, and the heading "Restock items" without an arrow gets a "no arrow" mark](images/screenshot-link-checks.png)
+
+### Notes that jump to a branch
+
+In a sequence diagram with `%% @link-headings`, a note can point to another place of the diagram, such as the branch of an `alt` block where the processing continues. Label the place with a circled letter, and write the letter in the note:
+
+````markdown
+```mermaid
+%% @link-headings
+sequenceDiagram
+    S->>S: Check request
+    Note over S: HNY90000 → 503 → Ⓒ Error response
+    alt OK
+        Note over S: Ⓑ
+        S-->>C: 200 OK
+    else Ⓒ Error
+        S-->>C: 503 Service Unavailable
+    end
+```
+````
+
+| Syntax | Meaning |
+|---|---|
+| A note with only a circled letter (`Note over S: Ⓑ`) | Labels the place of the note, from it to the end of its branch. It is shown as a small badge. |
+| A circled letter at the start of the condition of a branch (`else Ⓒ Error`) | Labels the whole branch. Works for the branches of `alt` / `else`, `opt`, `loop`, `par` / `and`, `critical` / `option` and `break`. |
+| A note with a label of the diagram in its text (`… → Ⓒ Error response`) | Jumps to the label (the first one when it has several). It is shown like a link. |
+| `%% @anchor <label>` | Makes the **next** note or branch a label, with any name (not only a circled letter). |
+| `%% @goto <label>` | Makes the **next** note jump to `<label>`, whatever its text. |
+
+- The circled letters `Ⓐ`–`Ⓩ` and `ⓐ`–`ⓩ` work without the directives. A circled letter that no label of the diagram has is plain text.
+- Hover a note that jumps to highlight its label and branch. Click it to scroll the diagram to the label and flash the branch; the step of the first linked arrow of the branch is highlighted (and, side by side, shown in the description column). The **↩** button next to the label goes back to the note. Clicking a label goes to the notes that jump to it, one after another. Esc removes the button.
+- A label defined twice, an `@goto` to a label the diagram does not have, and an `@anchor` / `@goto` not followed by a note (or a branch, for `@anchor`) are reported as warnings. In the editor, `@anchor` and `@goto` are completed after `%% @`, and the labels of the diagram after `%% @goto `.
+- Notes are not linked to headings and do not change the numbers of `autonumber`. The jumps work in exported HTML too.
 
 ### Flowcharts
 

@@ -752,6 +752,76 @@ html:has(> body[data-seqnotes-theme="dark"]:is(.vscode-light, .vscode-high-contr
 }
 
 /*
+ * Notes of sequence diagrams that label a place (webview/noteJumps.ts): a badge, or the condition of a block section in
+ * bold; and the notes that jump to a label, like links. mermaid's own styles use ids, hence !important.
+ */
+.seqnotes-note.seqnotes-anchor > rect {
+  fill: var(--seqnotes-accent) !important;
+  stroke: var(--seqnotes-accent) !important;
+}
+.seqnotes-note.seqnotes-anchor :is(text, tspan) {
+  fill: var(--vscode-editor-background, #fff) !important;
+  font-weight: bold;
+}
+text.seqnotes-anchor, text.seqnotes-anchor tspan {
+  fill: var(--seqnotes-accent) !important;
+  font-weight: bold;
+}
+.seqnotes-anchor, .seqnotes-goto { cursor: pointer; }
+.seqnotes-goto > rect {
+  stroke: var(--seqnotes-accent) !important;
+  stroke-dasharray: 5 3;
+}
+.seqnotes-goto :is(text, tspan) { text-decoration: underline dotted; }
+.seqnotes-goto.seqnotes-jump-hover > rect,
+.seqnotes-note.seqnotes-anchor.seqnotes-jump-hover > rect { stroke-width: 3px !important; }
+.seqnotes-goto.seqnotes-jump-hover :is(text, tspan) { fill: var(--seqnotes-accent) !important; }
+text.seqnotes-anchor.seqnotes-jump-hover { text-decoration: underline; }
+
+/* The section of a label: tinted while a note that jumps to it is hovered, and flashed when jumped to. */
+.seqnotes-branch {
+  fill: var(--seqnotes-accent);
+  fill-opacity: 0;
+  pointer-events: none;
+  transition: fill-opacity 0.15s;
+}
+.seqnotes-branch.seqnotes-jump-hover { fill-opacity: 0.08; }
+.seqnotes-branch.seqnotes-flash { animation: seqnotes-branch-flash 1.2s ease-out; }
+@keyframes seqnotes-branch-flash {
+  0%, 30% { fill-opacity: 0.25; }
+  100% { fill-opacity: 0; }
+}
+g.seqnotes-flash > rect { animation: seqnotes-note-flash 1.2s ease-out; }
+@keyframes seqnotes-note-flash {
+  0%, 30% { stroke: var(--seqnotes-accent); stroke-width: 6px; }
+}
+text.seqnotes-flash { animation: seqnotes-text-flash 1.2s ease-out; }
+@keyframes seqnotes-text-flash {
+  0%, 30% { opacity: 0.3; }
+}
+
+/* The button next to a label jumped to, which goes back to the note jumped from. */
+.seqnotes-jump-back {
+  position: absolute;
+  z-index: 1;
+  transform: translateY(-50%);
+  max-width: 60%;
+  overflow: hidden;
+  padding: 1px 8px;
+  border: 1px solid var(--seqnotes-accent);
+  border-radius: 10px;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background, #fff));
+  color: var(--seqnotes-accent);
+  font: 12px/1.6 var(--vscode-font-family, sans-serif);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+.seqnotes-jump-back:hover { background: var(--seqnotes-accent); color: var(--vscode-editor-background, #fff); }
+.seqnotes-jump-back:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
+
+/*
  * Nodes (of flowcharts, ER diagrams and state diagrams): the outline of the shape, not what is inside the label,
  * and of an ER entity its name, not the rows of its attributes. mermaid's own styles use ids, hence !important.
  */

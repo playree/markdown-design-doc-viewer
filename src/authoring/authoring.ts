@@ -71,6 +71,16 @@ export function refCandidates(md: MarkdownIt, source: string, line: number): Ref
 }
 
 /**
+ * The labels a `%% @goto` on `line` can jump to: those of the sequence diagram (with a `%% @link-headings` marker)
+ * containing the line, in source order. Undefined when the line is not in such a diagram.
+ */
+export function gotoCandidates(md: MarkdownIt, source: string, line: number): string[] | undefined {
+  const lines = source.split(/\r?\n/);
+  const tokens = md.parse(source, {});
+  return mermaidDiagrams(tokens).find((d) => d.kind === 'sequence' && d.anchors && inFence(lines, tokens[d.fenceIndex].map, line))?.anchors?.map((a) => a.name);
+}
+
+/**
  * The mermaid diagrams of a document (`linkDiagrams`), whose `%% @ref`s are written in it. Those of the wireframes are in
  * their files.
  */

@@ -1,10 +1,10 @@
 import type { Token } from 'markdown-it';
 import { formatMessage, type Translate } from '../shared/l10n';
 import type { ParsedNodeDiagram } from '../diagrams/diagramNodes';
-import { diagramWording, type DiagramKind, type LinkWording, type MermaidKind } from '../diagrams/diagramWording';
+import { diagramWording, noteJumpWording, type DiagramKind, type LinkWording, type MermaidKind } from '../diagrams/diagramWording';
 import { isErDiagram, parseErDiagram } from '../diagrams/erDiagram';
 import { isFlowchart, parseFlowchart } from '../diagrams/flowchart';
-import { isSequenceDiagram, normalizeLabel, parseSequence, stripStepNumber, type SequenceMessage, type StepNumber } from '../diagrams/sequence';
+import { isSequenceDiagram, normalizeLabel, parseSequence, stripStepNumber, type ParsedSequence, type SequenceAnchor, type SequenceMessage, type SequenceNote, type StepNumber } from '../diagrams/sequence';
 import { isStateDiagram, parseStateDiagram } from '../diagrams/stateDiagram';
 import { itemRows } from './tables';
 import { partNumber, sourcePath, wireframeOf, wireframeWarnings } from './wireframe';
@@ -53,6 +53,12 @@ export interface OverviewHeading {
   refTarget: boolean;
 }
 
+/** A label of a place of a sequence diagram, which notes jump to. */
+export interface LinkedAnchor extends SequenceAnchor {
+  /** The `target` of the first linked message from the label to the end of its section. */
+  firstTarget?: string;
+}
+
 /** A row of an item table (`item=` in its options) in the overview range of a wireframe. */
 export interface ItemRow {
   /** Token index of the `tr_open`. */
@@ -93,6 +99,10 @@ export interface DiagramInfo {
   stacked: boolean;
   /** The rows of the item tables of the overview range (wireframes only). */
   rows: ItemRow[];
+  /** The notes of a sequence diagram with a `%% @link-headings` marker, with the labels they define and jump to. */
+  notes?: SequenceNote[];
+  /** The labels of the notes (and block sections) of a sequence diagram with a `%% @link-headings` marker; one per name. */
+  anchors?: LinkedAnchor[];
 }
 
 export interface LinkWarning {
@@ -168,9 +178,14 @@ function mermaidDiagram(token: Token, index: number, kind: MermaidKind, id: numb
   const firstLine = (token.map?.[0] ?? 0) + 1;
   const wording = diagramWording(kind, translate);
   const nodes = NODE_DIAGRAMS.find((d) => d.kind === kind)?.parse(token.content, firstLine);
-  const { messages, markerLine, legacyMarkerLine }: { messages: LinkedMessage[]; markerLine?: number; legacyMarkerLine?: number } = nodes
-    ? { messages: nodes.nodes, markerLine: nodes.markerLine, legacyMarkerLine: nodes.legacyMarkerLine }
-    : parseSequence(token.content, firstLine);
+  let sequence: ParsedSequence | undefined;
+  let parsed: { messages: LinkedMessage[]; markerLine?: number; legacyMarkerLine?: number };
+  if (nodes) {
+    parsed = { messages: nodes.nodes, markerLine: nodes.markerLine, legacyMarkerLine: nodes.legacyMarkerLine };
+  } else {
+    parsed = sequence = parseSequence(token.content, firstLine);
+  }
+  const { messages, markerLine, legacyMarkerLine } = parsed;
   if (legacyMarkerLine !== undefined) {
     warnings.push({ line: legacyMarkerLine, message: translate('"%% @seq-notes" is no longer supported. Write "%% @link-headings" instead.') });
   }
@@ -183,7 +198,55 @@ function mermaidDiagram(token: Token, index: number, kind: MermaidKind, id: numb
   }
   const paired = markerLine !== undefined && token.level === 0;
   const stacked = nodes?.horizontal ?? false;
-  return { id, kind, fenceIndex: index, rangeEnd: index + 1, messages, unlinkedHeadings: [], headings: [], paired, stacked, rows: [] };
+  const diagram: DiagramInfo = { id, kind, fenceIndex: index, rangeEnd: index + 1, messages, unlinkedHeadings: [], headings: [], paired, stacked, rows: [] };
+  if (sequence) {
+    Object.assign(diagram, noteJumps(sequence, markerLine !== undefined, translate, warnings));
+  }
+  return diagram;
+}
+
+/**
+ * The notes and labels of a sequence diagram for jumping between them, with the problems of their directives. Only with
+ * the `%% @link-headings` marker, like `%% @ref`.
+ */
+function noteJumps(
+  sequence: ParsedSequence,
+  marked: boolean,
+  translate: Translate,
+  warnings: LinkWarning[],
+): Pick<DiagramInfo, 'notes' | 'anchors'> {
+  const wording = noteJumpWording(translate);
+  const { notes, anchors, strayDirectives } = sequence;
+  if (!marked) {
+    const lines = [...anchors.map((a) => a.markerLine), ...notes.map((n) => n.gotoLine), ...strayDirectives.map((d) => d.line)];
+    for (const line of lines.filter((l) => l !== undefined).sort((a, b) => a - b)) {
+      warnings.push({ line, message: wording.withoutMarker });
+    }
+    return {};
+  }
+  for (const stray of strayDirectives) {
+    warnings.push({ line: stray.line, message: stray.directive === 'anchor' ? wording.strayAnchor : wording.strayGoto });
+  }
+  const byName = new Map<string, LinkedAnchor>();
+  for (const anchor of anchors) {
+    if (byName.has(anchor.name)) {
+      warnings.push({ line: anchor.markerLine ?? anchor.line, message: wording.duplicateAnchor(anchor.name) });
+      // Only the first one is a label: the note of another one is shown as it is.
+      const note = anchor.note === undefined ? undefined : notes[anchor.note];
+      if (note) {
+        delete note.anchor;
+      }
+    } else {
+      byName.set(anchor.name, { ...anchor });
+    }
+  }
+  for (const note of notes) {
+    if (note.goto !== undefined && !byName.has(note.goto)) {
+      warnings.push({ line: note.gotoLine ?? note.line, message: wording.gotoNotFound(note.goto) });
+      delete note.goto;
+    }
+  }
+  return { notes, anchors: [...byName.values()] };
 }
 
 /**
@@ -313,6 +376,10 @@ export function linkDiagrams(tokens: Token[], translate: Translate = formatMessa
           warnings.push({ line: message.refLine ?? message.line, message: wording.refNotFound(message.ref) });
         }
       }
+    }
+
+    for (const anchor of diagram.anchors ?? []) {
+      anchor.firstTarget = diagram.messages.slice(anchor.firstMessage, anchor.endMessage).find((m) => m.target)?.target;
     }
 
     const targets = new Set(diagram.messages.map((m) => m.target).filter((t) => t !== undefined));
