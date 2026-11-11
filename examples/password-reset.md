@@ -37,9 +37,16 @@ sequenceDiagram
 
     User->>FE: Open link and enter new password
     FE->>API: POST /password-reset/confirm
-    API->>DB: Update password
-    API-->>FE: 204 No Content
-    FE-->>User: Show completion message
+    alt Token valid
+        API->>DB: Update password
+        Note over API,DB: Token used by another request → Ⓑ
+        API-->>FE: 204 No Content
+        FE-->>User: Show completion message
+    else Token expired or already used
+        Note over API: Ⓑ
+        API-->>FE: 410 Gone
+        FE-->>User: Show expired message
+    end
 ```
 
 ## Overview
@@ -195,6 +202,14 @@ Shows "Your password has been reset." and a button to the login page. The user i
 
 > [!CAUTION]
 > Never log the token or the new password, not even at debug level.
+
+### 410 Gone
+
+Returned when the token is expired or already used, also when another request used it a moment earlier (see [Update password](#update-password)).
+
+### Show expired message
+
+Shows "This link has expired." and a link to request a new one.
 
 <!-- link-headings:end -->
 

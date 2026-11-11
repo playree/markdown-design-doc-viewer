@@ -2,6 +2,10 @@
 
 The desktop app has its own version, apart from the extension and the command line (their changes are in [CHANGELOG.md](../CHANGELOG.md)). Its installers are attached to the [releases of the desktop app](https://github.com/playree/markdown-design-doc-viewer/releases?q=desktop&expanded=true) (tagged `desktop-vX.Y.Z`).
 
+## Unreleased
+
+- Sequence diagrams marked with `%% @link-headings`: a note that only has a circled letter (`Note over S: Ⓑ`), or a branch whose condition starts with one (`else Ⓒ Error`), labels that place, and a note with the letter in its text (`HNY90000 → 503 → Ⓒ Error response`) jumps to it. The label note is shown as a small badge and the jumping note like a link: hovering it highlights the branch, and clicking it scrolls the diagram there, flashes the branch and highlights the step of its first linked arrow, with a button next to the label to go back. `%% @anchor <label>` and `%% @goto <label>` name labels and jumps with any text. Labels defined twice and `@goto` to unknown labels are reported as warnings. See [Notes that jump to a branch](../README.md#notes-that-jump-to-a-branch).
+
 ## 0.3.1
 
 - ER diagrams (`erDiagram`) and state diagrams (`stateDiagram` / `stateDiagram-v2`) marked with `%% @link-headings` are linked to the headings after them like flowcharts: each entity (by its alias, or its name) and each state (by its description, or its id; composite states included) is linked to the heading with the same text, or to the one of a `%% @ref` above the line defining it, for example to put the definition of each table or the description of each state beside the diagram. Hovering and clicking highlight and scroll both ways, entities and states without a heading are faded, headings without one get a "no entity" / "no state" mark. With `direction LR` / `RL`, the headings are shown below the diagram. See [examples/er-diagram.md](../examples/er-diagram.md) and [examples/state-diagram.md](../examples/state-diagram.md).

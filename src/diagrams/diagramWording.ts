@@ -132,3 +132,31 @@ export function rowWording(t: Translate): { title: string; mark: string; unlinke
     unlinked: (item) => t('No part of the wireframe has the number {0} of this row.', item),
   };
 }
+
+/** The texts about the notes of a sequence diagram that label places of it and jump to them (`%% @anchor`, `%% @goto`). */
+export function noteJumpWording(t: Translate): {
+  withoutMarker: string;
+  strayAnchor: string;
+  strayGoto: string;
+  gotoOnLabel: string;
+  duplicateAnchor: (name: string) => string;
+  gotoNotFound: (name: string) => string;
+  anchorDoc: string;
+  gotoDoc: string;
+  gotoTitle: string;
+  backTitle: string;
+} {
+  return {
+    withoutMarker: t('@anchor and @goto are ignored because the sequence diagram has no "%% @link-headings" marker.'),
+    strayAnchor: t('@anchor is ignored because the next line is not a note or a section of a block with a condition (alt, else, …).'),
+    strayGoto: t('@goto is ignored because the next line is not a note.'),
+    gotoOnLabel: t('@goto is ignored because @anchor makes the note a label. A note is a label or a jump, not both.'),
+    duplicateAnchor: (name) => t('Label "{0}" is already defined in the sequence diagram.', name),
+    gotoNotFound: (name) => t('@goto target label "{0}" was not found in the sequence diagram.', name),
+    anchorDoc: t('Make the next note (or section of a block) a label that notes can jump to.'),
+    gotoDoc: t('Make the next note jump to a label.'),
+    // `{0}` is filled in by the webview.
+    gotoTitle: t('Go to {0}'),
+    backTitle: t('Back to the note you jumped from'),
+  };
+}

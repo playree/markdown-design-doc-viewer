@@ -77,6 +77,7 @@ The token's claims. It expires after 1 hour[^expiry].
 - Keep each arrow label (the text after `:`) short and unique within the diagram. It becomes the step heading.
 - To number the steps, use `autonumber`. The preview then shows the arrow's number next to its heading (unless `mdDesignDoc.headingNumbers` is off), so do not write the numbers in the headings.
 - Other mermaid diagrams (class diagrams, Gantt charts, diagrams without `%% @link-headings`…) are rendered normally. Do not put `%% @ref` in them.
+- When a step continues in another place of the diagram (for example an error found early that is answered in the error branch of an `alt` block), label that place with a circled letter and point to it from a note: `Note over S: Ⓒ` as the first line of the branch (or the letter at the start of its condition, `else Ⓒ Error`), and `Note over S: HNY90000 → 503 → Ⓒ Error response` where the processing leaves. Use `Ⓐ`–`Ⓩ`, each once per diagram. For a label that is not a circled letter, write `%% @anchor <label>` on the line before the note or the branch (which needs a condition: not a bare `else`), and `%% @goto <label>` on the line before the note that jumps. Notes are not steps: do not write headings for them.
 
 ## Flowchart
 
@@ -182,4 +183,4 @@ For tables of the items of a message, a file or a screen (item name, physical na
 
 ## Check
 
-When the file is open in VS Code, the extension reports link problems as diagnostics with the source `Markdown Design Doc`: arrows (nodes) without a heading, step headings without an arrow (node), `@ref` targets that do not exist, `%% @link-headings` markers that have no effect, table options that cannot be applied, and the parts of a wireframe without a row or heading (and rows and headings without a part). After writing or editing the document, read the diagnostics of the file and fix the document until none of them remain.
+When the file is open in VS Code, the extension reports link problems as diagnostics with the source `Markdown Design Doc`: arrows (nodes) without a heading, step headings without an arrow (node), `@ref` targets that do not exist, labels of notes defined twice or not found by `@goto`, `%% @link-headings` markers that have no effect, table options that cannot be applied, and the parts of a wireframe without a row or heading (and rows and headings without a part). After writing or editing the document, read the diagnostics of the file and fix the document until none of them remain.

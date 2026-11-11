@@ -6,6 +6,7 @@ import { setupDiffBar } from './diffBar';
 import { setupFootnotePopup } from './footnotePopup';
 import { setUpIndexList } from './indexList';
 import { activeFor, endsDrag, revealCounterpart, scrollToFragment, showActive, trackPresses, type Active } from './linking';
+import { setupNoteJumps } from './noteJumps';
 import { setupTableTree } from './tableTree';
 import { setupToc } from './toc';
 import { windowScrollHost } from './viewerContext';
@@ -97,9 +98,21 @@ root.addEventListener('click', (e) => {
   }
 });
 
+const noteJumps = setupNoteJumps(root, {
+  scroll,
+  pin(active, reveal) {
+    pinned = { pair: active.pair, target: active.target };
+    showActive(root, pinned);
+    if (reveal) {
+      revealCounterpart(active, scroll);
+    }
+  },
+});
+
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     pinned = undefined;
     showActive(root, undefined);
+    noteJumps.clear();
   }
 });

@@ -142,6 +142,66 @@ export async function confirmOrder(tx: Tx, order: NewOrder, auth: Authorization)
 
 <!-- link-headings:end -->
 
+## 注文キャンセル
+
+```mermaid
+%% @link-headings
+sequenceDiagram
+    autonumber
+    actor Customer as 顧客
+    participant Web as Web アプリ
+    participant API as 注文 API
+    participant Pay as 決済ゲートウェイ
+
+    Customer->>Web: キャンセルを依頼
+    Web->>API: POST /orders/{id}/cancel
+    alt 未出荷
+        API->>Pay: オーソリを取消
+        Note over API,Pay: 売上確定済み → Ⓑ
+        API->>API: 注文をキャンセル済みで保存
+        API-->>Web: 200 OK
+    else 出荷済み
+        Note over API: Ⓑ
+        API->>API: 返品を受付
+        API-->>Web: 202 Accepted
+        Web-->>Customer: 返品の案内を表示
+    end
+```
+
+### キャンセルを依頼
+
+顧客が注文詳細画面で「注文をキャンセル」を押す。
+
+### POST /orders/{id}/cancel
+
+顧客本人の注文だけを受け付ける。
+
+### オーソリを取消
+
+オーソリした金額を解放する。売上がすでに確定していれば、返品として扱う（Ⓑ）。
+
+### 注文をキャンセル済みで保存
+
+ステータスを `cancelled` にし、在庫の引き当てを解放する。
+
+### 200 OK
+
+新しいステータスの注文を返す。
+
+### 返品を受付
+
+返品の受付を作る。商品が戻った時点で返金する。
+
+### 202 Accepted
+
+返品の受付の ID を返す。
+
+### 返品の案内を表示
+
+商品の送り方を表示する。
+
+<!-- link-headings:end -->
+
 ## 決済リトライのフロー
 
 ```mermaid

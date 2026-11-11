@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { linkableDiagramAt, quickFixes, quickFixesByLine, refCandidates, type TextEdit } from '../src/authoring/authoring';
+import { gotoCandidates, linkableDiagramAt, quickFixes, quickFixesByLine, refCandidates, type TextEdit } from '../src/authoring/authoring';
 import { collectIssues } from '../src/authoring/issues';
 import { createMarkdown } from '../src/markdown/render';
 
@@ -186,5 +186,13 @@ describe('quickFixes', () => {
     expect(quickFixes(md, base, 3)).toEqual([]);
     expect(quickFixes(md, base, 9)).toEqual([]);
     expect(quickFixes(md, base, 4, (m, ...args) => `${m}|${args.join(',')}`)[0].title).toBe('Link to heading "{0}" with @ref|予備');
+  });
+});
+
+describe('gotoCandidates', () => {
+  it('lists the labels of the sequence diagram with the marker around the line', () => {
+    const src = ['```mermaid', '%% @link-headings', 'sequenceDiagram', 'Note over A: Ⓐ', 'alt Ⓑ x', 'end', '%% @goto ', '```', '```mermaid', 'sequenceDiagram', 'Note over A: Ⓐ', '```'].join('\n');
+    expect(gotoCandidates(md, src, 6)).toEqual(['Ⓐ', 'Ⓑ']);
+    expect(gotoCandidates(md, src, 10)).toBeUndefined();
   });
 });

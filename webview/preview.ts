@@ -11,6 +11,7 @@ import { activeFor, endsDrag, isSideBySide, revealCounterpart, scrollColumnTo, s
 import { foldedRows, isFoldedAway, plainTables, restoreFolded, restorePlain, setupTableTree } from './tableTree';
 import { setupToc } from './toc';
 import type { ViewerContext } from './viewerContext';
+import { annotateNotes, setupNoteJumps } from './noteJumps';
 import { layoutWireframe, layoutWireframes, linkTarget, mountWireframe } from './wireframe';
 
 const CURRENT = 'seqnotes-current';
@@ -198,6 +199,7 @@ export function createPreview(ctx: ViewerContext): Preview {
         if (meta && svgEl) {
           if (meta.kind === 'sequence') {
             annotateMessages(svgEl, meta);
+            annotateNotes(svgEl, meta);
           } else {
             annotateNodes(svgEl, meta);
           }
@@ -560,11 +562,15 @@ export function createPreview(ctx: ViewerContext): Preview {
   );
 
   /** Pins a clicked message or heading and scrolls its counterpart into view. */
-  function activate(active: Active & { kind: 'message' | 'heading' }): void {
+  function activate(active: Active & { kind: 'message' | 'heading' }, reveal = true): void {
     pinned = { pair: active.pair, target: active.target };
     showActive(pinned);
-    revealCounterpart(active, scroll);
+    if (reveal) {
+      revealCounterpart(active, scroll);
+    }
   }
+
+  const noteJumps = setupNoteJumps(root, { scroll, pin: activate, signal });
 
   document.addEventListener(
     'keydown',
@@ -581,6 +587,7 @@ export function createPreview(ctx: ViewerContext): Preview {
       if (e.key === 'Escape' && (el.contains(e.target as Node) || e.target === document.body || e.target === document.documentElement)) {
         pinned = undefined;
         showActive(undefined);
+        noteJumps.clear();
       }
     },
     { signal },
