@@ -548,6 +548,20 @@ html:has(> body[data-seqnotes-theme="dark"]:is(.vscode-light, .vscode-high-contr
 /* ---------------------------------------------------------------- Diagrams */
 
 .seqnotes-mermaid { margin: 1em 0; }
+/*
+ * Where mermaid lays out and measures a diagram while it renders it (renderDiagrams in preview.ts), out of sight:
+ * hidden, not `display: none`, so that it can measure, and as wide as the window like the body it uses by default.
+ */
+.seqnotes-mermaid-scratch {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
 .seqnotes-diagram { position: relative; }
 .seqnotes-diagram svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
 
