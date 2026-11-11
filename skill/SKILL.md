@@ -5,7 +5,7 @@ description: Write, edit, review and export design documents in the Markdown for
 
 # Markdown design documents
 
-Write the document, and reply to the user, in the user's language: a request in Japanese gets a document with Japanese headings, arrow labels and text. Only the syntax stays as written below: the mermaid keywords, `%% @link-headings`, `%% @ref`, `<!-- link-headings:end -->`, `<details>` / `<summary>`, the front matter keys and `type: design_doc`, `<!-- table: level=… merge=… item=… -->` (the column names in it are the headers of the table, in the user's language: `<!-- table: level=階層 merge=項目名,物理名 -->`), and `<!-- wireframe: … -->` with the `data-item` / `data-ref` attributes of a wireframe.
+Write the document, and reply to the user, in the user's language: a request in Japanese gets a document with Japanese headings, arrow labels and text. Only the syntax stays as written below: the mermaid keywords, `%% @link-headings`, `%% @ref`, `%% @anchor` / `%% @goto` (the label after them may be in the user's language) and the circled letters `Ⓐ`–`Ⓩ` of the labels of notes, `<!-- link-headings:end -->`, `<details>` / `<summary>`, the front matter keys and `type: design_doc`, `<!-- table: level=… merge=… item=… -->` (the column names in it are the headers of the table, in the user's language: `<!-- table: level=階層 merge=項目名,物理名 -->`), and `<!-- wireframe: … -->` with the `data-item` / `data-ref` attributes of a wireframe.
 
 <!-- include: docs/ai-authoring-guide.md -->
 
@@ -16,9 +16,10 @@ When the diagnostics of VS Code cannot be read, check the document yourself afte
 - Every arrow (node) of a diagram with `%% @link-headings` has a step heading with the same text after the diagram, or a `%% @ref` on the line just before it that names one of those headings.
 - Every heading at the step level, between the diagram and `<!-- link-headings:end -->`, is linked to an arrow (node).
 - The step headings of a sequence diagram do not start with a number of their own (`### 3. Fetch user`); `autonumber` numbers them.
+- In a sequence diagram, every label of a note (a circled letter alone in a note or at the start of the condition of a branch, or the name of an `%% @anchor`) is used once, and every note that jumps (with a circled letter in its text, or after an `%% @goto`) names a label of the same diagram. An `%% @anchor` is on the line just before a note or a branch with a condition, an `%% @goto` on the line just before a note, and no note has both.
 - Every column named in a `<!-- table: … -->` comment is a header of the table right after it, and the level column has an integer in every row.
 - Every part (`data-item`) of a wireframe with `link-headings` has a row with its number in the `item=` column of an item table, a heading numbered like it, or the heading its `data-ref` names, after the wireframe; and every such row and heading has a part.
-- If the command line can run (see [Export to HTML](#export-to-html)), export the document with `--strict`. It fails on `@ref` targets that do not exist, markers that have no effect and table options that cannot be applied, but it does not report arrows and headings that are only not linked.
+- If the command line can run (see [Export to HTML](#export-to-html)), export the document with `--strict`. It fails on `@ref` targets that do not exist, labels of notes defined twice or not found by a jump, markers that have no effect, table options that cannot be applied and selectors of the parts of a wireframe that match nothing, but it does not report arrows and headings that are only not linked.
 
 ## Export to HTML
 
