@@ -32,8 +32,9 @@ Options:
       --no-toc                 Do not show the table of contents at the right edge of the page.
       --chrome <path>          Chrome or Chromium to render the diagrams with. Default: $CHROME_PATH, a Chromium of
                                the Playwright cache, or the Google Chrome installed on the system.
-      --strict                 Fail when a document has a warning (a broken @ref, a misplaced marker, table
-                               options that cannot be applied, or a selector of a wireframe part that matches nothing).
+      --strict                 Fail when a document has a warning (a broken @ref, a misplaced marker, a note
+                               label defined twice or not found, table options that cannot be applied, or a selector
+                               of a wireframe part that matches nothing).
       --diff-base <rev>        Show the changes of each document since the git revision <rev> (a tag, a commit or a
                                branch), as the preview compares a document with a revision. Requires git.
       --index                  Also write index.html, a list of the exported documents, in --out-dir.
