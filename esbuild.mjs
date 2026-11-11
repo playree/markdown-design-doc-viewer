@@ -7,10 +7,14 @@ const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
 // The desktop app (desktop/, built to desktop/dist/ for Tauri) instead of the extension and the command line.
 const desktop = process.argv.includes('--desktop');
+// The embeddable viewer (embed/, built to embed/dist/ for its npm package) instead of the extension and the command line.
+const embed = process.argv.includes('--embed');
 
-const contexts = await Promise.all(buildOptions({ production, desktop }).map((options) => esbuild.context(options)));
+const contexts = await Promise.all(buildOptions({ production, desktop, embed }).map((options) => esbuild.context(options)));
 
-if (desktop) {
+if (embed) {
+  // Nothing more: scripts/npm-embed-package.mjs makes the package of embed/dist/.
+} else if (desktop) {
   mkdirSync('desktop/dist', { recursive: true });
   copyFileSync('desktop/index.html', 'desktop/dist/index.html');
 } else {

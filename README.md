@@ -323,6 +323,19 @@ It also captures a screen of a running web app as the HTML file of a wireframe (
 
 See [the command line's README](docs/cli.md) for its options and an example of GitHub Actions.
 
+## Embedding in a web app
+
+The viewer also comes as an npm package, [markdown-design-doc-viewer-embed](https://www.npmjs.com/package/markdown-design-doc-viewer-embed), to show design documents in a web app, such as a wiki or a review tool: a React component (`DesignDocViewer`), or a function for any page (`createViewer`), with the same diagrams, links and themes as the preview.
+
+```tsx
+import { DesignDocViewer } from 'markdown-design-doc-viewer-embed/react';
+import 'markdown-design-doc-viewer-embed/viewer.css';
+
+<DesignDocViewer markdown={markdown} baseUrl="https://example.com/docs/" style={{ height: 600 }} />
+```
+
+See [the package's README](docs/embed.md) for its options.
+
 ## Settings
 
 | Setting | Default | Description |

@@ -1,9 +1,9 @@
 name: Release
 
-# GitHub Release（タグ vX.Y.Z）を公開したら、CLI の npm パッケージを公開し、AI 向けの Agent Skill の zip を Release に添付する。
+# GitHub Release（タグ vX.Y.Z）を公開したら、CLI と埋め込みのビューアの npm パッケージを公開し、AI 向けの Agent Skill の zip を Release に添付する。
 # デスクトップアプリは別のバージョン・別の Release（タグ desktop-vX.Y.Z）で出す（desktop-release.yml）。そのタグでは何もしない。
 # npm の Trusted Publishing（OIDC）で公開するので npm のトークンは使わない（provenance も自動で付く）。
-# npmjs.com のパッケージ設定に Trusted Publisher としてこのファイル名（release.yml）を登録してあるので、改名しないこと。
+# npmjs.com の各パッケージの設定に Trusted Publisher としてこのファイル名（release.yml）を登録してあるので、改名しないこと。
 # VS Code Marketplace へは、タグから作った .vsix を Marketplace の管理画面からアップロードして公開する（Trusted Publishing に対応したらここに移す）。
 
 on:
@@ -105,6 +105,95 @@ jobs:
           npm install --no-audit --no-fund "$tarball"
           npx md-design-doc export "$GITHUB_WORKSPACE/examples/login.md" -o out
           test -s out/login.html
+
+      - if: steps.version.outputs.publish == 'true'
+        env:
+          DIST_TAG: ${{ steps.version.outputs.dist-tag }}
+        run: npm publish "$TARBALL" --tag "$DIST_TAG"
+
+  # 埋め込みのビューアの npm パッケージ（markdown-design-doc-viewer-embed）。バージョンは CLI と同じ（package.json の version）。
+  # 検査は npm ジョブと同じ。失敗しても CLI と Agent Skill は出せるよう、ジョブを分ける
+  npm-embed:
+    if: startsWith(github.event.release.tag_name, 'v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Trusted Publishing の OIDC トークン用
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # タグのコミットが main に入っているかを確かめるため
+          fetch-depth: 0
+
+      # このジョブは npm に公開できる OIDC トークン（id-token: write）を持つので、サードパーティのアクションはコミットで固定する
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # リリースのタグが main のコミットで package.json の version と一致し、そのバージョンがまだ npm にないときだけ公開する
+      # （初回は手元から公開してから Release を作るので、そこでは公開を飛ばす）
+      - id: version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          NAME: markdown-design-doc-viewer-embed
+        run: |
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::The release tag $TAG is not on main."
+            exit 1
+          fi
+          version=$(node -p 'require("./package.json").version')
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::The release tag $TAG does not match the version in package.json (v$version)."
+            exit 1
+          fi
+          # 404 だけを「まだない」とみなし、ネットワークなどのエラーでは失敗にする
+          if found=$(npm view "$NAME@$version" version 2>&1); then
+            if [ -n "$found" ]; then
+              echo "::notice::$NAME@$version is already on npm: not published again."
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          elif ! grep -q E404 <<<"$found"; then
+            echo "$found"
+            echo "::error::Could not look up $NAME@$version on npm: $(head -n 1 <<<"$found")"
+            exit 1
+          fi
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+          # プレリリース（0.5.0-rc.1 など）は latest にしない
+          if [[ "$version" == *-* ]]; then
+            echo "dist-tag=next" >> "$GITHUB_OUTPUT"
+          else
+            echo "dist-tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.version.outputs.publish == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - if: steps.version.outputs.publish == 'true'
+        run: pnpm typecheck
+
+      - if: steps.version.outputs.publish == 'true'
+        run: pnpm test
+
+      # .work/npm-embed（ビルドと型、package.json）から tarball を作る。
+      # それを別のフォルダに peer の mermaid・React と一緒にインストールし、Node で import できる（SSR を想定）ことを確かめてから公開する
+      - if: steps.version.outputs.publish == 'true'
+        run: pnpm npm:embed-package
+
+      - if: steps.version.outputs.publish == 'true'
+        run: |
+          tarball="$RUNNER_TEMP/$(npm pack ./.work/npm-embed --pack-destination "$RUNNER_TEMP" | tail -n 1)"
+          echo "TARBALL=$tarball" >> "$GITHUB_ENV"
+          mkdir "$RUNNER_TEMP/smoke-embed"
+          cd "$RUNNER_TEMP/smoke-embed"
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund "$tarball" mermaid@12 react@19 react-dom@19
+          node --input-type=module -e "await import('markdown-design-doc-viewer-embed'); await import('markdown-design-doc-viewer-embed/react')"
+          test -s node_modules/markdown-design-doc-viewer-embed/viewer.css
 
       - if: steps.version.outputs.publish == 'true'
         env:
