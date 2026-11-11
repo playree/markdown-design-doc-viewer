@@ -130,6 +130,8 @@ sequenceDiagram
 ```
 ````
 
+![A note that jumps to Ⓑ is hovered, which highlights the badge Ⓑ and its branch](images/screenshot-note-jumps.png)
+
 | Syntax | Meaning |
 |---|---|
 | A note with only a circled letter (`Note over S: Ⓑ`) | Labels the place of the note, from it to the end of its branch. It is shown as a small badge. |

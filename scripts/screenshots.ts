@@ -76,6 +76,8 @@ interface Names {
   markdown: string;
   tables: string;
   wireframe: string;
+  /** The section of the sequence diagram with a note that jumps to a label. */
+  noteJumps: string;
   /** The steps of the sequence diagram the animation points at: an arrow hovered, an arrow clicked and a heading hovered. */
   demo: { hover: string; click: string; heading: string };
 }
@@ -111,6 +113,7 @@ const LOCALES: Locale[] = [
       markdown: 'Open items',
       tables: 'Request body of POST /orders',
       wireframe: 'Order confirmation screen',
+      noteJumps: 'Order cancellation',
       demo: { hover: 'Place order', click: 'Authorize payment', heading: 'Reserve stock' },
     },
   },
@@ -129,6 +132,7 @@ const LOCALES: Locale[] = [
       markdown: '未決事項',
       tables: 'POST /orders のリクエスト本文',
       wireframe: '注文完了画面',
+      noteJumps: '注文キャンセル',
       demo: { hover: '注文を確定', click: 'オーソリ', heading: '在庫を引き当て' },
     },
   },
@@ -214,6 +218,28 @@ const SCENES: Scene[] = [
         part.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
       }, names.wireframe);
       return sectionClip(page, names.wireframe);
+    },
+  },
+  {
+    // A note that jumps to a label (the badge Ⓑ) hovered: the label and its branch are highlighted.
+    name: 'note-jumps',
+    file: 'images/screenshot-note-jumps',
+    // The diagram has as many rows as the steps, which are short.
+    height: 960,
+    prepare: async (page, names) => {
+      await page.evaluate((title) => {
+        const h2 = [...document.querySelectorAll('h2')].find((h) => h.textContent?.trim() === title);
+        let pair = h2?.nextElementSibling;
+        while (pair && !pair.classList.contains('seqnotes-pair')) {
+          pair = pair.nextElementSibling;
+        }
+        const note = pair?.querySelector('g.seqnotes-goto');
+        if (!note) {
+          throw new Error(`No note that jumps to a label under the h2 "${title}"`);
+        }
+        note.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      }, names.noteJumps);
+      return sectionClip(page, names.noteJumps);
     },
   },
   {

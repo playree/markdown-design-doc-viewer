@@ -142,6 +142,66 @@ Releases the reservation at once, so that other customers can buy the items.
 
 <!-- link-headings:end -->
 
+## Order cancellation
+
+```mermaid
+%% @link-headings
+sequenceDiagram
+    autonumber
+    actor Customer
+    participant Web as Web App
+    participant API as Order API
+    participant Pay as Payment Gateway
+
+    Customer->>Web: Request cancellation
+    Web->>API: POST /orders/{id}/cancel
+    alt Not shipped yet
+        API->>Pay: Void authorization
+        Note over API,Pay: Payment already captured → Ⓑ
+        API->>API: Save order as cancelled
+        API-->>Web: 200 OK
+    else Shipped
+        Note over API: Ⓑ
+        API->>API: Open return request
+        API-->>Web: 202 Accepted
+        Web-->>Customer: Show return instructions
+    end
+```
+
+### Request cancellation
+
+The customer presses "Cancel order" on the order page.
+
+### POST /orders/{id}/cancel
+
+Allowed only for the customer's own orders.
+
+### Void authorization
+
+Releases the authorized amount. If the payment was already captured, the order is returned instead (Ⓑ).
+
+### Save order as cancelled
+
+Sets the status to `cancelled` and releases the reservation.
+
+### 200 OK
+
+Returns the order with its new status.
+
+### Open return request
+
+Creates a return request, refunded when the items come back.
+
+### 202 Accepted
+
+Returns the ID of the return request.
+
+### Show return instructions
+
+Shows how to send the items back.
+
+<!-- link-headings:end -->
+
 ## Payment retry flow
 
 ```mermaid
