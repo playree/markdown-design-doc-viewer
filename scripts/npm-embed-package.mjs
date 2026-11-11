@@ -142,6 +142,15 @@ const manifest = {
 };
 writeFileSync(join(OUT, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
+// The READMEs tell the ranges of the peers (Install): the same as the manifest's, which follow the devDependencies.
+for (const [to, from] of FILES.filter(([to]) => to.startsWith('README'))) {
+  const text = readFileSync(join(OUT, to), 'utf8');
+  const absent = [...new Set(Object.values(manifest.peerDependencies))].filter((range) => !text.includes(`\`${range}\``));
+  if (absent.length > 0) {
+    throw new Error(`${from} does not tell the range ${absent.join(', ')} of the peer dependencies: update its Install section.`);
+  }
+}
+
 // As on a server: without a document (mermaid and React come from the node_modules of the repository).
 for (const module of MODULES) {
   await import(pathToFileURL(join(OUT, module.file)).href);

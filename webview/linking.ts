@@ -17,17 +17,32 @@ const DRAG_THRESHOLD = 4;
 
 /** Where the pointer was pressed last. */
 let pressed: { x: number; y: number } | undefined;
-let tracking = false;
+/** The previews (and exported page) that use `pressed`. */
+let trackers = 0;
+
+const onPointerDown = (e: PointerEvent): void => {
+  pressed = { x: e.clientX, y: e.clientY };
+};
 
 /**
- * Starts recording where the pointer is pressed, for `endsDrag`: once for the page, by the first preview. Not when the
- * module is imported, which may be on a server, without a document (the embedded viewer in an app rendered there).
+ * Starts recording where the pointer is pressed, for `endsDrag`: one listener for the page, added by the first preview.
+ * Not when the module is imported, which may be on a server, without a document (the embedded viewer in an app rendered
+ * there). Returns the function that stops, which removes the listener after the last preview (destroyed).
  */
-export function trackPresses(): void {
-  if (!tracking) {
-    tracking = true;
-    document.addEventListener('pointerdown', (e) => (pressed = { x: e.clientX, y: e.clientY }), true);
+export function trackPresses(): () => void {
+  if (trackers++ === 0) {
+    document.addEventListener('pointerdown', onPointerDown, true);
   }
+  let stopped = false;
+  return () => {
+    if (!stopped) {
+      stopped = true;
+      if (--trackers === 0) {
+        document.removeEventListener('pointerdown', onPointerDown, true);
+        pressed = undefined;
+      }
+    }
+  };
 }
 
 /** true when the click `e` ends a drag, such as a selection of text, which does not pin a step. */

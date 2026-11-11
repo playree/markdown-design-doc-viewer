@@ -15,7 +15,7 @@ The viewer of [Markdown Design Doc Viewer](https://github.com/playree/markdown-d
 npm install markdown-design-doc-viewer-embed mermaid
 ```
 
-[mermaid](https://www.npmjs.com/package/mermaid) 12 is a peer dependency (it draws the diagrams), and so are React and React DOM 19 for the React component. The other libraries it uses (markdown-it, DOMPurify, highlight.js...) are bundled in it.
+[mermaid](https://www.npmjs.com/package/mermaid) (`^12.3.0`) is a peer dependency (it draws the diagrams), and so are React and React DOM (`^19.3.1`) for the React component. The other libraries it uses (markdown-it, DOMPurify, highlight.js...) are bundled in it.
 
 It is made of ES modules for the bundler of your app (Vite, webpack, Next.js, esbuild...).
 

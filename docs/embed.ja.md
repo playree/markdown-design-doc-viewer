@@ -15,7 +15,7 @@
 npm install markdown-design-doc-viewer-embed mermaid
 ```
 
-図を描く [mermaid](https://www.npmjs.com/package/mermaid) 12 は peer dependency です。React の部品を使うときは React と React DOM 19 も要ります。ほかに使うライブラリ（markdown-it、DOMPurify、highlight.js など）は同梱しています。
+図を描く [mermaid](https://www.npmjs.com/package/mermaid)（`^12.3.0`）は peer dependency です。React の部品を使うときは React と React DOM（`^19.3.1`）も要ります。ほかに使うライブラリ（markdown-it、DOMPurify、highlight.js など）は同梱しています。
 
 アプリのバンドラ（Vite、webpack、Next.js、esbuild など）で取り込む ES モジュールです。
 
