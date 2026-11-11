@@ -191,7 +191,9 @@ jobs:
           mkdir "$RUNNER_TEMP/smoke-embed"
           cd "$RUNNER_TEMP/smoke-embed"
           npm init -y > /dev/null
-          npm install --no-audit --no-fund "$tarball" mermaid@12 react@19 react-dom@19
+          # peer の範囲はパッケージの package.json（package.json の devDependencies から作る）から読む
+          peers=$(node -p 'Object.entries(require(process.argv[1]).peerDependencies).map(([name, range]) => `${name}@${range}`).join(" ")' "$GITHUB_WORKSPACE/.work/npm-embed/package.json")
+          npm install --no-audit --no-fund "$tarball" $peers
           node --input-type=module -e "await import('markdown-design-doc-viewer-embed'); await import('markdown-design-doc-viewer-embed/react')"
           test -s node_modules/markdown-design-doc-viewer-embed/viewer.css
 

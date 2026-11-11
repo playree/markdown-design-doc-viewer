@@ -43,13 +43,13 @@ const FILES = [
 ];
 
 const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+/** The range of a package the viewer is built and tested with, which the app is to have (a peer dependency). */
 const devVersion = (name) => {
   const range = pkg.devDependencies?.[name];
-  const major = /^\^?(\d+)\./.exec(range ?? '')?.[1];
-  if (!major) {
-    throw new Error(`No version of ${name} in the devDependencies of package.json.`);
+  if (!/^\^\d+\.\d+\.\d+$/.test(range ?? '')) {
+    throw new Error(`The devDependencies of package.json have no range ^x.y.z for ${name}: ${range}.`);
   }
-  return `^${major}`;
+  return range;
 };
 
 const dist = join(ROOT, 'embed/dist');
@@ -87,7 +87,8 @@ writeFileSync(
     include: [],
   }),
 );
-execFileSync(join(ROOT, 'node_modules/.bin/tsc'), ['-p', tsconfig], { cwd: ROOT, stdio: 'inherit' });
+// Its script run by Node, not the shim of node_modules/.bin (a shell script, which Windows does not run).
+execFileSync(process.execPath, [join(ROOT, 'node_modules/typescript/bin/tsc'), '-p', tsconfig], { cwd: ROOT, stdio: 'inherit' });
 
 const typesOf = (source) => source.replace(/\.tsx?$/, '.d.ts');
 const copied = new Set();
