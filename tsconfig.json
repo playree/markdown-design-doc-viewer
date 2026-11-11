@@ -12,7 +12,12 @@
     "verbatimModuleSyntax": false,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    // The npm package of the embeddable viewer, which its demo (embed/demo/) imports as an app does.
+    "paths": {
+      "markdown-design-doc-viewer-embed": ["./embed/viewer.ts"],
+      "markdown-design-doc-viewer-embed/react": ["./embed/react.tsx"]
+    }
   },
   "include": ["src", "webview", "desktop", "embed", "test", "scripts"],
   "exclude": ["desktop/dist", "desktop/src-tauri"]

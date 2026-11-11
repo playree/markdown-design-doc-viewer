@@ -8,18 +8,32 @@ body,
   font-size: 14px;
 }
 
+.demo-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #e8e8e8;
+}
+
+.demo-header {
+  box-sizing: border-box;
+  height: 30px;
+  padding: 8px 12px 0;
+}
+
 .demo {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: minmax(0, 1fr);
   gap: 12px;
   box-sizing: border-box;
-  height: 100%;
   padding: 12px;
-  background: #e8e8e8;
 }
 
 .demo-pane {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -32,6 +46,9 @@ body,
   display: flex;
   align-items: center;
   gap: 8px;
+  /* The same with Tailwind's preflight, so that the viewers can be compared. */
+  box-sizing: border-box;
+  height: 36px;
   padding: 6px 8px;
   border-bottom: 1px solid #c8c8c8;
 }

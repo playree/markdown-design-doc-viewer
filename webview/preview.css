@@ -133,6 +133,43 @@ html:has(> body[data-seqnotes-theme="dark"]:is(.vscode-light, .vscode-high-contr
   word-wrap: break-word;
 }
 
+/*
+ * The defaults of the browser in the viewer, which a CSS reset of the page in a cascade layer takes away, such as
+ * Tailwind's preflight (an app that embeds the viewer, embed/): the margins of the paragraphs, the bullets of the lists,
+ * the sizes of the headings... `revert` gives back the browser's value, and these rules (unlayered, and before the
+ * others) win over a layer whatever its specificity. Without a reset, they change nothing.
+ */
+:where(.seqnotes-viewer) *,
+:where(.seqnotes-viewer) ::before,
+:where(.seqnotes-viewer) ::after {
+  box-sizing: revert;
+  margin: revert;
+  padding: revert;
+  border: revert;
+}
+:where(.seqnotes-viewer) :where(h1, h2, h3, h4, h5, h6) { font-size: revert; font-weight: revert; }
+:where(.seqnotes-viewer) :where(a) { color: revert; text-decoration: revert; }
+:where(.seqnotes-viewer) :where(ol, ul, menu) { list-style: revert; }
+:where(.seqnotes-viewer) :where(hr) { height: revert; color: revert; }
+:where(.seqnotes-viewer) :where(table) { text-indent: revert; border-color: revert; border-collapse: revert; }
+:where(.seqnotes-viewer) :where(code, kbd, samp, pre) { font-family: revert; font-size: revert; }
+:where(.seqnotes-viewer) :where(sub, sup) { font-size: revert; line-height: revert; position: revert; vertical-align: revert; top: revert; bottom: revert; }
+:where(.seqnotes-viewer) :where(small) { font-size: revert; }
+:where(.seqnotes-viewer) :where(abbr[title]) { text-decoration: revert; }
+:where(.seqnotes-viewer) :where(img, svg, video, canvas, audio, iframe, embed, object) { display: revert; vertical-align: revert; }
+:where(.seqnotes-viewer) :where(img, video) { max-width: revert; height: revert; }
+:where(.seqnotes-viewer) :where(button, input, select, optgroup, textarea) {
+  font: revert;
+  letter-spacing: revert;
+  color: revert;
+  background-color: revert;
+  border-radius: revert;
+  opacity: revert;
+  appearance: revert;
+}
+:where(.seqnotes-viewer) :where(textarea) { resize: revert; }
+:where(.seqnotes-viewer) ::placeholder { color: revert; opacity: revert; }
+
 /* ---------------------------------------------------------------- Markdown */
 
 :where(.seqnotes-viewer) :is(h1, h2, h3, h4, h5, h6) {
