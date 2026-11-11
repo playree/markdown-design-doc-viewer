@@ -32,18 +32,39 @@ function fontSize(text: Element): number {
 
 const num = (el: Element, name: string): number => Number(el.getAttribute(name) ?? 0);
 
-/** Shrinks the box of a note that only labels a place to a badge around its text, at the same center. */
+/** How much larger the text of a badge is than that of a note, when it is one line. */
+const BADGE_FONT_SCALE = 1.3;
+
+/**
+ * Shrinks the box of a note that only labels a place to a badge around its text, at the same center, and makes the text
+ * of one line larger (centered in the box: mermaid puts the line `1em` below its top, which a larger text would lower).
+ */
 function makeBadge(group: Element): void {
   const rect = group.querySelector(':scope > rect');
-  const texts = Array.from(group.querySelectorAll(':scope > text'));
+  const texts = Array.from(group.querySelectorAll<SVGTextElement>(':scope > text'));
   if (!rect || texts.length === 0) {
     return;
   }
   const height = num(rect, 'height');
   const width = num(rect, 'width');
+  if (!(height > 0)) {
+    return;
+  }
+  if (texts.length === 1) {
+    const [text] = texts;
+    text.style.fontSize = `${fontSize(text) * BADGE_FONT_SCALE}px`;
+    text.setAttribute('y', String(num(rect, 'y') + height / 2));
+    text.removeAttribute('dy');
+    text.setAttribute('dominant-baseline', 'central');
+    text.removeAttribute('alignment-baseline');
+    for (const tspan of Array.from(text.querySelectorAll('tspan'))) {
+      tspan.removeAttribute('dy');
+      tspan.removeAttribute('y');
+    }
+  }
   const textW = Math.max(...texts.map((t) => textWidth(t.textContent ?? '', fontSize(t))));
-  const badge = Math.max(height, textW + height * 0.8);
-  if (!(height > 0) || !(badge < width)) {
+  const badge = Math.max(height, textW + height * 0.5);
+  if (!(badge < width)) {
     return;
   }
   rect.setAttribute('x', String(num(rect, 'x') + (width - badge) / 2));
