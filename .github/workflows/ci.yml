@@ -68,6 +68,19 @@ jobs:
       # npm パッケージ（.work/npm）を作れること（ファイルの漏れや package.nls.json にない文言をここで見つける）
       - run: pnpm npm:package && npm pack ./.work/npm --dry-run
 
+      # 埋め込みのビューアの npm パッケージ（.work/npm-embed）を作れること。型の出力と、Node（SSR を想定）での import も検査する。
+      # tarball は専用のフォルダに置き、フォルダごとアップロードする（.work 直下をグロブで探すと、隠しフォルダとして除かれる）
+      - run: |
+          pnpm npm:embed-package
+          mkdir -p .work/npm-embed-tarball
+          npm pack ./.work/npm-embed --pack-destination .work/npm-embed-tarball
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: npm-embed
+          path: .work/npm-embed-tarball
+          if-no-files-found: error
+
       - uses: actions/upload-artifact@v7
         with:
           name: html-export

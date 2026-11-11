@@ -6,3 +6,4 @@ dist/
 /desktop/src-tauri/target/
 /desktop/src-tauri/gen/
 /CLAUDE.local.md
+/embed/dist/

@@ -5,7 +5,7 @@
 import { setupDiffBar } from './diffBar';
 import { setupFootnotePopup } from './footnotePopup';
 import { setUpIndexList } from './indexList';
-import { activeFor, endsDrag, revealCounterpart, scrollToFragment, showActive, type Active } from './linking';
+import { activeFor, endsDrag, revealCounterpart, scrollToFragment, showActive, trackPresses, type Active } from './linking';
 import { setupTableTree } from './tableTree';
 import { setupToc } from './toc';
 import { windowScrollHost } from './viewerContext';
@@ -19,6 +19,8 @@ const splitMinWidth = Number.isFinite(width) ? width : 1000;
 
 let pinned: Active | undefined;
 let printing = false;
+
+trackPresses();
 
 function applyLayout(): void {
   // Printed pages are laid out vertically: the sticky diagram column does not work on paper.

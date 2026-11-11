@@ -1,14 +1,18 @@
 /**
  * The demo of the embedded viewer (`pnpm embed:demo`): a React page with two viewers side by side, which shows the
  * examples copied next to it. A viewer's theme and document can be switched, and the other one double-clicked.
+ * Tailwind's preflight can be put on the page, to see that the viewer looks the same in an app that uses it.
+ *
+ * It imports the viewer as an app does, from its npm package: scripts/embed-demo.mjs resolves it to the sources, or to
+ * the package (--package).
  */
+import { DesignDocViewer, type DesignDocViewerHandle } from 'markdown-design-doc-viewer-embed/react';
+import 'markdown-design-doc-viewer-embed/viewer.css';
 import { StrictMode, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DesignDocViewer, type DesignDocViewerHandle } from '../react';
-import '../viewer.css';
 import './demo.css';
 
-const DOCUMENTS = ['login.md', 'password-reset.md', 'flowchart.md', 'wireframe.md', 'er-diagram.md', 'state-diagram.md', 'tables.md'];
+const DOCUMENTS = ['login.md', 'password-reset.md', 'flowchart.md', 'wireframe.md', 'er-diagram.md', 'state-diagram.md', 'tables.md', 'message-definition.ja.md', 'front-matter.md', 'link-checks.md', 'screenshot.md'];
 const baseUrl = new URL('examples/', location.href).href;
 
 /** An example, read from the folder copied next to the page: the last one read while another one is read. */
@@ -79,12 +83,33 @@ function Pane({ initial, revealLine }: { initial: string; revealLine?: boolean }
   );
 }
 
+/** Puts Tailwind's preflight (preflight.css, written by scripts/embed-demo.mjs) on the page, or takes it off. */
+function PreflightToggle() {
+  const [on, setOn] = useState(() => new URLSearchParams(location.search).has('preflight'));
+  useEffect(() => {
+    const link = document.getElementById('preflight') as HTMLLinkElement | null;
+    if (link) {
+      link.disabled = !on;
+    }
+  }, [on]);
+  return (
+    <label className="demo-preflight">
+      <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} /> Tailwind preflight
+    </label>
+  );
+}
+
 function App() {
   return (
-    <main className="demo">
-      <Pane initial="login.md" />
-      <Pane initial="wireframe.md" revealLine />
-    </main>
+    <div className="demo-page">
+      <header className="demo-header">
+        <PreflightToggle />
+      </header>
+      <main className="demo">
+        <Pane initial="login.md" />
+        <Pane initial="wireframe.md" revealLine />
+      </main>
+    </div>
   );
 }
 

@@ -1,9 +1,11 @@
 name: Release
 
-# GitHub Release（タグ vX.Y.Z）を公開したら、CLI の npm パッケージを公開し、AI 向けの Agent Skill の zip を Release に添付する。
+# GitHub Release（タグ vX.Y.Z）を公開したら、CLI と埋め込みのビューアの npm パッケージを公開し、AI 向けの Agent Skill の zip を Release に添付する。
 # デスクトップアプリは別のバージョン・別の Release（タグ desktop-vX.Y.Z）で出す（desktop-release.yml）。そのタグでは何もしない。
 # npm の Trusted Publishing（OIDC）で公開するので npm のトークンは使わない（provenance も自動で付く）。
-# npmjs.com のパッケージ設定に Trusted Publisher としてこのファイル名（release.yml）を登録してあるので、改名しないこと。
+# 検査と tarball の作成（依存のコードを実行する）は OIDC トークンを要求できないジョブ（npm・npm-embed）で行い、
+# 公開できる権限（id-token: write）は、checkout も依存のインストールもせずに tarball を公開するジョブ（npm-publish・npm-embed-publish）だけに与える。
+# npmjs.com の各パッケージの設定に Trusted Publisher としてこのファイル名（release.yml）を登録してあるので、改名しないこと。
 # VS Code Marketplace へは、タグから作った .vsix を Marketplace の管理画面からアップロードして公開する（Trusted Publishing に対応したらここに移す）。
 
 on:
@@ -26,8 +28,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # Trusted Publishing の OIDC トークン用
-      id-token: write
+    outputs:
+      publish: ${{ steps.version.outputs.publish }}
+      dist-tag: ${{ steps.version.outputs.dist-tag }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -35,15 +38,14 @@ jobs:
           fetch-depth: 0
 
       # pnpm のバージョンは package.json の packageManager から読む。
-      # このジョブは npm に公開できる OIDC トークン（id-token: write）を持つので、サードパーティのアクションはコミットで固定する
+      # 公開する tarball を作るジョブなので、サードパーティのアクションはコミットで固定する
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
 
-      # Trusted Publishing には npm 11.5.1 以上が要る（Node 24 に付属の npm はこれを満たす）。
-      # registry-url は付けない（付けると .npmrc にダミーのトークンが入り、OIDC に失敗したときの原因が分かりにくくなる）
+      # 公開する tarball を作るので、ほかのワークフローが書いたキャッシュは使わない（自動のキャッシュも切る）
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-          cache: pnpm
+          package-manager-cache: false
 
       # リリースのタグが main のコミットで package.json の version と一致し、そのバージョンがまだ npm にないときだけ公開する
       # （初回は手元から公開してから Release を作るので、そこでは公開を飛ばす）
@@ -91,14 +93,14 @@ jobs:
         run: pnpm test
 
       # npm 用のフォルダ（.work/npm、npm 用の package.json と production ビルド）から tarball を作る。
-      # それを別のフォルダにインストールし、CLI でエクスポートできることを確かめてから、その tarball を公開する
+      # それを別のフォルダにインストールし、CLI でエクスポートできることを確かめてから、npm-publish ジョブに渡す
       - if: steps.version.outputs.publish == 'true'
         run: pnpm npm:package
 
       - if: steps.version.outputs.publish == 'true'
         run: |
-          tarball="$RUNNER_TEMP/$(npm pack ./.work/npm --pack-destination "$RUNNER_TEMP" | tail -n 1)"
-          echo "TARBALL=$tarball" >> "$GITHUB_ENV"
+          mkdir "$RUNNER_TEMP/tarball"
+          tarball="$RUNNER_TEMP/tarball/$(npm pack ./.work/npm --pack-destination "$RUNNER_TEMP/tarball" | tail -n 1)"
           mkdir "$RUNNER_TEMP/smoke"
           cd "$RUNNER_TEMP/smoke"
           npm init -y > /dev/null
@@ -107,9 +109,158 @@ jobs:
           test -s out/login.html
 
       - if: steps.version.outputs.publish == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: npm-tarball
+          path: ${{ runner.temp }}/tarball
+          if-no-files-found: error
+          retention-days: 1
+
+  # npm ジョブが検査した CLI の tarball を公開する。OIDC トークンを要求できるのはこのジョブだけで、checkout も依存のインストールもしない
+  npm-publish:
+    needs: npm
+    if: needs.npm.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      # Trusted Publishing の OIDC トークン用
+      id-token: write
+      # このワークフロー実行の成果物を gh run download で取得するため
+      actions: read
+    steps:
+      # Trusted Publishing には npm 11.5.1 以上が要る（Node 24 に付属の npm はこれを満たす）。
+      # registry-url は付けない（付けると .npmrc にダミーのトークンが入り、OIDC に失敗したときの原因が分かりにくくなる）
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          DIST_TAG: ${{ needs.npm.outputs.dist-tag }}
+        run: |
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name npm-tarball --dir "$RUNNER_TEMP/tarball"
+          npm publish "$RUNNER_TEMP"/tarball/*.tgz --tag "$DIST_TAG"
+
+  # 埋め込みのビューアの npm パッケージ（markdown-design-doc-viewer-embed）。バージョンは CLI と同じ（package.json の version）。
+  # 検査は npm ジョブと同じ。失敗しても CLI と Agent Skill は出せるよう、ジョブを分ける
+  npm-embed:
+    if: startsWith(github.event.release.tag_name, 'v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      publish: ${{ steps.version.outputs.publish }}
+      dist-tag: ${{ steps.version.outputs.dist-tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # タグのコミットが main に入っているかを確かめるため
+          fetch-depth: 0
+
+      # 公開する tarball を作るジョブなので、サードパーティのアクションはコミットで固定する
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      # 公開する tarball を作るので、ほかのワークフローが書いたキャッシュは使わない（自動のキャッシュも切る）
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      # リリースのタグが main のコミットで package.json の version と一致し、そのバージョンがまだ npm にないときだけ公開する
+      # （初回は手元から公開してから Release を作るので、そこでは公開を飛ばす）
+      - id: version
         env:
-          DIST_TAG: ${{ steps.version.outputs.dist-tag }}
-        run: npm publish "$TARBALL" --tag "$DIST_TAG"
+          TAG: ${{ github.event.release.tag_name }}
+          NAME: markdown-design-doc-viewer-embed
+        run: |
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::The release tag $TAG is not on main."
+            exit 1
+          fi
+          version=$(node -p 'require("./package.json").version')
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::The release tag $TAG does not match the version in package.json (v$version)."
+            exit 1
+          fi
+          # 404 だけを「まだない」とみなし、ネットワークなどのエラーでは失敗にする
+          if found=$(npm view "$NAME@$version" version 2>&1); then
+            if [ -n "$found" ]; then
+              echo "::notice::$NAME@$version is already on npm: not published again."
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          elif ! grep -q E404 <<<"$found"; then
+            echo "$found"
+            echo "::error::Could not look up $NAME@$version on npm: $(head -n 1 <<<"$found")"
+            exit 1
+          fi
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+          # プレリリース（0.5.0-rc.1 など）は latest にしない
+          if [[ "$version" == *-* ]]; then
+            echo "dist-tag=next" >> "$GITHUB_OUTPUT"
+          else
+            echo "dist-tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.version.outputs.publish == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - if: steps.version.outputs.publish == 'true'
+        run: pnpm typecheck
+
+      - if: steps.version.outputs.publish == 'true'
+        run: pnpm test
+
+      # .work/npm-embed（ビルドと型、package.json）から tarball を作る。
+      # それを別のフォルダに peer の mermaid・React と一緒にインストールし、Node で import できる（SSR を想定）ことを確かめてから、
+      # npm-embed-publish ジョブに渡す
+      - if: steps.version.outputs.publish == 'true'
+        run: pnpm npm:embed-package
+
+      - if: steps.version.outputs.publish == 'true'
+        run: |
+          mkdir "$RUNNER_TEMP/tarball"
+          tarball="$RUNNER_TEMP/tarball/$(npm pack ./.work/npm-embed --pack-destination "$RUNNER_TEMP/tarball" | tail -n 1)"
+          mkdir "$RUNNER_TEMP/smoke-embed"
+          cd "$RUNNER_TEMP/smoke-embed"
+          npm init -y > /dev/null
+          # peer の範囲はパッケージの package.json（package.json の devDependencies から作る）から読む
+          peers=$(node -p 'Object.entries(require(process.argv[1]).peerDependencies).map(([name, range]) => `${name}@${range}`).join(" ")' "$GITHUB_WORKSPACE/.work/npm-embed/package.json")
+          npm install --no-audit --no-fund "$tarball" $peers
+          node --input-type=module -e "await import('markdown-design-doc-viewer-embed'); await import('markdown-design-doc-viewer-embed/react')"
+          test -s node_modules/markdown-design-doc-viewer-embed/viewer.css
+
+      - if: steps.version.outputs.publish == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: npm-embed-tarball
+          path: ${{ runner.temp }}/tarball
+          if-no-files-found: error
+          retention-days: 1
+
+  # npm-embed ジョブが検査した埋め込みのビューアの tarball を公開する（npm-publish ジョブと同じ）
+  npm-embed-publish:
+    needs: npm-embed
+    if: needs.npm-embed.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      # Trusted Publishing の OIDC トークン用
+      id-token: write
+      # このワークフロー実行の成果物を gh run download で取得するため
+      actions: read
+    steps:
+      # Trusted Publishing には npm 11.5.1 以上が要る（Node 24 に付属の npm はこれを満たす）。registry-url は付けない
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          DIST_TAG: ${{ needs.npm-embed.outputs.dist-tag }}
+        run: |
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name npm-embed-tarball --dir "$RUNNER_TEMP/tarball"
+          npm publish "$RUNNER_TEMP"/tarball/*.tgz --tag "$DIST_TAG"
 
   # AI 向けの Agent Skill の zip を Release に添付する。README は releases/latest/download/ の固定 URL でリンクするので、ファイル名を変えないこと。
   # npm ジョブの検証（タグが main にあり version と一致する）を通ってから行う。Release に書き込むので、このジョブだけ contents: write にする

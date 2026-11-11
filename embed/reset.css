@@ -1,0 +1,39 @@
+/*
+ * The defaults of the browser in an embedded viewer, which a CSS reset of the page in a cascade layer takes away, such
+ * as the preflight of Tailwind CSS v4 (in its layer `base`): the margins of the paragraphs, the bullets of the lists,
+ * the sizes of the headings... `revert` gives back the browser's value, and these rules, outside a layer, win over a
+ * layer whatever its specificity. They have none themselves, and come before the styles of the preview (viewer.css),
+ * which win over them. Without a reset, they change nothing.
+ *
+ * A reset outside a layer (Tailwind CSS v3, normalize.css) still applies, as the other global styles of the page.
+ */
+:where(.seqnotes-embedded) *,
+:where(.seqnotes-embedded) ::before,
+:where(.seqnotes-embedded) ::after {
+  box-sizing: revert;
+  margin: revert;
+  padding: revert;
+  border: revert;
+}
+:where(.seqnotes-embedded) :where(h1, h2, h3, h4, h5, h6) { font-size: revert; font-weight: revert; }
+:where(.seqnotes-embedded) :where(a) { color: revert; text-decoration: revert; }
+:where(.seqnotes-embedded) :where(ol, ul, menu) { list-style: revert; }
+:where(.seqnotes-embedded) :where(hr) { height: revert; color: revert; }
+:where(.seqnotes-embedded) :where(table) { text-indent: revert; border-color: revert; border-collapse: revert; }
+:where(.seqnotes-embedded) :where(code, kbd, samp, pre) { font-family: revert; font-size: revert; }
+:where(.seqnotes-embedded) :where(sub, sup) { font-size: revert; line-height: revert; position: revert; vertical-align: revert; top: revert; bottom: revert; }
+:where(.seqnotes-embedded) :where(small) { font-size: revert; }
+:where(.seqnotes-embedded) :where(abbr[title]) { text-decoration: revert; }
+:where(.seqnotes-embedded) :where(img, svg, video, canvas, audio, iframe, embed, object) { display: revert; vertical-align: revert; }
+:where(.seqnotes-embedded) :where(img, video) { max-width: revert; height: revert; }
+:where(.seqnotes-embedded) :where(button, input, select, optgroup, textarea) {
+  font: revert;
+  letter-spacing: revert;
+  color: revert;
+  background-color: revert;
+  border-radius: revert;
+  opacity: revert;
+  appearance: revert;
+}
+:where(.seqnotes-embedded) :where(textarea) { resize: revert; }
+:where(.seqnotes-embedded) ::placeholder { color: revert; opacity: revert; }

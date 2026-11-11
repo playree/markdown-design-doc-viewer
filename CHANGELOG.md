@@ -1,6 +1,10 @@
 # Changelog
 
-This changelog covers the extension and the command line. The desktop app has its own version and [changelog](desktop/CHANGELOG.md).
+This changelog covers the extension, the command line and the embeddable viewer (npm package `markdown-design-doc-viewer-embed`). The desktop app has its own version and [changelog](desktop/CHANGELOG.md).
+
+## Unreleased
+
+- The viewer can be embedded in a web app: the new npm package [markdown-design-doc-viewer-embed](https://www.npmjs.com/package/markdown-design-doc-viewer-embed) has a React component (`DesignDocViewer`) and a function for any page (`createViewer`) that show a design document in an element of the page, with the diagrams linked to their steps, the wireframes, the table of contents and the light and dark themes of the preview. It can be imported on a server (Next.js, for instance), and keeps its look on a page with a CSS reset in a cascade layer, such as the preflight of Tailwind CSS v4. See [Embedding in a web app](README.md#embedding-in-a-web-app).
 
 ## 1.4.1
 

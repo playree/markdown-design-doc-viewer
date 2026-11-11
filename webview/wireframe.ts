@@ -226,26 +226,32 @@ export function mountWireframe(block: HTMLElement, html: string, meta: DiagramMe
   return frame;
 }
 
-/** Lays the wireframes out again when their block (its column) or their page (e.g. an image loaded) is resized. */
-const resizes = new ResizeObserver((entries) => {
+/**
+ * Lays the wireframes out again when their block (its column) or their page (e.g. an image loaded) is resized. Made by
+ * the first `observe`: not when the module is imported, which may be on a server, without a `ResizeObserver`.
+ */
+let resizes: ResizeObserver | undefined;
+
+const onResize = (entries: ResizeObserverEntry[]): void => {
   const blocks = new Set<HTMLElement>();
   for (const { target } of entries) {
     const block = target instanceof HTMLElement && target.matches('.seqnotes-wireframe') ? target : observed.get(target);
     if (!block?.isConnected) {
       // Removed by an update.
-      resizes.unobserve(target);
+      resizes?.unobserve(target);
     } else {
       blocks.add(block);
     }
   }
   blocks.forEach(layoutWireframe);
-});
+};
 
 /** The block of each page observed. */
 const observed = new WeakMap<Element, HTMLElement>();
 
 function observe(block: HTMLElement, shadow: ShadowRoot): void {
   const page = shadow.querySelector('html');
+  resizes ??= new ResizeObserver(onResize);
   resizes.observe(block);
   if (page) {
     observed.set(page, block);

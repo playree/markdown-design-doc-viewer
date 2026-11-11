@@ -1,7 +1,9 @@
 /*
- * The styles of a viewer embedded in a page (embed/viewer.ts): those of the preview, the variables VS Code would give
- * it (webview/theme.css), and the layout of a viewer that scrolls inside its element instead of the window.
+ * The styles of a viewer embedded in a page (embed/viewer.ts): the defaults of the browser that a CSS reset of the page
+ * takes away (reset.css), those of the preview, the variables VS Code would give it (webview/theme.css), and the layout
+ * of a viewer that scrolls inside its element instead of the window.
  */
+@import "./reset.css";
 @import "../webview/preview.css";
 @import "../webview/theme.css";
 

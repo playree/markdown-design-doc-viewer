@@ -1,15 +1,19 @@
 /**
- * The options of the bundles: of the desktop app (desktop/, built to desktop/dist/ for Tauri) with `desktop`, else of
- * the extension and the command line. Built by esbuild.mjs, and by
- * scripts/third-party-notices.mjs (without writing them) to find the bundled packages.
+ * The options of the bundles: of the desktop app (desktop/, built to desktop/dist/ for Tauri) with `desktop`, of the
+ * embeddable viewer (embed/, built to embed/dist/ for its npm package) with `embed`, else of the extension and the
+ * command line. Built by esbuild.mjs, and by scripts/third-party-notices.mjs (without writing them) to find the bundled
+ * packages.
  */
-export function buildOptions({ production, desktop }) {
+export function buildOptions({ production, desktop, embed }) {
   const common = {
     bundle: true,
     minify: production,
     sourcemap: !production,
     logLevel: 'info',
   };
+  if (embed) {
+    return embedOptions();
+  }
   if (desktop) {
     return [
       {
@@ -80,3 +84,36 @@ export function buildOptions({ production, desktop }) {
     },
   ];
 }
+
+/**
+ * The embeddable viewer (embed/), as ES modules for the bundler of an app (scripts/npm-embed-package.mjs makes its npm
+ * package): not minified, without source maps, and with the packages the app has (mermaid, React) left to it.
+ */
+function embedOptions() {
+  const common = { bundle: true, logLevel: 'info', outdir: 'embed/dist' };
+  const modules = {
+    ...common,
+    platform: 'browser',
+    format: 'esm',
+    target: 'es2022',
+    jsx: 'automatic',
+    external: ['mermaid', 'react', 'react/*', 'react-dom', 'react-dom/*'],
+  };
+  return [
+    { ...modules, entryPoints: { index: 'embed/viewer.ts' } },
+    // A client component of React Server Components (Next.js), which a page rendered on the server can import.
+    { ...modules, entryPoints: { react: 'embed/react.tsx' }, plugins: [viewerOfReact], banner: { js: "'use client';" } },
+    {
+      ...common,
+      entryPoints: { viewer: 'embed/viewer.css' },
+    },
+  ];
+}
+
+/** Makes react.js import the viewer from index.js instead of bundling it again: one copy of its code and its state. */
+const viewerOfReact = {
+  name: 'viewer-of-react',
+  setup(build) {
+    build.onResolve({ filter: /^\.\/viewer$/ }, (args) => (/[\\/]embed[\\/]react\.tsx$/.test(args.importer) ? { path: './index.js', external: true } : undefined));
+  },
+};

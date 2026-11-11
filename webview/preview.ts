@@ -7,7 +7,7 @@ import { markChanges } from './diff';
 import { setupDiffBar } from './diffBar';
 import { setupFootnotePopup } from './footnotePopup';
 import { setUpIndexList } from './indexList';
-import { activeFor, endsDrag, isSideBySide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, type Active } from './linking';
+import { activeFor, endsDrag, isSideBySide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, trackPresses, type Active } from './linking';
 import { foldedRows, isFoldedAway, plainTables, restoreFolded, restorePlain, setupTableTree } from './tableTree';
 import { setupToc } from './toc';
 import type { ViewerContext } from './viewerContext';
@@ -42,6 +42,7 @@ export interface Preview {
  */
 export function createPreview(ctx: ViewerContext): Preview {
   const { el, root, scroll } = ctx;
+  const stopTrackingPresses = trackPresses();
   /** The translated titles: data attributes of the viewer's element (`shell()` in previewPanel.ts). */
   const titles = el.dataset;
   /** Removes the listeners on the window and the document. */
@@ -1293,6 +1294,7 @@ export function createPreview(ctx: ViewerContext): Preview {
       closeZoom();
     }
     listeners.abort();
+    stopTrackingPresses();
     stopResize();
     themeObserver.disconnect();
     insetObserver.disconnect();

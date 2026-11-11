@@ -354,6 +354,7 @@
     "vscode:prepublish": "node esbuild.mjs --production",
     "package": "vsce package --no-dependencies",
     "npm:package": "node esbuild.mjs --production && node scripts/npm-package.mjs",
+    "npm:embed-package": "node esbuild.mjs --embed --production && node scripts/npm-embed-package.mjs",
     "skill:package": "node scripts/skill-package.mjs",
     "pages": "node scripts/pages.mjs",
     "desktop:build": "node esbuild.mjs --desktop --production",
@@ -389,6 +390,7 @@
     "pngjs": "^7.0.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3",
     "yazl": "^2.5.1"
