@@ -12,9 +12,9 @@ export const DEFAULT_MESSAGE_WRAP_WIDTH = 30;
 /** Whether a value is a width to break the labels at (0: not broken). */
 export const isWrapWidth = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 0;
 
-/** Characters as wide as two half-width ones: East Asian Wide and Fullwidth (CJK, kana, hangul, full-width forms). */
+/** Characters as wide as two half-width ones: East Asian Wide and Fullwidth (CJK, kana, hangul, full-width forms, emoji). */
 const WIDE_RE =
-  /[ᄀ-ᅟ⺀-〾ぁ-㏿㐀-䶿一-鿿ꀀ-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦\u{1F300}-\u{1F64F}\u{1F900}-\u{1F9FF}\u{20000}-\u{3FFFD}]/u;
+  /[ᄀ-ᅟ⺀-〾ぁ-㏿㐀-䶿一-鿿ꀀ-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦\u{1F300}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F900}-\u{1FAFF}\u{20000}-\u{3FFFD}]/u;
 
 /** Characters that do not start a line (closing brackets, punctuation, small kana, the long vowel mark). */
 const NO_START = new Set(Array.from('、。，．・：；？！ゝゞーァィゥェォッャュョヮヵヶぁぃぅぇぉっゃゅょゎゕゖ）〕］｝〉》」』】〙〗〟’”｠»,.:;!?)]}'));
@@ -23,12 +23,15 @@ const NO_START = new Set(Array.from('、。，．・：；？！ゝゞーァィ�
 const NO_END = new Set(Array.from('（〔［｛〈《「『【〘〖〝‘“｟«([{'));
 
 /**
- * Labels left as they are: those broken by the author (`<br>`) or with other HTML tags, entity codes (`#59;`),
- * comments, KaTeX, and those that mermaid wraps or does not (`wrap:` / `nowrap:`). A `<` that is not a tag
- * (`List<Item>`, `a < b`) does not keep a label.
+ * Labels left as they are: those broken by the author (`<br>`, in any case) or with other HTML tags (a lowercase name,
+ * `<kbd>`, `<span class="x">`), entity codes (`#59;`), comments, KaTeX, and those that mermaid wraps or does not
+ * (`wrap:` / `nowrap:`). A `<` that is not a tag (`List<Item>`, `Map<string, number>`, `a < b`) does not keep a label.
  */
-const KEEP_RE =
-  /<\/?(?:a|b|big|br|code|del|div|em|font|i|ins|mark|p|s|small|span|strong|sub|sup|u)\b[^>]*>|#|;|%%|\$\$|^:?(?:no)?wrap:/i;
+const KEEP_RE = /<br\s*\/?>|#|;|%%|\$\$|^:?(?:no)?wrap:/i;
+/** An HTML tag: with a lowercase name (case-sensitive), so that `List<Item>` is not one. */
+const TAG_RE = /<\/?[a-z][a-z0-9]*(?:\s[^>]*)?\/?>/;
+
+const keepsLabel = (text: string): boolean => KEEP_RE.test(text) || TAG_RE.test(text);
 
 const charWidth = (c: string): number => (WIDE_RE.test(c) ? 2 : 1);
 
@@ -123,7 +126,7 @@ export function wrapSequenceMessages(source: string, maxWidth: number): string {
     const colon = raw.indexOf(':');
     const label = raw.slice(colon + 1);
     const text = label.trim();
-    if (KEEP_RE.test(text) || textWidth(text) <= maxWidth) {
+    if (keepsLabel(text) || textWidth(text) <= maxWidth) {
       continue;
     }
     const lead = /^\s*/.exec(label)![0];

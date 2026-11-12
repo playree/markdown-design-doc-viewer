@@ -9,6 +9,7 @@ describe('textWidth', () => {
     expect(textWidth('注文API')).toBe(7);
     expect(textWidth('（ＡＢ）')).toBe(8);
     expect(textWidth('𠮷')).toBe(2);
+    expect(textWidth('🚀👍🪄')).toBe(6);
   });
 });
 
@@ -68,7 +69,7 @@ describe('wrapSequenceMessages', () => {
   });
 
   it('leaves the labels broken by the author, with markup or with what mermaid reads in them', () => {
-    for (const label of [`${long}<br>です`, `<b>${long}</b>`, `wrap:${long}`, `nowrap:${long}`, `${long}#59;`, `${long} %% メモ`, `$$x$$${long}`]) {
+    for (const label of [`${long}<br>です`, `<b>${long}</b>`, `${long}<BR/>です`, `Click <kbd>Enter</kbd> to confirm the account transfer`, `<span class="x">${long}</span>`, `wrap:${long}`, `nowrap:${long}`, `${long}#59;`, `${long} %% メモ`, `$$x$$${long}`]) {
       const source = doc('sequenceDiagram', `A->>B: ${label}`);
       expect(wrapSequenceMessages(source, 30)).toBe(source);
     }
@@ -76,6 +77,14 @@ describe('wrapSequenceMessages', () => {
 
   it('breaks a label with a < that is not a tag', () => {
     expect(wrapSequenceMessages(doc('sequenceDiagram', `A->>B: List<Item> を${long}`), 30)).toContain('<br>');
+    expect(wrapSequenceMessages(doc('sequenceDiagram', `A->>B: Map<string, number> を${long}`), 30)).toContain('<br>');
+  });
+
+  it('counts the emoji as wide', () => {
+    expect(wrapSequenceMessages(doc('sequenceDiagram', `A->>B: ${'🚀'.repeat(15)}`), 30)).not.toContain('<br>');
+    expect(wrapSequenceMessages(doc('sequenceDiagram', `A->>B: ${'🚀'.repeat(16)}`), 30)).toBe(
+      doc('sequenceDiagram', `A->>B: ${'🚀'.repeat(8)}<br>${'🚀'.repeat(8)}`),
+    );
   });
 
   it('leaves the notes, participants and conditions', () => {
