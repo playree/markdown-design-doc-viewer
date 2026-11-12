@@ -39,7 +39,8 @@ const BADGE_FONT_SCALE = 1.3;
 
 /**
  * Shrinks the box of a note that only labels a place to a badge around its text, at the same center, and makes the text
- * of one line larger (centered in the box: mermaid puts the line `1em` below its top, which a larger text would lower).
+ * of one line larger when it still fits (centered in the box: mermaid puts the line `1em` below its top, which a larger
+ * text would lower).
  */
 function makeBadge(group: Element): void {
   const rect = group.querySelector(':scope > rect');
@@ -52,7 +53,9 @@ function makeBadge(group: Element): void {
   if (!(height > 0)) {
     return;
   }
-  if (texts.length === 1) {
+  // Not larger when it would not fit in the box (a long label named with `%% @anchor`).
+  const larger = (t: SVGTextElement): number => textWidth(t.textContent ?? '', fontSize(t) * BADGE_FONT_SCALE) + height * 0.5;
+  if (texts.length === 1 && larger(texts[0]) <= width) {
     const [text] = texts;
     text.style.fontSize = `${fontSize(text) * BADGE_FONT_SCALE}px`;
     text.setAttribute('y', String(num(rect, 'y') + height / 2));
@@ -177,6 +180,8 @@ export function annotateNotes(svg: SVGSVGElement, meta: DiagramMeta): void {
   if (!notes) {
     return;
   }
+  // For the notes of the other diagrams that jump to its labels.
+  svg.setAttribute('data-seqnotes-diagram', String(meta.id));
   const groups = Array.from(svg.querySelectorAll('g[data-et="note"]'));
   let assigned: ((typeof notes)[number] | undefined)[];
   if (groups.length === notes.length) {
@@ -207,6 +212,9 @@ export function annotateNotes(svg: SVGSVGElement, meta: DiagramMeta): void {
     } else if (note.goto !== undefined) {
       group.classList.add('seqnotes-goto');
       group.setAttribute('data-seqnotes-goto', note.goto);
+      if (note.gotoDiagram !== undefined) {
+        group.setAttribute('data-seqnotes-goto-diagram', String(note.gotoDiagram));
+      }
       const title = document.createElementNS(SVG_NS, 'title');
       title.textContent = (meta.jumpTitles?.goto ?? '{0}').replace('{0}', note.goto);
       group.prepend(title);
@@ -236,14 +244,15 @@ export function annotateNotes(svg: SVGSVGElement, meta: DiagramMeta): void {
   const boxes = blockBoxes(svg);
   for (const { els, name, fromLabel } of labels) {
     const el = els[0];
-    const firstTarget = meta.anchors?.find((a) => a.name === name)?.firstTarget;
+    const anchor = meta.anchors?.find((a) => a.name === name);
+    const firstTarget = anchor?.firstTarget;
     for (const e of els) {
       if (firstTarget !== undefined) {
         e.setAttribute('data-seqnotes-first-target', firstTarget);
       }
     }
-    // Only a label that notes jump to does something when clicked: it goes to them.
-    if (notes.some((n) => n.goto === name)) {
+    // Only a label that notes (of the diagram or another one) jump to does something when clicked: it goes to them.
+    if (notes.some((n) => n.goto === name) || anchor?.jumpedFrom) {
       focusable(el, name);
     }
     const r = sectionRect(boxes, el, fromLabel);
@@ -292,6 +301,19 @@ export function setupNoteJumps(root: HTMLElement, { scroll, pin, signal }: NoteJ
 
   const svgOf = (el: Element): SVGSVGElement | null => el.closest('svg');
   const byAttr = (svg: Element, attr: string, name: string): Element[] => Array.from(svg.querySelectorAll(`[${attr}="${CSS.escape(name)}"]`));
+  /** The diagram with the label the note `note` jumps to: its own, or another one of the document. */
+  const targetSvg = (note: Element): SVGSVGElement | null => {
+    const other = note.getAttribute('data-seqnotes-goto-diagram');
+    return other === null ? svgOf(note) : root.querySelector(`svg[data-seqnotes-diagram="${CSS.escape(other)}"]`);
+  };
+  /** The notes, of `svg` or of the other diagrams, that jump to its label `name`, in document order. */
+  const notesTo = (svg: SVGSVGElement, name: string): Element[] => {
+    const id = svg.getAttribute('data-seqnotes-diagram');
+    return byAttr(root, 'data-seqnotes-goto', name).filter((n) => {
+      const other = n.getAttribute('data-seqnotes-goto-diagram');
+      return other === null ? svgOf(n) === svg : other === id;
+    });
+  };
 
   function clearHover(): void {
     hovered.forEach((el) => el.classList.remove(HOVER));
@@ -368,23 +390,33 @@ export function setupNoteJumps(root: HTMLElement, { scroll, pin, signal }: NoteJ
    * the focus moves to the button that goes back.
    */
   function jump(from: Element, keyboard: boolean): void {
-    const svg = svgOf(from);
+    const svg = targetSvg(from);
     const name = from.getAttribute('data-seqnotes-goto');
     const anchor = svg && name !== null ? byAttr(svg, 'data-seqnotes-anchor', name)[0] : undefined;
     if (!svg || name === null || !anchor) {
       return;
     }
-    scrollColumnTo(anchor, true, scroll);
+    const target = anchor.getAttribute('data-seqnotes-first-target');
+    const pair = anchor.closest('.seqnotes-pair');
+    const sideBySide = pair !== null && isSideBySide(pair);
+    // To a label of another diagram, which is in another pair.
+    const away = svg !== svgOf(from);
+    // Side by side, the page is scrolled to the step of another diagram below, which would stop a smooth scroll of the
+    // page to the pair.
+    scrollColumnTo(anchor, true, scroll, !(away && target !== null && sideBySide));
     const branch = byAttr(svg, 'data-seqnotes-branch', name)[0];
     flash(branch ?? anchor);
     if (branch) {
       flash(anchor);
     }
-    const target = anchor.getAttribute('data-seqnotes-first-target');
-    const pair = anchor.closest('.seqnotes-pair');
     if (target !== null && pair) {
       // After the diagram is scrolled: in a page that scrolls, the step is what stays in view.
-      pin({ pair, target, kind: 'message' }, isSideBySide(pair));
+      pin({ pair, target, kind: 'message' }, sideBySide && !away);
+      if (sideBySide && away) {
+        // The pair of another diagram may be far: the step goes to the top, with the sticky diagram beside it.
+        const section = pair.querySelector(`[data-seqnotes-section="${CSS.escape(target)}"]`);
+        scroll.reveal(section ?? pair, 'start', 'smooth');
+      }
     }
     showBack(anchor, from);
     if (keyboard) {
@@ -399,7 +431,7 @@ export function setupNoteJumps(root: HTMLElement, { scroll, pin, signal }: NoteJ
     if (!svg || name === null) {
       return;
     }
-    const notes = byAttr(svg, 'data-seqnotes-goto', name);
+    const notes = notesTo(svg, name);
     if (notes.length === 0) {
       return;
     }
@@ -435,9 +467,10 @@ export function setupNoteJumps(root: HTMLElement, { scroll, pin, signal }: NoteJ
       }
       const goto = el.getAttribute('data-seqnotes-goto');
       const name = goto ?? el.getAttribute('data-seqnotes-anchor')!;
-      // The label (all the lines of a condition), and the notes that jump to it from the label.
-      const related = [...byAttr(svg, 'data-seqnotes-anchor', name), ...(goto !== null ? [] : byAttr(svg, 'data-seqnotes-goto', name))];
-      hovered = [el, ...related, ...byAttr(svg, 'data-seqnotes-branch', name)];
+      // The label (all the lines of a condition, maybe in another diagram), and the notes that jump to it from the label.
+      const labelSvg = goto !== null ? targetSvg(el) : svg;
+      const related = labelSvg ? [...byAttr(labelSvg, 'data-seqnotes-anchor', name), ...byAttr(labelSvg, 'data-seqnotes-branch', name)] : [];
+      hovered = [el, ...related, ...(goto !== null ? [] : notesTo(svg, name))];
       hovered.forEach((r) => r.classList.add(HOVER));
     },
     { signal },
