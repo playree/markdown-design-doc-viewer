@@ -2,7 +2,7 @@
 
 This changelog covers the extension, the command line and the embeddable viewer (npm package `markdown-design-doc-viewer-embed`). The desktop app has its own version and [changelog](desktop/CHANGELOG.md).
 
-## Unreleased
+## 1.5.1
 
 - Exported HTML files: the boundary between a diagram and its steps side by side can be dragged to resize the columns, and double-clicked to reset them, as in the preview. The width is not kept when the file is opened again.
 - The boundary between a diagram and its steps side by side can be moved with the keyboard, in the preview and in exported HTML: focus it with Tab, move it with the arrow keys (Home and End to the narrowest and the widest), and press Enter to reset it.
