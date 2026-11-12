@@ -468,7 +468,7 @@ export function createPreview(ctx: ViewerContext): Preview {
       wrapSections(pair);
       if (!pair.classList.contains('seqnotes-pair-stacked')) {
         // Translated by the extension host (`shell()` in previewPanel.ts).
-        addSplitter(pair, titles.seqnotesSplitterTitle ?? '', setSplit);
+        addSplitter(pair, titles.seqnotesSplitterTitle ?? '', setSplit, signal);
       }
     });
     setUpWarnings();

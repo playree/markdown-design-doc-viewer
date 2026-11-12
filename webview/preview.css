@@ -725,6 +725,11 @@ html:has(> body[data-seqnotes-theme="dark"]:is(.vscode-light, .vscode-high-contr
 .seqnotes-viewer.seqnotes-wide .seqnotes-splitter:active::after {
   background: var(--vscode-sash-hoverBorder, var(--seqnotes-accent));
 }
+/* Focused with the keyboard (moved with the arrow keys): its line instead of an outline. */
+.seqnotes-viewer.seqnotes-wide .seqnotes-splitter:focus { outline: none; }
+.seqnotes-viewer.seqnotes-wide .seqnotes-splitter:focus-visible::after {
+  background: var(--vscode-focusBorder, var(--seqnotes-accent));
+}
 
 .seqnotes-viewer.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) > .seqnotes-seq-col {
   align-self: start;
