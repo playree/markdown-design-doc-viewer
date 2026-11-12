@@ -17,12 +17,6 @@
   padding: 16px 26px 40px;
 }
 
-/* No splitter in an exported file: the gap takes its place. */
-.seqnotes-viewer.seqnotes-export.seqnotes-wide .seqnotes-pair:not(.seqnotes-pair-stacked) {
-  grid-template-columns: minmax(0, var(--seqnotes-split, 55%)) minmax(0, 1fr);
-  column-gap: 24px;
-}
-
 /*
  * The differences hidden with the bar's button (export.ts): the document as it is now. The marks of the others are
  * left out in preview.css.

@@ -157,6 +157,7 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
   const styles = [readDist('webview.css'), readDist('export.css')];
   const script = readDist('export.js');
   const tocTitle = t(WEBVIEW_TITLES['toc-title']);
+  const splitterTitle = t(WEBVIEW_TITLES['splitter-title']);
 
   let ok = true;
   const indexEntries: IndexEntry[] = [];
@@ -221,7 +222,7 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
         }
         const file = basename(document);
         const info = documentInfo(md, source, file, options.frontMatter);
-        const page = exportPage({ lang: options.lang, title: info.title, body, styles, script, settings: options.settings, tocTitle, ...(diff ? { diff: exportDiff(diff.view, t) } : {}) });
+        const page = exportPage({ lang: options.lang, title: info.title, body, styles, script, settings: options.settings, tocTitle, splitterTitle, ...(diff ? { diff: exportDiff(diff.view, t) } : {}) });
         mkdirSync(dirname(target), { recursive: true });
         writeFileSync(target, page);
         console.log(`${display(document)} -> ${display(target)}`);

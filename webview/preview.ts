@@ -9,6 +9,7 @@ import { setupFootnotePopup } from './footnotePopup';
 import { setUpIndexList } from './indexList';
 import { activeFor, endsDrag, isSideBySide, revealCounterpart, scrollColumnTo, scrollToFragment, showActive as showActiveIn, trackPresses, type Active } from './linking';
 import { foldedRows, isFoldedAway, plainTables, restoreFolded, restorePlain, setupTableTree } from './tableTree';
+import { addSplitter, applySplit } from './splitter';
 import { setupToc } from './toc';
 import type { ViewerContext } from './viewerContext';
 import { annotateNotes, setupNoteJumps } from './noteJumps';
@@ -89,52 +90,16 @@ export function createPreview(ctx: ViewerContext): Preview {
 
   const stopResize = scroll.onResize(applyLayout);
 
-  const MIN_SPLIT = 20;
-  const MAX_SPLIT = 80;
-
+  /** Sets the width of the diagram columns (dragged with the boundary), kept with the state. */
   function setSplit(percent: number | undefined): void {
-    const style = el.style;
-    if (percent === undefined) {
-      style.removeProperty('--seqnotes-split');
-    } else {
-      percent = Math.min(MAX_SPLIT, Math.max(MIN_SPLIT, percent));
-      style.setProperty('--seqnotes-split', `${percent}%`);
-    }
+    const split = applySplit(el, percent);
     const state = ctx.getState();
     if (state) {
-      ctx.setState({ ...state, split: percent });
+      ctx.setState({ ...state, split });
     }
   }
 
   setSplit(ctx.getState()?.split);
-
-  /** Lets the user drag the boundary between the diagram and the overview column. */
-  function addSplitter(pair: Element): void {
-    const splitter = document.createElement('div');
-    splitter.className = 'seqnotes-splitter';
-    // Translated by the extension host (`shell()` in previewPanel.ts).
-    splitter.title = titles.seqnotesSplitterTitle ?? '';
-    pair.querySelector('.seqnotes-seq-col')?.after(splitter);
-
-    splitter.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      splitter.setPointerCapture(e.pointerId);
-      const move = (ev: PointerEvent) => {
-        const r = pair.getBoundingClientRect();
-        setSplit(((ev.clientX - r.left) / r.width) * 100);
-      };
-      const up = () => {
-        splitter.removeEventListener('pointermove', move);
-        splitter.removeEventListener('pointerup', up);
-      };
-      splitter.addEventListener('pointermove', move);
-      splitter.addEventListener('pointerup', up);
-    });
-    splitter.addEventListener('dblclick', (e) => {
-      e.stopPropagation();
-      setSplit(undefined);
-    });
-  }
 
   // ---------------------------------------------------------------------------
   // Rendering
@@ -502,7 +467,8 @@ export function createPreview(ctx: ViewerContext): Preview {
     root.querySelectorAll('.seqnotes-pair').forEach((pair) => {
       wrapSections(pair);
       if (!pair.classList.contains('seqnotes-pair-stacked')) {
-        addSplitter(pair);
+        // Translated by the extension host (`shell()` in previewPanel.ts).
+        addSplitter(pair, titles.seqnotesSplitterTitle ?? '', setSplit);
       }
     });
     setUpWarnings();

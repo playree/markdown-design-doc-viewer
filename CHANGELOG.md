@@ -2,6 +2,10 @@
 
 This changelog covers the extension, the command line and the embeddable viewer (npm package `markdown-design-doc-viewer-embed`). The desktop app has its own version and [changelog](desktop/CHANGELOG.md).
 
+## Unreleased
+
+- Exported HTML files: the boundary between a diagram and its steps side by side can be dragged to resize the columns, and double-clicked to reset them, as in the preview. The width is not kept when the file is opened again.
+
 ## 1.5.0
 
 - Sequence diagrams marked with `%% @link-headings`: a note that only has a circled letter (`Note over S: Ⓑ`), or a branch whose condition starts with one (`else Ⓒ Error`), labels that place, and a note with the letter in its text (`HNY90000 → 503 → Ⓒ Error response`) jumps to it. The label note is shown as a small badge and the jumping note like a link: hovering it highlights the branch, and clicking it scrolls the diagram there, flashes the branch and highlights the step of its first linked arrow, with a button next to the label to go back. `%% @anchor <label>` and `%% @goto <label>` name labels and jumps with any text. Labels defined twice and `@goto` to unknown labels are reported as warnings. See [Notes that jump to a branch](README.md#notes-that-jump-to-a-branch). The [authoring guide for AI assistants](docs/ai-authoring-guide.md) and the Agent Skill tell how to write them.
