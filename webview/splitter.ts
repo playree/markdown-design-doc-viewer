@@ -37,12 +37,13 @@ export function addSplitter(pair: Element, title: string, onSplit: (percent: num
       const r = pair.getBoundingClientRect();
       onSplit(((ev.clientX - r.left) / r.width) * 100);
     };
-    const up = () => {
+    // After the pointer is released, or the drag is cancelled (by a gesture of a touch screen, for instance).
+    const end = () => {
       splitter.removeEventListener('pointermove', move);
-      splitter.removeEventListener('pointerup', up);
+      splitter.removeEventListener('lostpointercapture', end);
     };
     splitter.addEventListener('pointermove', move);
-    splitter.addEventListener('pointerup', up);
+    splitter.addEventListener('lostpointercapture', end);
   });
   splitter.addEventListener('dblclick', (e) => {
     e.stopPropagation();

@@ -24,6 +24,14 @@ let printing = false;
 
 trackPresses();
 
+// The boundary of the pairs side by side, as in the preview: added before the layout, whose grid has a column for it.
+// The width is not kept: the file opens with the default one.
+root.querySelectorAll('.seqnotes-pair:not(.seqnotes-pair-stacked)').forEach((pair) => {
+  addSplitter(pair, titles.seqnotesSplitterTitle ?? '', (percent) => {
+    applySplit(document.body, percent);
+  });
+});
+
 function applyLayout(): void {
   // Printed pages are laid out vertically: the sticky diagram column does not work on paper.
   document.body.classList.toggle('seqnotes-wide', !printing && window.innerWidth >= splitMinWidth);
@@ -43,11 +51,6 @@ window.addEventListener('afterprint', () => {
 });
 
 remountWireframes(root);
-
-// The boundary of the pairs side by side, as in the preview. The width is not kept: the file opens with the default one.
-root.querySelectorAll('.seqnotes-pair:not(.seqnotes-pair-stacked)').forEach((pair) => {
-  addSplitter(pair, titles.seqnotesSplitterTitle ?? '', (percent) => applySplit(document.body, percent));
-});
 
 // Other links are left to the browser, as in the document.
 setupFootnotePopup(
