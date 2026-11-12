@@ -4,11 +4,13 @@
  * DOM, so that it is tested on its own.
  */
 import type { DiagramLook } from '../src/shared/protocol';
+import { DEFAULT_MESSAGE_WRAP_WIDTH, isWrapWidth } from '../src/diagrams/sequenceWrap';
 
 export interface DesktopSettings {
   splitMinWidth: number;
   toc: boolean;
   headingNumbers: boolean;
+  messageWrapWidth: number;
   frontMatter: boolean;
   diagramLook: DiagramLook;
   limitContentWidth: boolean;
@@ -21,6 +23,7 @@ export const DEFAULT_SETTINGS: Readonly<DesktopSettings> = {
   splitMinWidth: 1000,
   toc: true,
   headingNumbers: true,
+  messageWrapWidth: DEFAULT_MESSAGE_WRAP_WIDTH,
   frontMatter: true,
   diagramLook: 'neo',
   limitContentWidth: true,
@@ -50,6 +53,7 @@ export function parseSettings(saved: string | null): DesktopSettings {
     splitMinWidth: isWidth(object.splitMinWidth) ? object.splitMinWidth : DEFAULT_SETTINGS.splitMinWidth,
     toc: flag('toc', DEFAULT_SETTINGS.toc),
     headingNumbers: flag('headingNumbers', DEFAULT_SETTINGS.headingNumbers),
+    messageWrapWidth: isWrapWidth(object.messageWrapWidth) ? object.messageWrapWidth : DEFAULT_SETTINGS.messageWrapWidth,
     frontMatter: flag('frontMatter', DEFAULT_SETTINGS.frontMatter),
     diagramLook: object.diagramLook === 'classic' || object.diagramLook === 'neo' ? object.diagramLook : DEFAULT_SETTINGS.diagramLook,
     limitContentWidth: flag('limitContentWidth', DEFAULT_SETTINGS.limitContentWidth),

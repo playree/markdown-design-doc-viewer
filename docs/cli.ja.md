@@ -47,6 +47,7 @@ md-design-doc export docs -o site
 | `--split-min-width <px>` | 図と処理概要を横並びにする最小のウィンドウ幅 (px)。既定は `1000` |
 | `--full-width` | 本文を最大 1280px の中央の列に収めない |
 | `--no-heading-numbers` | 紐付いた見出しの先頭に矢印の番号（`autonumber`）を表示しない |
+| `--message-wrap-width <n>` | シーケンス図の矢印のラベルを `<n>` 文字（全角は 2 文字と数える）で改行する。`0` にすると改行しない。既定は `30` |
 | `--no-front-matter` | YAML front matter（メタ情報の表、`type: design_doc` ではヘッダ）を表示しない |
 | `--no-sticky-table-header` | 長い表のヘッダ行をスクロール中に上端に固定しない |
 | `--no-table-tree-highlight` | ツリーとして表示する表（表のオプションの `level=`）で、マウスを乗せた行の親と子をハイライトしない |

@@ -207,7 +207,7 @@ async function exportDocuments(options: ExportOptions): Promise<boolean> {
           report('warning', document, issue.message, issue.line + 1);
           ok &&= !options.strict;
         }
-        const env = { t, frontMatter: options.frontMatter, headingNumbers: options.headingNumbers, wireframes };
+        const env = { t, frontMatter: options.frontMatter, headingNumbers: options.headingNumbers, messageWrapWidth: options.messageWrapWidth, wireframes };
         const image = async (src: string): Promise<string> => resolveImage(src, document, target, options.root);
         const diff = options.diffBase === undefined ? undefined : await renderWithDiff(options.diffBase, document, source, env, image);
         const html = diff ? diff.html : await renderForExport(md, source, env, image);

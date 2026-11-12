@@ -110,6 +110,7 @@ Images are looked up from the folder of the document, also with a leading `/` (t
 | Theme | Follow the System | `theme` (also **View** > **Theme**) |
 | Diagram Look | neo | `diagramLook` |
 | Side-by-Side Width (px) | 1000 | `splitMinWidth` |
+| Arrow Label Width | 30 | `messageWrapWidth` |
 | Table of Contents | on | `toc` |
 | Heading Numbers | on | `headingNumbers` |
 | Front Matter | on | `frontMatter` |

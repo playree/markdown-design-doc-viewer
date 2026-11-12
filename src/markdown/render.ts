@@ -2,6 +2,7 @@ import markdownit, { type Env, type MarkdownIt, type Token } from 'markdown-it';
 import footnote from 'markdown-it-footnote';
 import { formatMessage, type Translate } from '../shared/l10n';
 import { diagramWording, noteJumpWording, rowWording } from '../diagrams/diagramWording';
+import { DEFAULT_MESSAGE_WRAP_WIDTH, wrapSequenceMessages } from '../diagrams/sequenceWrap';
 import { ATTR_RE, decodeAttribute, RAW_TEXT } from './htmlTags';
 import { isMermaidFence, linkDiagrams, type DiagramInfo, type DiagramKind } from './linker';
 import { markdownExtras } from './markdownExtras';
@@ -20,6 +21,11 @@ export type RenderEnv = Env & {
   frontMatter?: boolean;
   /** false leaves out the `autonumber` numbers, so that no number is shown on the linked headings. */
   headingNumbers?: boolean;
+  /**
+   * The width (in half-width characters, a wide one counting as 2) that the labels of the arrows of the sequence
+   * diagrams are broken into lines at. 0 leaves them as they are. `DEFAULT_MESSAGE_WRAP_WIDTH` by default.
+   */
+  messageWrapWidth?: number;
   /**
    * The files of the wireframes, read by the host (`loadWireframes` in wireframe.ts). Without them, the wireframes are
    * shown by their text, and their parts are not linked.
@@ -157,6 +163,10 @@ function diagramAttributes(token: Token, env: RenderEnv | undefined): string {
   return attrs;
 }
 
+/** The source of a mermaid diagram as mermaid draws it: with the long labels of the arrows broken into lines. */
+const mermaidSource = (content: string, env: RenderEnv | undefined): string =>
+  wrapSequenceMessages(content, env?.messageWrapWidth ?? DEFAULT_MESSAGE_WRAP_WIDTH);
+
 function mermaidFence(md: MarkdownIt): void {
   const defaultFence = md.renderer.rules.fence!;
   md.renderer.rules.fence = (tokens, idx, options, env: RenderEnv | undefined, self) => {
@@ -164,7 +174,7 @@ function mermaidFence(md: MarkdownIt): void {
     if (!isMermaidFence(token)) {
       return defaultFence(tokens, idx, options, env, self);
     }
-    return `<div class="seqnotes-mermaid"${diagramAttributes(token, env)}><pre class="seqnotes-mermaid-src">${escapeHtml(token.content)}</pre></div>\n`;
+    return `<div class="seqnotes-mermaid"${diagramAttributes(token, env)}><pre class="seqnotes-mermaid-src">${escapeHtml(mermaidSource(token.content, env))}</pre></div>\n`;
   };
 }
 

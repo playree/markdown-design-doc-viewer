@@ -194,6 +194,7 @@ export function renderDiff(md: MarkdownIt, beforeSource: string, afterSource: st
     t: env.t,
     frontMatter: env.frontMatter,
     headingNumbers: env.headingNumbers,
+    messageWrapWidth: env.messageWrapWidth,
     wireframes: env.wireframes,
     forExport: true,
     docId: 'seqnotes-old',

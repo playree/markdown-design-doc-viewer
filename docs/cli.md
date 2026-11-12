@@ -47,6 +47,7 @@ md-design-doc export docs -o site
 | `--split-min-width <px>` | Minimum window width (px) for the diagrams beside their steps. Default: `1000`. |
 | `--full-width` | Do not keep the text in a centered column up to 1280px wide. |
 | `--no-heading-numbers` | Do not show the arrow numbers (`autonumber`) at the start of the linked headings. |
+| `--message-wrap-width <n>` | Break the labels of the arrows of the sequence diagrams into lines at `<n>` characters (a full-width one counts as 2). `0` does not break them. Default: `30`. |
 | `--no-front-matter` | Hide the YAML front matter (shown as a table of metadata, or as a header with `type: design_doc`). |
 | `--no-sticky-table-header` | Do not keep the header row of a long table at the top while scrolling. |
 | `--no-table-tree-highlight` | Do not highlight the parents and children of the row under the pointer in the tables shown as trees (`level=` of the table options). |

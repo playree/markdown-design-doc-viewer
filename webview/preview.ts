@@ -2,7 +2,7 @@ import DOMPurify from 'dompurify';
 import mermaid, { type MermaidConfig } from 'mermaid';
 import type { DiagramLook, DiffView, PreviewTheme, ToWebview } from '../src/shared/protocol';
 import type { DiagramMeta } from '../src/markdown/render';
-import { normalizeLabel } from '../src/diagrams/sequence';
+import { compactLabel, normalizeLabel } from '../src/diagrams/sequence';
 import { markChanges } from './diff';
 import { setupDiffBar } from './diffBar';
 import { setupFootnotePopup } from './footnotePopup';
@@ -247,11 +247,17 @@ export function createPreview(ctx: ViewerContext): Preview {
     if (groups.length === meta.messages.length) {
       assigned = meta.messages;
     } else {
-      // Parser and mermaid disagree on the message count: fall back to matching labels.
+      // Parser and mermaid disagree on the message count: fall back to matching labels. Without their spaces when they
+      // differ, as a label may be broken into lines anywhere (render.ts breaks the long ones).
       const unused = [...meta.messages];
       assigned = groups.map((group) => {
-        const label = normalizeLabel(group.slice(0, -1).map((t) => t.textContent ?? '').join(' '));
-        const i = unused.findIndex((m) => normalizeLabel(m.text) === label);
+        const lines = group.slice(0, -1).map((t) => t.textContent ?? '');
+        const label = normalizeLabel(lines.join(' '));
+        const compact = compactLabel(lines.join(''));
+        let i = unused.findIndex((m) => normalizeLabel(m.text) === label);
+        if (i < 0) {
+          i = unused.findIndex((m) => compactLabel(m.text) === compact);
+        }
         return i >= 0 ? unused.splice(i, 1)[0] : undefined;
       });
     }

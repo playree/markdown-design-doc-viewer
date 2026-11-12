@@ -2,6 +2,10 @@
 
 This changelog covers the extension, the command line and the embeddable viewer (npm package `markdown-design-doc-viewer-embed`). The desktop app has its own version and [changelog](desktop/CHANGELOG.md).
 
+## Unreleased
+
+- Long labels of the arrows of the sequence diagrams are broken into lines, so that they no longer widen the diagram and make it smaller. The width is set with `mdDesignDoc.messageWrapWidth` (`--message-wrap-width` of the command line, `messageWrapWidth` of the embeddable viewer) (30 characters by default, a full-width one counting as 2; 0 does not break them). A label with `<br>` is shown as written.
+
 ## 1.5.1
 
 - Exported HTML files: the boundary between a diagram and its steps side by side can be dragged to resize the columns, and double-clicked to reset them, as in the preview. The width is not kept when the file is opened again.

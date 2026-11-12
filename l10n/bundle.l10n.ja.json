@@ -129,6 +129,8 @@
   "neo: rounder shapes, with shadows on flowchart nodes. classic: flat, without shadows.": "neo: 角が丸く、フローチャートのノードに影が付きます。classic: 平坦で、影は付きません。",
   "Side-by-Side Width (px)": "横並びにする幅 (px)",
   "Shows the diagrams beside their step descriptions when the preview is at least this wide.": "プレビューの幅がこれ以上のとき、図と処理概要を横に並べます。",
+  "Arrow Label Width": "矢印のラベルの幅",
+  "Breaks the labels of the arrows of the sequence diagrams into lines at this many characters (a full-width one counts as 2). 0: not broken.": "シーケンス図の矢印のラベルをこの文字数（全角は 2 文字と数える）で改行します。0 にすると改行しません。",
   "Table of Contents": "目次",
   "Shown when hovering the right edge of the preview.": "プレビューの右端にマウスを乗せると開きます。",
   "Heading Numbers": "見出しの番号",
