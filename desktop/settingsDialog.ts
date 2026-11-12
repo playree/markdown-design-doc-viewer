@@ -4,6 +4,7 @@
  */
 import type { Translate } from '../src/shared/l10n';
 import type { DiagramLook, PreviewTheme } from '../src/shared/protocol';
+import { isWrapWidth } from '../src/diagrams/sequenceWrap';
 import { DEFAULT_SETTINGS, isWidth, type DesktopSettings } from './settings';
 
 export interface SettingsDialogOptions {
@@ -38,6 +39,8 @@ const FLAGS: [keyof DesktopSettings, string, string][] = [
 ];
 
 const LOOKS: DiagramLook[] = ['neo', 'classic'];
+
+type NumberSetting = 'splitMinWidth' | 'messageWrapWidth';
 
 let nextId = 0;
 
@@ -97,33 +100,46 @@ export function createSettingsDialog({ t, themes, settings, theme, onChange, onT
   );
   row(lookSelect, 'Diagram Look', 'neo: rounder shapes, with shadows on flowchart nodes. classic: flat, without shadows.');
 
-  const widthInput = document.createElement('input');
-  widthInput.type = 'number';
-  widthInput.min = '0';
-  widthInput.step = '100';
-  widthInput.className = 'desktop-settings-width';
-  const changeWidth = () => {
-    const value = widthInput.valueAsNumber;
-    if (!isWidth(value)) {
-      // Not a width: the one in use is shown again.
-      widthInput.value = String(settings().splitMinWidth);
-      return;
-    }
-    const width = Math.round(value);
-    widthInput.value = String(width);
-    if (width !== settings().splitMinWidth) {
-      change({ splitMinWidth: width });
-    }
-  };
-  widthInput.addEventListener('change', changeWidth);
-  widthInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      // Applies the width without closing the dialog (the form's submission).
-      e.preventDefault();
-      changeWidth();
-    }
-  });
-  row(widthInput, 'Side-by-Side Width (px)', 'Shows the diagrams beside their step descriptions when the preview is at least this wide.');
+  /** The settings shown with a number input (whole numbers, 0 or more), with what applies a number typed in. */
+  const numbers = new Map<NumberSetting, { input: HTMLInputElement; apply: () => void }>();
+  function numberRow(key: NumberSetting, step: number, valid: (value: number) => boolean, text: string, note: string): void {
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '0';
+    input.step = String(step);
+    input.className = 'desktop-settings-width';
+    const apply = () => {
+      const value = input.valueAsNumber;
+      if (!valid(value)) {
+        // Not a number of them: the one in use is shown again.
+        input.value = String(settings()[key]);
+        return;
+      }
+      const width = Math.round(value);
+      input.value = String(width);
+      if (width !== settings()[key]) {
+        change({ [key]: width });
+      }
+    };
+    input.addEventListener('change', apply);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        // Applies the number without closing the dialog (the form's submission).
+        e.preventDefault();
+        apply();
+      }
+    });
+    numbers.set(key, { input, apply });
+    row(input, text, note);
+  }
+  numberRow('splitMinWidth', 100, isWidth, 'Side-by-Side Width (px)', 'Shows the diagrams beside their step descriptions when the preview is at least this wide.');
+  numberRow(
+    'messageWrapWidth',
+    1,
+    isWrapWidth,
+    'Arrow Label Width',
+    'Breaks the labels of the arrows of the sequence diagrams into lines at this many characters (a full-width one counts as 2). 0: not broken.',
+  );
 
   const checks = new Map<keyof DesktopSettings, HTMLInputElement>();
   for (const [key, text, note] of FLAGS) {
@@ -157,10 +173,12 @@ export function createSettingsDialog({ t, themes, settings, theme, onChange, onT
   // Not for the keys of the preview (webview/main.ts), such as those of the zoom of a diagram, or Escape that unpins
   // the highlight: Escape still closes the dialog.
   dialog.addEventListener('keydown', (e) => e.stopPropagation());
-  // A width typed but not applied yet (closed with Escape while typing).
+  // A number typed but not applied yet (closed with Escape while typing).
   dialog.addEventListener('close', () => {
-    if (widthInput.value !== String(settings().splitMinWidth)) {
-      changeWidth();
+    for (const [key, { input, apply }] of numbers) {
+      if (input.value !== String(settings()[key])) {
+        apply();
+      }
     }
   });
   document.body.append(dialog);
@@ -170,9 +188,11 @@ export function createSettingsDialog({ t, themes, settings, theme, onChange, onT
     const current = settings();
     themeSelect.value = theme();
     lookSelect.value = current.diagramLook;
-    // Unless it is being typed in.
-    if (document.activeElement !== widthInput) {
-      widthInput.value = String(current.splitMinWidth);
+    for (const [key, { input }] of numbers) {
+      // Unless it is being typed in.
+      if (document.activeElement !== input) {
+        input.value = String(current[key]);
+      }
     }
     for (const [key, input] of checks) {
       input.checked = current[key] === true;

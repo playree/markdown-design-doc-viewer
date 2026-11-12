@@ -28,7 +28,7 @@ async function renderWithImages(
 ): Promise<{ html: string; diff?: DiffView }> {
   const folders = embeddableFolders(uri);
   const { files: wireframes } = await readWireframes(md, uri, source);
-  const env = { t: vscode.l10n.t, frontMatter: settings.frontMatter, headingNumbers: settings.headingNumbers, wireframes };
+  const env = { t: vscode.l10n.t, frontMatter: settings.frontMatter, headingNumbers: settings.headingNumbers, messageWrapWidth: settings.messageWrapWidth, wireframes };
   const resolveImage = async (src: string): Promise<string> => {
     const image = resolveDocumentPath(uri, imagePath(src));
     const type = imageType(image.path);

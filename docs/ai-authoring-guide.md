@@ -130,6 +130,7 @@ A screen design can show the wireframe of the screen beside the description of i
 - Write the descriptions **after** the diagram, as headings in the order of the arrows, one heading per arrow.
 - Use the same heading level for all steps, usually one level below the heading of the section that holds the diagram.
 - Make the heading text equal to the arrow label. Whitespace is trimmed and collapsed before comparing, and `<br/>` in a label counts as a space.
+- Long arrow labels are broken into lines by the viewer, so do not add `<br/>` to them only to keep the diagram narrow.
 - Do not start the step headings with a number (`### 3. Fetch user`). Such a heading still links to the arrow `Fetch user`, but its number drifts from the arrow's when arrows are added or removed or when several arrows are linked to it, which the diagnostics report. Number the steps with `autonumber` instead, which shows the arrow numbers on the headings. When you edit a document whose step headings are numbered, remove the numbers that differ from their arrows'.
 - When the heading has to differ from the arrow label, write `%% @ref <heading text>` on the line just before the arrow, inside the diagram. Several arrows (for example a request and its response) may be linked to the same heading this way.
 - Do not add headings at the step level that no arrow links to. They are marked "no arrow" ("no node" for a flowchart, "no entity" for an ER diagram, "no state" for a state diagram). Write extra notes as paragraphs, as lower-level headings, or after the end marker.

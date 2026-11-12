@@ -85,6 +85,7 @@ describe('parseCommandLine', () => {
       lang: 'en',
       diagramLook: 'neo',
       headingNumbers: true,
+      messageWrapWidth: 30,
       frontMatter: true,
       settings: { limitContentWidth: true, stickyTableHeader: true, tableTreeHighlight: true, splitMinWidth: 1000, toc: true },
       chrome: undefined,
@@ -98,7 +99,7 @@ describe('parseCommandLine', () => {
   it('reads the options', () => {
     expect(
       parseCommandLine(
-        ['export', 'a.md', '-o', 'out', '--root', 'docs', '--lang', 'ja', '--diagram-look', 'classic', '--split-min-width', '800', '--full-width', '--no-heading-numbers', '--no-front-matter', '--no-sticky-table-header', '--no-table-tree-highlight', '--no-toc', '--chrome', './chrome', '--strict', '--index', '--index-title', 'Docs', '--index-design-docs'],
+        ['export', 'a.md', '-o', 'out', '--root', 'docs', '--lang', 'ja', '--diagram-look', 'classic', '--split-min-width', '800', '--full-width', '--no-heading-numbers', '--message-wrap-width', '0', '--no-front-matter', '--no-sticky-table-header', '--no-table-tree-highlight', '--no-toc', '--chrome', './chrome', '--strict', '--index', '--index-title', 'Docs', '--index-design-docs'],
         cwd,
       ),
     ).toEqual({
@@ -109,6 +110,7 @@ describe('parseCommandLine', () => {
       lang: 'ja',
       diagramLook: 'classic',
       headingNumbers: false,
+      messageWrapWidth: 0,
       frontMatter: false,
       settings: { limitContentWidth: false, stickyTableHeader: false, tableTreeHighlight: false, splitMinWidth: 800, toc: false },
       chrome: join(cwd, 'chrome'),
@@ -122,6 +124,13 @@ describe('parseCommandLine', () => {
   it('reads the revision to compare with', () => {
     expect(parseCommandLine(['export', 'a.md', '--diff-base', 'v1.0'], cwd)).toMatchObject({ diffBase: 'v1.0' });
     expect(parseCommandLine(['export', 'a.md'], cwd)).toMatchObject({ diffBase: undefined });
+  });
+
+  it('rejects a width of the labels that is not a whole number of characters', () => {
+    for (const width of ['', '-1', '1.5', 'x', '0x1e', '1e1', ' 30']) {
+      expect(() => parseCommandLine(['export', 'a.md', '--message-wrap-width', width], cwd)).toThrow(UsageError);
+    }
+    expect(parseCommandLine(['export', 'a.md', '--message-wrap-width', '24'], cwd)).toMatchObject({ messageWrapWidth: 24 });
   });
 
   it('keeps a command name given to --chrome', () => {

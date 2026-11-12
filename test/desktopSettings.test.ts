@@ -15,6 +15,7 @@ describe('parseSettings', () => {
       splitMinWidth: 1400,
       toc: false,
       headingNumbers: false,
+      messageWrapWidth: 0,
       frontMatter: false,
       diagramLook: 'classic',
       limitContentWidth: false,
@@ -31,5 +32,7 @@ describe('parseSettings', () => {
     });
     expect(parseSettings(JSON.stringify({ splitMinWidth: '800' })).splitMinWidth).toBe(DEFAULT_SETTINGS.splitMinWidth);
     expect(parseSettings(JSON.stringify({ splitMinWidth: 0 })).splitMinWidth).toBe(0);
+    expect(parseSettings(JSON.stringify({ messageWrapWidth: 1.5 })).messageWrapWidth).toBe(DEFAULT_SETTINGS.messageWrapWidth);
+    expect(parseSettings(JSON.stringify({ messageWrapWidth: -1 })).messageWrapWidth).toBe(DEFAULT_SETTINGS.messageWrapWidth);
   });
 });

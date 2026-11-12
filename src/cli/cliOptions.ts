@@ -7,6 +7,7 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } 
 import { parseArgs } from 'node:util';
 import { exportFileName, type ExportSettings } from '../export/exportPage';
 import type { DiagramLook } from '../shared/protocol';
+import { DEFAULT_MESSAGE_WRAP_WIDTH, isWrapWidth } from '../diagrams/sequenceWrap';
 
 export const USAGE = `Usage: md-design-doc export <file|folder>... [options]
        md-design-doc capture <url> -o <file.html> [options]
@@ -24,6 +25,8 @@ Options:
       --split-min-width <px>   Minimum window width for diagrams beside their steps. Default: 1000.
       --full-width             Do not keep the text in a centered column.
       --no-heading-numbers     Do not show the arrow numbers (autonumber) on the linked headings.
+      --message-wrap-width <n> Break the labels of the arrows of the sequence diagrams into lines at <n> characters
+                               (a full-width one counts as 2). 0: do not break them. Default: 30.
       --no-front-matter        Hide the YAML front matter.
       --no-sticky-table-header Do not keep the header row of long tables at the top.
       --no-table-tree-highlight
@@ -84,6 +87,7 @@ export interface ExportOptions {
   lang: string;
   diagramLook: DiagramLook;
   headingNumbers: boolean;
+  messageWrapWidth: number;
   frontMatter: boolean;
   settings: ExportSettings;
   chrome?: string;
@@ -141,6 +145,7 @@ export function parseCommandLine(args: string[], cwd: string): Command {
         'split-min-width': { type: 'string' },
         'full-width': { type: 'boolean' },
         'no-heading-numbers': { type: 'boolean' },
+        'message-wrap-width': { type: 'string' },
         'no-front-matter': { type: 'boolean' },
         'no-sticky-table-header': { type: 'boolean' },
         'no-table-tree-highlight': { type: 'boolean' },
@@ -184,6 +189,11 @@ export function parseCommandLine(args: string[], cwd: string): Command {
   if (!Number.isFinite(splitMinWidth) || splitMinWidth < 0) {
     throw new UsageError(`--split-min-width must be a number of pixels: ${values['split-min-width']}`);
   }
+  const wrapWidth = values['message-wrap-width'];
+  const messageWrapWidth = wrapWidth === undefined ? DEFAULT_MESSAGE_WRAP_WIDTH : /^\d+$/.test(wrapWidth) ? Number(wrapWidth) : NaN;
+  if (!isWrapWidth(messageWrapWidth)) {
+    throw new UsageError(`--message-wrap-width must be a whole number of characters: ${values['message-wrap-width']}`);
+  }
   if (values['diff-base'] !== undefined && values['diff-base'].trim() === '') {
     throw new UsageError('--diff-base must be a git revision.');
   }
@@ -204,6 +214,7 @@ export function parseCommandLine(args: string[], cwd: string): Command {
     lang: values.lang ?? 'en',
     diagramLook,
     headingNumbers: !values['no-heading-numbers'],
+    messageWrapWidth,
     frontMatter: !values['no-front-matter'],
     settings: {
       limitContentWidth: !values['full-width'],

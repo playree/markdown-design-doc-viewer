@@ -61,6 +61,11 @@ export interface ViewerOptions {
   /** Shows the `autonumber` numbers on the linked headings. true by default. */
   headingNumbers?: boolean;
   /**
+   * Breaks the labels of the arrows of the sequence diagrams into lines at this many characters (a full-width one
+   * counts as 2). 0 does not break them. 30 by default.
+   */
+  messageWrapWidth?: number;
+  /**
    * Opens a link of the document (other than `#heading`, which the viewer scrolls to). By default, http(s) and mailto
    * links open in a new tab, and the others do nothing.
    */
@@ -121,7 +126,7 @@ function fetchFrom(baseUrl: string): (path: string) => Promise<string | undefine
 }
 
 /** The options that change the HTML of the document: it is rendered again when one of them changes. */
-const CONTENT_OPTIONS = ['markdown', 'baseUrl', 'readFile', 'resolveResource', 'frontMatter', 'headingNumbers'] as const;
+const CONTENT_OPTIONS = ['markdown', 'baseUrl', 'readFile', 'resolveResource', 'frontMatter', 'headingNumbers', 'messageWrapWidth'] as const;
 /** The options of the preview, sent with the HTML rendered last when only they change. */
 const VIEW_OPTIONS = ['documentId', 'splitMinWidth', 'toc', 'diagramLook', 'limitContentWidth', 'stickyTableHeader', 'tableTreeHighlight'] as const;
 
@@ -227,7 +232,7 @@ export function createViewer(container: HTMLElement, options: ViewerOptions): Vi
       return;
     }
     pending = false;
-    html = renderDocument(md, markdown, { t, frontMatter: current.frontMatter, headingNumbers: current.headingNumbers, wireframes, resolveResource });
+    html = renderDocument(md, markdown, { t, frontMatter: current.frontMatter, headingNumbers: current.headingNumbers, messageWrapWidth: current.messageWrapWidth, wireframes, resolveResource });
     await show(html);
   }
 

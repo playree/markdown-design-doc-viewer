@@ -102,8 +102,8 @@ function viewSettings() {
 }
 
 /** The settings that apply to the rendering of the documents. */
-function renderSettings(): Pick<RenderEnv, 'frontMatter' | 'headingNumbers'> {
-  return { frontMatter: settings.frontMatter, headingNumbers: settings.headingNumbers };
+function renderSettings(): Pick<RenderEnv, 'frontMatter' | 'headingNumbers' | 'messageWrapWidth'> {
+  return { frontMatter: settings.frontMatter, headingNumbers: settings.headingNumbers, messageWrapWidth: settings.messageWrapWidth };
 }
 
 export function onWebviewMessage(message: FromWebview): void {

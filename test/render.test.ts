@@ -325,6 +325,12 @@ describe('renderDocument', () => {
     expect(html).toContain('&quot;text&quot;:&quot;\\&quot;&lt;/pre&gt;&lt;b&gt;&quot;');
   });
 
+  it('breaks the long labels of the arrows of the sequence diagrams into lines', () => {
+    const src = doc('```mermaid', 'sequenceDiagram', 'A->>B: オーソリを取消してから注文をキャンセル済みで保存', '```');
+    expect(renderDocument(md, src)).toContain('A-&gt;&gt;B: オーソリを取消してから注&lt;br&gt;文をキャンセル済みで保存');
+    expect(renderDocument(md, src, { messageWrapWidth: 0 })).toContain('A-&gt;&gt;B: オーソリを取消してから注文をキャンセル済みで保存');
+  });
+
   it('adds data-line to blocks and rewrites image sources', () => {
     const html = renderDocument(md, doc('para', '', '![x](img/a.png)'), { resolveResource: (s) => `res:${s}` });
     expect(html).toContain('<p data-line="0">para</p>');

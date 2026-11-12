@@ -3,6 +3,7 @@ import { readWireframes, resolveDocumentPath, WireframeWatcher } from './documen
 import { WEBVIEW_TITLES, type DiagramLook, type DiffView, type FromWebview, type PreviewTheme, type ToWebview, type WebviewState } from '../shared/protocol';
 import { isExternalUrl, safeDecode, SCHEME_RE } from '../export/exportPage';
 import { renderDiff } from '../diff/diffRender';
+import { DEFAULT_MESSAGE_WRAP_WIDTH, isWrapWidth } from '../diagrams/sequenceWrap';
 import { createMarkdown, escapeHtml, renderDocument, type RenderEnv } from '../markdown/render';
 
 const VIEW_TYPE = 'mdDesignDoc.preview';
@@ -20,6 +21,7 @@ export interface Settings {
   syncEditor: boolean;
   toc: boolean;
   headingNumbers: boolean;
+  messageWrapWidth: number;
   frontMatter: boolean;
   diagramLook: DiagramLook;
   theme: PreviewTheme;
@@ -35,6 +37,7 @@ export function readSettings(): Settings {
     syncEditor: c.get<boolean>('syncEditor', true),
     toc: c.get<boolean>('toc', true),
     headingNumbers: c.get<boolean>('headingNumbers', true),
+    messageWrapWidth: readWrapWidth(c.get<unknown>('messageWrapWidth')),
     frontMatter: c.get<boolean>('frontMatter', true),
     diagramLook: c.get<string>('diagramLook') === 'classic' ? 'classic' : 'neo',
     theme: readTheme(c.get<string>('theme')),
@@ -42,6 +45,10 @@ export function readSettings(): Settings {
     stickyTableHeader: c.get<boolean>('stickyTableHeader', true),
     tableTreeHighlight: c.get<boolean>('tableTreeHighlight', true),
   };
+}
+
+function readWrapWidth(value: unknown): number {
+  return isWrapWidth(value) ? value : DEFAULT_MESSAGE_WRAP_WIDTH;
 }
 
 function readTheme(value: string | undefined): PreviewTheme {
@@ -370,8 +377,8 @@ export class Preview {
       return;
     }
     this.wireframeWatcher.watch(wireframes.dependencies);
-    const { frontMatter, headingNumbers, ...settings } = this.host.settings();
-    const env: RenderEnv = { resolveResource: (src) => this.resolveResource(src), t: vscode.l10n.t, frontMatter, headingNumbers, wireframes: wireframes.files };
+    const { frontMatter, headingNumbers, messageWrapWidth, ...settings } = this.host.settings();
+    const env: RenderEnv = { resolveResource: (src) => this.resolveResource(src), t: vscode.l10n.t, frontMatter, headingNumbers, messageWrapWidth, wireframes: wireframes.files };
     if (this.compared) {
       const { html, old, stats } = renderDiff(this.md, this.compared.source, source, env);
       this.post({ type: 'update', uri: this.uri.toString(), html, ...settings, diff: { label: this.compared.label, old, stats } });

@@ -302,6 +302,12 @@
           "default": true,
           "description": "%mdDesignDoc.headingNumbers.description%"
         },
+        "mdDesignDoc.messageWrapWidth": {
+          "type": "integer",
+          "default": 30,
+          "minimum": 0,
+          "description": "%mdDesignDoc.messageWrapWidth.description%"
+        },
         "mdDesignDoc.frontMatter": {
           "type": "boolean",
           "default": true,

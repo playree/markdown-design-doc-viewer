@@ -52,7 +52,7 @@ export const DesignDocViewer = forwardRef<DesignDocViewerHandle, DesignDocViewer
     };
   }, [options.lang]);
 
-  const { markdown, documentId, baseUrl, readFile, resolveResource, theme, diagramLook, splitMinWidth, toc, limitContentWidth, stickyTableHeader, tableTreeHighlight, frontMatter, headingNumbers } = options;
+  const { markdown, documentId, baseUrl, readFile, resolveResource, theme, diagramLook, splitMinWidth, toc, limitContentWidth, stickyTableHeader, tableTreeHighlight, frontMatter, headingNumbers, messageWrapWidth } = options;
   useEffect(() => {
     // Run after the effect above in the same commit: not again with the options it was just created with.
     if (created.current) {
@@ -61,7 +61,7 @@ export const DesignDocViewer = forwardRef<DesignDocViewerHandle, DesignDocViewer
     }
     void viewer.current?.update(viewerOptions());
     // With `lang`: also run after the viewer is created again for another language, so that the flag is reset there.
-  }, [options.lang, markdown, documentId, baseUrl, readFile, resolveResource, theme, diagramLook, splitMinWidth, toc, limitContentWidth, stickyTableHeader, tableTreeHighlight, frontMatter, headingNumbers, revealing]);
+  }, [options.lang, markdown, documentId, baseUrl, readFile, resolveResource, theme, diagramLook, splitMinWidth, toc, limitContentWidth, stickyTableHeader, tableTreeHighlight, frontMatter, headingNumbers, messageWrapWidth, revealing]);
 
   useImperativeHandle(ref, () => ({
     scrollToLine: (line) => viewer.current?.scrollToLine(line),
