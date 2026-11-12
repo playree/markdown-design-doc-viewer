@@ -106,6 +106,7 @@ export async function exportHtml(manager: PreviewManager, extensionUri: vscode.U
           script,
           settings,
           tocTitle: vscode.l10n.t(WEBVIEW_TITLES['toc-title']),
+          splitterTitle: vscode.l10n.t(WEBVIEW_TITLES['splitter-title']),
           ...(diff ? { diff: exportDiff(diff, vscode.l10n.t) } : {}),
         });
         await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(page));

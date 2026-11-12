@@ -163,6 +163,8 @@ export interface ExportPage {
   settings: ExportSettings;
   /** The title of the table of contents, in the language of the page (`WEBVIEW_TITLES['toc-title']`), with `settings.toc`. */
   tocTitle?: string;
+  /** The title of the boundary of the diagrams beside their steps, in the language of the page (`WEBVIEW_TITLES['splitter-title']`). */
+  splitterTitle?: string;
   /** The differences from a revision rendered in the body (`renderDiffForExport`), shown with a bar (webview/export.ts). */
   diff?: ExportDiff;
 }
@@ -184,7 +186,7 @@ export function exportDiff({ label, stats }: DiffView, t: Translate): ExportDiff
 }
 
 /** The exported HTML file: a single page with its styles and script inlined. */
-export function exportPage({ lang, title, body, styles, script, settings, tocTitle, diff }: ExportPage): string {
+export function exportPage({ lang, title, body, styles, script, settings, tocTitle, splitterTitle, diff }: ExportPage): string {
   const classes = [
     'seqnotes-viewer',
     'seqnotes-export',
@@ -194,6 +196,7 @@ export function exportPage({ lang, title, body, styles, script, settings, tocTit
   ];
   const splitMinWidth = Number.isFinite(Number(settings.splitMinWidth)) ? Number(settings.splitMinWidth) : 1000;
   const tocAttrs = settings.toc ? ` data-seqnotes-toc data-seqnotes-toc-title="${escapeHtml(tocTitle ?? '')}"` : '';
+  const splitterAttrs = splitterTitle ? ` data-seqnotes-splitter-title="${escapeHtml(splitterTitle)}"` : '';
   const diffAttrs = diff
     ? Object.entries({
         'data-seqnotes-diff-label': diff.label,
@@ -213,7 +216,7 @@ export function exportPage({ lang, title, body, styles, script, settings, tocTit
 ${styles.join('\n').replace(/<\/style/gi, '<\\/style')}
 </style>
 </head>
-<body data-seqnotes-theme="light" class="${classes.join(' ')}" data-seqnotes-split-min-width="${splitMinWidth}"${tocAttrs}${diffAttrs}>
+<body data-seqnotes-theme="light" class="${classes.join(' ')}" data-seqnotes-split-min-width="${splitMinWidth}"${splitterAttrs}${tocAttrs}${diffAttrs}>
 <div id="seqnotes-root" class="seqnotes-viewer-root">${body}</div>
 <script>
 ${script.replace(/<\/script/gi, '<\\/script')}

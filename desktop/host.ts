@@ -999,6 +999,7 @@ async function writeExport(doc: OpenedDocument): Promise<string | undefined> {
     script,
     settings,
     tocTitle: t(WEBVIEW_TITLES['toc-title']),
+    splitterTitle: t(WEBVIEW_TITLES['splitter-title']),
     ...(diff ? { diff: exportDiff(diff, t) } : {}),
   });
   await invoke('write_export', { html: page });

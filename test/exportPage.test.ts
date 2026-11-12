@@ -146,4 +146,11 @@ describe('exportPage', () => {
     expect(html).toContain(' data-seqnotes-toc-title="A &quot;B&quot; &amp; C"');
     expect(page()).not.toContain('data-seqnotes-toc');
   });
+
+  it('gives the title of the boundary of the diagrams beside their steps to the script', () => {
+    const settings = { limitContentWidth: false, stickyTableHeader: false, tableTreeHighlight: false, splitMinWidth: 1000, toc: false };
+    const html = exportPage({ lang: 'en', title: 'A', body: '', styles: [], script: '', settings, splitterTitle: 'Drag "here" & <reset>' });
+    expect(html).toContain('data-seqnotes-split-min-width="1000" data-seqnotes-splitter-title="Drag &quot;here&quot; &amp; &lt;reset&gt;">');
+    expect(page()).not.toContain('data-seqnotes-splitter-title');
+  });
 });
