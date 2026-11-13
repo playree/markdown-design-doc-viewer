@@ -7,7 +7,7 @@
 import { isSequenceDiagram, parseSequence } from './sequence';
 
 /** The width (in half-width characters) that a label is broken at by default (`mdDesignDoc.messageWrapWidth`). */
-export const DEFAULT_MESSAGE_WRAP_WIDTH = 30;
+export const DEFAULT_MESSAGE_WRAP_WIDTH = 40;
 
 /** Whether a value is a width to break the labels at (0: not broken). */
 export const isWrapWidth = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 0;

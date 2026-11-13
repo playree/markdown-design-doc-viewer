@@ -26,7 +26,7 @@ Options:
       --full-width             Do not keep the text in a centered column.
       --no-heading-numbers     Do not show the arrow numbers (autonumber) on the linked headings.
       --message-wrap-width <n> Break the labels of the arrows of the sequence diagrams into lines at <n> characters
-                               (a full-width one counts as 2). 0: do not break them. Default: 30.
+                               (a full-width one counts as 2). 0: do not break them. Default: 40.
       --no-front-matter        Hide the YAML front matter.
       --no-sticky-table-header Do not keep the header row of long tables at the top.
       --no-table-tree-highlight

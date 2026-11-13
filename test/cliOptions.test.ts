@@ -85,7 +85,7 @@ describe('parseCommandLine', () => {
       lang: 'en',
       diagramLook: 'neo',
       headingNumbers: true,
-      messageWrapWidth: 30,
+      messageWrapWidth: 40,
       frontMatter: true,
       settings: { limitContentWidth: true, stickyTableHeader: true, tableTreeHighlight: true, splitMinWidth: 1000, toc: true },
       chrome: undefined,

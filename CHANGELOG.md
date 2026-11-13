@@ -2,6 +2,10 @@
 
 This changelog covers the extension, the command line and the embeddable viewer (npm package `markdown-design-doc-viewer-embed`). The desktop app has its own version and [changelog](desktop/CHANGELOG.md).
 
+## Unreleased
+
+- Long labels of the arrows of the sequence diagrams are now broken into lines at 40 characters by default (it was 30), a full-width one counting as 2. The width is set with `mdDesignDoc.messageWrapWidth` (`--message-wrap-width` of the command line, `messageWrapWidth` of the embeddable viewer).
+
 ## 1.5.2
 
 - Sequence diagrams marked with `%% @link-headings`: a note can jump to a label of another sequence diagram of the same document with `%% @goto <label>`, so that a long sequence can be split into several diagrams that point to where they continue. A label of the diagram itself comes first, and a jump to a label that more than one other diagram has is reported. The **↩** button and the label go back to the other diagram. See [Splitting a long sequence](README.md#splitting-a-long-sequence). The [authoring guide for AI assistants](docs/ai-authoring-guide.md) and the Agent Skill tell when to split a sequence, and how to continue in the next diagram or join another one in the middle.
