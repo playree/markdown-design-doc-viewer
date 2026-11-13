@@ -195,4 +195,14 @@ describe('gotoCandidates', () => {
     expect(gotoCandidates(md, src, 6)).toEqual(['Ⓐ', 'Ⓑ']);
     expect(gotoCandidates(md, src, 10)).toBeUndefined();
   });
+
+  it('adds the labels of the other diagrams that only one of them has', () => {
+    const fence = (...lines: string[]): string[] => ['```mermaid', '%% @link-headings', 'sequenceDiagram', ...lines, '```'];
+    const src = [
+      ...fence('Note over A: Ⓐ', '%% @goto '),
+      ...fence('Note over A: Ⓐ', '%% @anchor 決済', 'Note over A: 決済', 'Note over A: Ⓒ'),
+      ...fence('Note over A: Ⓒ', '%% @anchor 保存', 'Note over A: 保存'),
+    ].join('\n');
+    expect(gotoCandidates(md, src, 4)).toEqual(['Ⓐ', '決済', '保存']);
+  });
 });

@@ -143,8 +143,39 @@ sequenceDiagram
 
 - The circled letters `Ⓐ`–`Ⓩ` and `ⓐ`–`ⓩ` work without the directives. A circled letter that no label of the diagram has is plain text.
 - Hover a note that jumps to highlight its label and branch. Click it to scroll the diagram to the label and flash the branch; the step of the first linked arrow of the branch is highlighted (and, side by side, shown in the description column). The **↩** button next to the label goes back to the note. Clicking a label goes to the notes that jump to it, one after another. Esc removes the button.
-- A label defined twice, an `@goto` to a label the diagram does not have, an `@anchor` / `@goto` not followed by a note (or a branch with a condition, for `@anchor`), and an `@goto` on a note made a label by `@anchor` are reported as warnings. The jumps do not work in a diagram inside a list or blockquote, like `@ref`. In the editor, `@anchor` and `@goto` are completed after `%% @`, and the labels of the diagram after `%% @goto `.
+- A label defined twice in a diagram, an `@goto` to a label no diagram of the document has (or that more than one other diagram has), an `@anchor` / `@goto` not followed by a note (or a branch with a condition, for `@anchor`), and an `@goto` on a note made a label by `@anchor` are reported as warnings. The jumps do not work in a diagram inside a list or blockquote, like `@ref`. In the editor, `@anchor` and `@goto` are completed after `%% @`, and the labels of the diagram (then those of the other diagrams of the document) after `%% @goto `.
 - Notes are not linked to headings and do not change the numbers of `autonumber`. The jumps work in exported HTML too.
+
+#### Splitting a long sequence
+
+A long sequence can be written as several diagrams, each with `%% @link-headings` and its own steps. To show where one continues, jump with `%% @goto` to a label of the next diagram: a label the diagram does not have is looked for in the other sequence diagrams (with `%% @link-headings`) of the same document. Write the connection in the text of the notes too, so that it can be read on GitHub as well.
+
+````markdown
+```mermaid
+%% @link-headings
+sequenceDiagram
+    C->>API: Register order
+    %% @goto Payment
+    Note over C,API: → continued in (2) Payment
+```
+
+### Register order
+…
+
+```mermaid
+%% @link-headings
+sequenceDiagram
+    %% @anchor Payment
+    Note over API: continued from (1) Order
+    API->>Pay: Authorize payment
+```
+
+### Authorize payment
+…
+````
+
+- A label of the diagram itself comes first. Name the labels jumped to from another diagram with `@anchor` so that only one diagram of the document has them: a jump to a label that more than one other diagram has is reported. A note with a circled letter in its text only jumps within its diagram; use `%% @goto Ⓑ` for the Ⓑ of another one.
+- Clicking the note scrolls to the label in the other diagram, and **↩** goes back. Clicking the label goes to the notes that jump to it, in this and the other diagrams, so the parts can be followed both ways.
 
 ### Flowcharts
 

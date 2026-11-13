@@ -72,12 +72,21 @@ export function refCandidates(md: MarkdownIt, source: string, line: number): Ref
 
 /**
  * The labels a `%% @goto` on `line` can jump to: those of the sequence diagram (with a `%% @link-headings` marker)
- * containing the line, in source order. Undefined when the line is not in such a diagram.
+ * containing the line, in source order, then those of the other such diagrams of the document that only one of them
+ * has, in document order. Undefined when the line is not in such a diagram.
  */
 export function gotoCandidates(md: MarkdownIt, source: string, line: number): string[] | undefined {
   const lines = source.split(/\r?\n/);
   const tokens = md.parse(source, {});
-  return mermaidDiagrams(tokens).find((d) => d.kind === 'sequence' && d.anchors && inFence(lines, tokens[d.fenceIndex].map, line))?.anchors?.map((a) => a.name);
+  const diagrams = mermaidDiagrams(tokens).filter((d) => d.kind === 'sequence' && d.anchors);
+  const diagram = diagrams.find((d) => inFence(lines, tokens[d.fenceIndex].map, line));
+  if (!diagram) {
+    return undefined;
+  }
+  const own = diagram.anchors!.map((a) => a.name);
+  const others = diagrams.filter((d) => d !== diagram).flatMap((d) => d.anchors!.map((a) => a.name));
+  const unique = others.filter((name) => !own.includes(name) && others.indexOf(name) === others.lastIndexOf(name));
+  return [...own, ...unique];
 }
 
 /**

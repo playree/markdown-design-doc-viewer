@@ -255,9 +255,10 @@
   "@goto is ignored because the next line is not a note.": "次の行がノートではないため、@goto は無視されます。",
   "@goto is ignored because @anchor makes the note a label. A note is a label or a jump, not both.": "@anchor でノートをラベルにしているため、@goto は無視されます。1 つのノートはラベルかジャンプのどちらかです。",
   "Label \"{0}\" is already defined in the sequence diagram.": "ラベル「{0}」はシーケンス図ですでに定義されています。",
-  "@goto target label \"{0}\" was not found in the sequence diagram.": "@goto で指定したラベル「{0}」がシーケンス図に見つかりません。",
+  "@goto target label \"{0}\" was not found in the sequence diagrams of the document.": "@goto で指定したラベル「{0}」が文書のシーケンス図に見つかりません。",
+  "@goto target label \"{0}\" is defined in more than one other sequence diagram. Name the label to jump to uniquely with @anchor.": "@goto で指定したラベル「{0}」はほかの複数のシーケンス図で定義されています。ジャンプ先のラベルに @anchor で一意な名前を付けてください。",
   "Make the next note (or section of a block) a label that notes can jump to.": "直後のノート（またはブロックの分岐）を、ノートから移動できるラベルにします。",
-  "Make the next note jump to a label.": "直後のノートを、ラベルへ移動するノートにします。",
+  "Make the next note jump to a label of this or another sequence diagram of the document.": "直後のノートを、この図または文書のほかのシーケンス図のラベルへ移動するノートにします。",
   "Go to {0}": "{0} へ移動",
   "Back to the note you jumped from": "移動元のノートに戻る"
 }

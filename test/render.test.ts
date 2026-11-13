@@ -490,11 +490,123 @@ describe('note jumps', () => {
     const { diagrams, warnings } = linkDiagrams(md.parse(src, {}));
     expect(warnings.map((w) => [w.line, w.message])).toEqual([
       [4, 'Label "Ⓐ" is already defined in the sequence diagram.'],
-      [5, '@goto target label "Ⓩ" was not found in the sequence diagram.'],
+      [5, '@goto target label "Ⓩ" was not found in the sequence diagrams of the document.'],
       [7, '@anchor is ignored because the next line is not a note or a section of a block with a condition (alt, else, …).'],
     ]);
     expect(diagrams[0].anchors?.map((a) => a.name)).toEqual(['Ⓐ']);
     expect(diagrams[0].notes?.map((n) => [n.anchor, n.goto])).toEqual([['Ⓐ', undefined], [undefined, undefined], [undefined, undefined]]);
+  });
+
+  /** Three diagrams: the first jumps to labels of the others, which both label `共通`. */
+  const SPLIT = doc(
+    '```mermaid',
+    '%% @link-headings',
+    'sequenceDiagram',
+    'C->>API: 注文登録',
+    '%% @goto 決済処理',
+    'Note over C,API: → 決済処理へ続く',
+    '%% @goto 共通',
+    'Note over C,API: 共通へ',
+    '%% @goto Ⓑ',
+    'Note over C,API: 自分の Ⓑ へ',
+    'Note over C: Ⓑ',
+    '```',
+    '## 注文登録',
+    '```mermaid',
+    '%% @link-headings',
+    'sequenceDiagram',
+    '%% @anchor 決済処理',
+    'alt 決済処理',
+    '  API->>Pay: 与信',
+    'end',
+    '%% @anchor 共通',
+    'Note over API: 共通',
+    'Note over API: Ⓑ',
+    '```',
+    '## 与信',
+    '```mermaid',
+    '%% @link-headings',
+    'sequenceDiagram',
+    '%% @anchor 共通',
+    'Note over API: 共通',
+    'API->>DB: 保存',
+    '```',
+    '## 保存',
+  );
+
+  it('jumps to the label of another diagram of the document, preferring one of its own diagram', () => {
+    const { diagrams, warnings } = linkDiagrams(md.parse(SPLIT, {}));
+    expect(warnings.map((w) => [w.line, w.message])).toEqual([
+      [6, '@goto target label "共通" is defined in more than one other sequence diagram. Name the label to jump to uniquely with @anchor.'],
+    ]);
+    expect(diagrams[0].notes?.map((n) => [n.goto, n.gotoDiagram])).toEqual([
+      ['決済処理', 1],
+      [undefined, undefined],
+      ['Ⓑ', undefined],
+      [undefined, undefined],
+    ]);
+    expect(diagrams[1].anchors?.map((a) => [a.name, a.jumpedFrom, a.firstTarget])).toEqual([
+      ['決済処理', true, hid('与信')],
+      ['共通', undefined, undefined],
+      ['Ⓑ', undefined, undefined],
+    ]);
+    expect(diagrams[2].anchors?.map((a) => [a.name, a.jumpedFrom])).toEqual([['共通', undefined]]);
+  });
+
+  it('puts the jumps between diagrams into their data', () => {
+    const html = renderDocument(md, SPLIT);
+    expect(html).toContain('&quot;goto&quot;:&quot;決済処理&quot;,&quot;gotoDiagram&quot;:1}');
+    expect(html).toContain('{&quot;name&quot;:&quot;決済処理&quot;,&quot;title&quot;:&quot;決済処理&quot;,&quot;occurrence&quot;:0,&quot;firstTarget&quot;:&quot;sn-与信&quot;,&quot;jumpedFrom&quot;:true}');
+    // A diagram with only a block label that another diagram jumps to has the data of its labels.
+    const blockOnly = doc(
+      '```mermaid',
+      '%% @link-headings',
+      'sequenceDiagram',
+      '%% @goto 決済処理',
+      'Note over C: 決済へ',
+      '```',
+      '```mermaid',
+      '%% @link-headings',
+      'sequenceDiagram',
+      '%% @anchor 決済処理',
+      'alt 決済処理',
+      '  API->>Pay: 与信',
+      'end',
+      '```',
+      '## 与信',
+    );
+    const metas = [...renderDocument(md, blockOnly).matchAll(/data-seqnotes-meta="([^"]*)"/g)].map((m) => JSON.parse(m[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&')));
+    expect(metas[1].anchors).toEqual([{ name: '決済処理', title: '決済処理', occurrence: 0, firstTarget: 'sn-与信', jumpedFrom: true }]);
+    expect(metas[1].notes).toEqual([]);
+  });
+
+  it('does not jump to the labels of a diagram inside a list or without the marker', () => {
+    const src = doc(
+      '```mermaid',
+      '%% @link-headings',
+      'sequenceDiagram',
+      '%% @goto X',
+      'Note over C: X へ',
+      '```',
+      '- item',
+      '',
+      '  ```mermaid',
+      '  %% @link-headings',
+      '  sequenceDiagram',
+      '  Note over A: X',
+      '  ```',
+      '',
+      '```mermaid',
+      'sequenceDiagram',
+      'Note over A: X',
+      '```',
+    );
+    const { diagrams, warnings } = linkDiagrams(md.parse(src, {}));
+    expect(warnings.map((w) => [w.line, w.message])).toEqual([
+      [3, '@goto target label "X" was not found in the sequence diagrams of the document.'],
+      [9, '@link-headings is ignored for a sequence diagram inside a list or blockquote.'],
+    ]);
+    expect(diagrams[0].notes?.[0].goto).toBeUndefined();
   });
 
   it('ignores the notes of a diagram inside a list, for which only the marker is reported', () => {

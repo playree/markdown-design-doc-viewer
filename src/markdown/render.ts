@@ -47,14 +47,16 @@ export interface DiagramMeta {
   messages: { index: number; line: number; text: string; nodeId?: string; number?: number; numberInHeading?: boolean; target?: string; unlinked?: boolean }[];
   /**
    * The notes of a sequence diagram with a `%% @link-headings` marker, in drawing order, when one of them defines a label
-   * (`anchor`) or jumps to one (`goto`).
+   * (`anchor`) or jumps to one (`goto`, of the other diagram `gotoDiagram` when it has one), or a note of another
+   * diagram jumps to one of its labels.
    */
-  notes?: { index: number; line: number; text: string; anchor?: string; goto?: string }[];
+  notes?: { index: number; line: number; text: string; anchor?: string; goto?: string; gotoDiagram?: number }[];
   /**
    * The labels, with the step of the first linked arrow after them. Those of the sections of blocks have their condition
-   * (`title`), and the number of sections before them with the same one (`occurrence`).
+   * (`title`), and the number of sections before them with the same one (`occurrence`). `jumpedFrom` is true for those a
+   * note of another diagram jumps to.
    */
-  anchors?: { name: string; title?: string; occurrence?: number; firstTarget?: string }[];
+  anchors?: { name: string; title?: string; occurrence?: number; firstTarget?: string; jumpedFrom?: boolean }[];
   /** The tooltip of a note that jumps (with `{0}` for the label), and of the button that goes back. */
   jumpTitles?: { goto: string; back: string };
 }
@@ -150,12 +152,13 @@ function diagramAttributes(token: Token, env: RenderEnv | undefined): string {
         unlinked: forExport ? undefined : unlinked,
       })),
     };
-    // All the notes, which the webview finds by their order, when one of them labels or jumps.
+    // All the notes, which the webview finds by their order, when one of them labels or jumps, or another diagram jumps
+    // to a label of the diagram (which may be the condition of a block section).
     const notes = diagram.notes ?? [];
-    if (notes.some((n) => n.anchor !== undefined || n.goto !== undefined)) {
+    if (notes.some((n) => n.anchor !== undefined || n.goto !== undefined) || diagram.anchors?.some((a) => a.jumpedFrom)) {
       const wording = noteJumpWording(env?.t ?? formatMessage);
-      meta.notes = notes.map(({ index, line, text, anchor, goto }) => ({ index, line, text, anchor, goto }));
-      meta.anchors = diagram.anchors?.map(({ name, title, occurrence, firstTarget }) => ({ name, title, occurrence, firstTarget }));
+      meta.notes = notes.map(({ index, line, text, anchor, goto, gotoDiagram }) => ({ index, line, text, anchor, goto, gotoDiagram }));
+      meta.anchors = diagram.anchors?.map(({ name, title, occurrence, firstTarget, jumpedFrom }) => ({ name, title, occurrence, firstTarget, jumpedFrom }));
       meta.jumpTitles = { goto: wording.gotoTitle, back: wording.backTitle };
     }
     attrs += ` data-seqnotes-meta="${escapeHtml(JSON.stringify(meta))}"`;

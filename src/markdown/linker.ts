@@ -57,6 +57,14 @@ export interface OverviewHeading {
 export interface LinkedAnchor extends SequenceAnchor {
   /** The `target` of the first linked message from the label to the end of its section. */
   firstTarget?: string;
+  /** true when a note of another diagram of the document jumps to the label. */
+  jumpedFrom?: boolean;
+}
+
+/** A note of a sequence diagram, which may label a place of it or jump to a label. */
+export interface LinkedNote extends SequenceNote {
+  /** The `id` of the other diagram of the document whose label the note jumps to. Undefined for one of its own diagram. */
+  gotoDiagram?: number;
 }
 
 /** A row of an item table (`item=` in its options) in the overview range of a wireframe. */
@@ -100,7 +108,7 @@ export interface DiagramInfo {
   /** The rows of the item tables of the overview range (wireframes only). */
   rows: ItemRow[];
   /** The notes of a sequence diagram with a `%% @link-headings` marker, with the labels they define and jump to. */
-  notes?: SequenceNote[];
+  notes?: LinkedNote[];
   /** The labels of the notes (and block sections) of a sequence diagram with a `%% @link-headings` marker; one per name. */
   anchors?: LinkedAnchor[];
 }
@@ -242,13 +250,41 @@ function noteJumps(
       byName.set(anchor.name, { ...anchor });
     }
   }
-  for (const note of notes) {
-    if (note.goto !== undefined && !byName.has(note.goto)) {
-      warnings.push({ line: note.gotoLine ?? note.line, message: wording.gotoNotFound(note.goto) });
+  // A `goto` to a label the diagram does not have is kept for `jumpsBetweenDiagrams`, which looks in the other diagrams.
+  return { notes, anchors: [...byName.values()] };
+}
+
+/**
+ * Resolves the jumps of the notes to labels their own diagram does not have: to the label of the one other diagram of the
+ * document that has it. Reports those no other diagram has, or more than one has.
+ */
+function jumpsBetweenDiagrams(diagrams: DiagramInfo[], translate: Translate, warnings: LinkWarning[]): void {
+  const wording = noteJumpWording(translate);
+  const byName = new Map<string, { diagram: DiagramInfo; anchor: LinkedAnchor }[]>();
+  for (const diagram of diagrams) {
+    for (const anchor of diagram.anchors ?? []) {
+      const found = byName.get(anchor.name) ?? [];
+      found.push({ diagram, anchor });
+      byName.set(anchor.name, found);
+    }
+  }
+  for (const diagram of diagrams) {
+    const own = new Set(diagram.anchors?.map((a) => a.name));
+    for (const note of diagram.notes ?? []) {
+      if (note.goto === undefined || own.has(note.goto)) {
+        continue;
+      }
+      const found = byName.get(note.goto) ?? [];
+      if (found.length === 1) {
+        note.gotoDiagram = found[0].diagram.id;
+        found[0].anchor.jumpedFrom = true;
+        continue;
+      }
+      const line = note.gotoLine ?? note.line;
+      warnings.push({ line, message: found.length === 0 ? wording.gotoNotFound(note.goto) : wording.gotoAmbiguous(note.goto) });
       delete note.goto;
     }
   }
-  return { notes, anchors: [...byName.values()] };
 }
 
 /**
@@ -304,6 +340,8 @@ export function linkDiagrams(tokens: Token[], translate: Translate = formatMessa
       diagrams.push(wireframeDiagram(token, index, diagrams.length, translate, warnings));
     }
   });
+
+  jumpsBetweenDiagrams(diagrams, translate, warnings);
 
   const pairedFences = new Set(diagrams.filter((d) => d.paired).map((d) => d.fenceIndex));
 
