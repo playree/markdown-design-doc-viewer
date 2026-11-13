@@ -2,7 +2,7 @@
 
 The desktop app has its own version, apart from the extension and the command line (their changes are in [CHANGELOG.md](../CHANGELOG.md)). Its installers are attached to the [releases of the desktop app](https://github.com/playree/markdown-design-doc-viewer/releases?q=desktop&expanded=true) (tagged `desktop-vX.Y.Z`).
 
-## Unreleased
+## 0.4.2
 
 - Sequence diagrams marked with `%% @link-headings`: a note can jump to a label of another sequence diagram of the same document with `%% @goto <label>`, so that a long sequence can be split into several diagrams that point to where they continue. A label of the diagram itself comes first, and a jump to a label that more than one other diagram has is reported. The **↩** button and the label go back to the other diagram. See [Splitting a long sequence](../README.md#splitting-a-long-sequence).
 - Long labels of the arrows of the sequence diagrams are broken into lines, so that they no longer widen the diagram and make it smaller. The width is set with **Arrow Label Width** of the settings (30 characters by default, a full-width one counting as 2; 0 does not break them). A label with `<br>` is shown as written.
