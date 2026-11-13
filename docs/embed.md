@@ -78,7 +78,7 @@ viewer.destroy();
 | `tableTreeHighlight` | `true` | Highlights the parent and children of a row of a table shown as a tree. |
 | `frontMatter` | `true` | Shows the front matter (as the header of a design document, or as a table). |
 | `headingNumbers` | `true` | Shows the `autonumber` numbers on the linked headings. |
-| `messageWrapWidth` | `30` | Breaks the labels of the arrows of the sequence diagrams into lines at this many characters (a full-width one counts as 2). `0` does not break them. |
+| `messageWrapWidth` | `40` | Breaks the labels of the arrows of the sequence diagrams into lines at this many characters (a full-width one counts as 2). `0` does not break them. |
 | `onOpenLink` | `openLinkInNewTab` | `(href) => void`: opens a link of the document (other than `#heading`, which the viewer scrolls to). By default, http(s) and mailto links open in a new tab, and the others do nothing. |
 | `onRevealLine` | | `(line) => void`: called with the line (0-based) of the Markdown double-clicked in the viewer, e.g. to show it in an editor. Without it, a double-click does nothing. |
 

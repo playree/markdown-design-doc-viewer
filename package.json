@@ -304,7 +304,7 @@
         },
         "mdDesignDoc.messageWrapWidth": {
           "type": "integer",
-          "default": 30,
+          "default": 40,
           "minimum": 0,
           "description": "%mdDesignDoc.messageWrapWidth.description%"
         },

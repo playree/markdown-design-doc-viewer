@@ -99,7 +99,7 @@ Rules:
 
 - Only headings **after** the diagram (up to the end of the description column) are linked.
 - Labels and headings are compared after trimming and collapsing whitespace; `<br/>` in a label counts as a space.
-- Long arrow labels are broken into lines, so that they do not widen the diagram and make it smaller (in all sequence diagrams). They are broken at `mdDesignDoc.messageWrapWidth` characters, a full-width one counting as 2 (30 by default; 0 does not break them). A label with `<br>` is shown as written.
+- Long arrow labels are broken into lines, so that they do not widen the diagram and make it smaller (in all sequence diagrams). They are broken at `mdDesignDoc.messageWrapWidth` characters, a full-width one counting as 2 (40 by default; 0 does not break them). A label with `<br>` is shown as written.
 - Only diagrams with `%% @link-headings` are shown side by side (even if no arrow is linked). Other diagrams are rendered normally, and an `@ref` in them is reported as a warning.
 - `%% @link-headings` has no effect on a diagram inside a list or blockquote; this is reported as a warning.
 - An `@ref` whose heading cannot be found is reported as a warning at the top of the preview. The × button hides the warnings temporarily; they are shown again when they change.
@@ -414,7 +414,7 @@ See [the package's README](docs/embed.md) for its options.
 | `mdDesignDoc.syncEditor` | `true` | Sync the preview with the editor and enable double-click to jump to the source. |
 | `mdDesignDoc.toc` | `true` | Show the table of contents at the right edge of the preview (preview and exported HTML). |
 | `mdDesignDoc.headingNumbers` | `true` | With `autonumber`, show the arrow's number at the start of its linked heading (preview and exported HTML). |
-| `mdDesignDoc.messageWrapWidth` | `30` | Break the labels of the arrows of the sequence diagrams into lines at this many characters (a full-width one counts as 2), so that long labels do not shrink the diagram (preview and exported HTML). A label with `<br>` is left as written. `0` does not break them. |
+| `mdDesignDoc.messageWrapWidth` | `40` | Break the labels of the arrows of the sequence diagrams into lines at this many characters (a full-width one counts as 2), so that long labels do not shrink the diagram (preview and exported HTML). A label with `<br>` is left as written. `0` does not break them. |
 | `mdDesignDoc.diagramLook` | `neo` | Look of the mermaid diagrams: `neo` (mermaid's default, with shadows on flowchart nodes) or `classic` (flat, without shadows). A diagram with `config: look:` in its front matter keeps its own. |
 | `mdDesignDoc.theme` | `auto` | Color theme of the preview: `auto` (VS Code's), `light` or `dark`. Also switched with the button in the preview's title bar. Exported HTML is always light. |
 | `mdDesignDoc.frontMatter` | `true` | Show the YAML front matter at the top as a table of metadata, or as a header with `type: design_doc`. When off, it is hidden. |

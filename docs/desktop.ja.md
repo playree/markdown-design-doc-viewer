@@ -110,7 +110,7 @@ Markdown ファイル（`.md`、`.markdown`）を次のどれかで開きます�
 | テーマ | システムに合わせる | `theme`（**表示** > **テーマ** と同じ） |
 | 図の見た目 | neo | `diagramLook` |
 | 横並びにする幅 (px) | 1000 | `splitMinWidth` |
-| 矢印のラベルの幅 | 30 | `messageWrapWidth` |
+| 矢印のラベルの幅 | 40 | `messageWrapWidth` |
 | 目次 | オン | `toc` |
 | 見出しの番号 | オン | `headingNumbers` |
 | front matter | オン | `frontMatter` |

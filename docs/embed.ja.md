@@ -78,7 +78,7 @@ viewer.destroy();
 | `tableTreeHighlight` | `true` | 木構造で表示した表の行の親子をハイライトします。 |
 | `frontMatter` | `true` | front matter を（設計書のヘッダ、または表として）表示します。 |
 | `headingNumbers` | `true` | 紐付いた見出しに `autonumber` の番号を表示します。 |
-| `messageWrapWidth` | `30` | シーケンス図の矢印のラベルをこの文字数（全角は 2 文字と数える）で改行します。`0` にすると改行しません。 |
+| `messageWrapWidth` | `40` | シーケンス図の矢印のラベルをこの文字数（全角は 2 文字と数える）で改行します。`0` にすると改行しません。 |
 | `onOpenLink` | `openLinkInNewTab` | `(href) => void`: 設計書のリンク（ビューアがスクロールする `#見出し` 以外）を開きます。既定では http(s) と mailto のリンクを新しいタブで開き、ほかは何もしません。 |
 | `onRevealLine` | | `(line) => void`: ビューアでダブルクリックした Markdown の行（0 始まり）で呼ばれます（エディタでその行を表示するなど）。ないときはダブルクリックしても何もしません。 |
 
