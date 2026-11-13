@@ -87,11 +87,8 @@ export function activeFor(el: Element | null): (Active & { kind: 'message' | 'he
   return undefined;
 }
 
-/**
- * Scrolls `el` into view: in its diagram column when it is sticky, else in the document that `scroll` scrolls. Without
- * `revealPair`, a sticky column is scrolled but not the document, for a caller that scrolls it to the pair itself.
- */
-export function scrollColumnTo(el: Element, smooth: boolean, scroll: ScrollHost, revealPair = true): void {
+/** Scrolls `el` into view: in its diagram column when it is sticky, else in the document that `scroll` scrolls. */
+export function scrollColumnTo(el: Element, smooth: boolean, scroll: ScrollHost): void {
   const col = el.closest('.seqnotes-seq-col');
   const behavior: ScrollBehavior = smooth ? 'smooth' : 'auto';
   if (col && isSideBySide(col)) {
@@ -101,7 +98,7 @@ export function scrollColumnTo(el: Element, smooth: boolean, scroll: ScrollHost,
     // The sticky column itself may be off screen when the pair is only partly visible.
     const pr = col.parentElement!.getBoundingClientRect();
     const viewport = scroll.viewport();
-    if (revealPair && (pr.top > viewport.top || pr.bottom < viewport.top + viewport.height / 2)) {
+    if (pr.top > viewport.top || pr.bottom < viewport.top + viewport.height / 2) {
       scroll.reveal(col.parentElement!, 'start', behavior);
     }
   } else {

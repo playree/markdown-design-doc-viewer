@@ -399,11 +399,12 @@ export function setupNoteJumps(root: HTMLElement, { scroll, pin, signal }: NoteJ
     const target = anchor.getAttribute('data-seqnotes-first-target');
     const pair = anchor.closest('.seqnotes-pair');
     const sideBySide = pair !== null && isSideBySide(pair);
-    // To a label of another diagram, which is in another pair.
-    const away = svg !== svgOf(from);
-    // Side by side, the page is scrolled to the step of another diagram below, which would stop a smooth scroll of the
-    // page to the pair.
-    scrollColumnTo(anchor, true, scroll, !(away && target !== null && sideBySide));
+    if (sideBySide && svg !== svgOf(from)) {
+      // To the pair of another diagram, at once: a smooth scroll of the page there would be stopped by that to the step.
+      // Then as in the pair of the note, whose diagram sticks at the top.
+      scroll.reveal(pair, 'start', 'auto');
+    }
+    scrollColumnTo(anchor, true, scroll);
     const branch = byAttr(svg, 'data-seqnotes-branch', name)[0];
     flash(branch ?? anchor);
     if (branch) {
@@ -411,12 +412,7 @@ export function setupNoteJumps(root: HTMLElement, { scroll, pin, signal }: NoteJ
     }
     if (target !== null && pair) {
       // After the diagram is scrolled: in a page that scrolls, the step is what stays in view.
-      pin({ pair, target, kind: 'message' }, sideBySide && !away);
-      if (sideBySide && away) {
-        // The pair of another diagram may be far: the step goes to the top, with the sticky diagram beside it.
-        const section = pair.querySelector(`[data-seqnotes-section="${CSS.escape(target)}"]`);
-        scroll.reveal(section ?? pair, 'start', 'smooth');
-      }
+      pin({ pair, target, kind: 'message' }, sideBySide);
     }
     showBack(anchor, from);
     if (keyboard) {
