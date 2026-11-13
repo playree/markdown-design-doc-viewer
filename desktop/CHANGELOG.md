@@ -2,7 +2,7 @@
 
 The desktop app has its own version, apart from the extension and the command line (their changes are in [CHANGELOG.md](../CHANGELOG.md)). Its installers are attached to the [releases of the desktop app](https://github.com/playree/markdown-design-doc-viewer/releases?q=desktop&expanded=true) (tagged `desktop-vX.Y.Z`).
 
-## Unreleased
+## 0.4.3
 
 - Long labels of the arrows of the sequence diagrams are now broken into lines at 40 characters by default (it was 30), a full-width one counting as 2. The width is set with **Arrow Label Width** of the settings.
 - The labels of the arrows of the sequence diagrams that are linked to steps, and the text of the notes that jump with `%% @goto`, are no longer underlined with dots, which made them hard to read.
