@@ -5,6 +5,7 @@ The desktop app has its own version, apart from the extension and the command li
 ## Unreleased
 
 - Long labels of the arrows of the sequence diagrams are now broken into lines at 40 characters by default (it was 30), a full-width one counting as 2. The width is set with **Arrow Label Width** of the settings.
+- The labels of the arrows of the sequence diagrams that are linked to steps, and the text of the notes that jump with `%% @goto`, are no longer underlined with dots, which made them hard to read.
 
 ## 0.4.2
 

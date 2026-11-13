@@ -759,8 +759,6 @@ html:has(> body[data-seqnotes-theme="dark"]:is(.vscode-light, .vscode-high-contr
   pointer-events: stroke;
 }
 
-.messageText.seqnotes-linked { text-decoration: underline dotted; }
-
 .messageText.seqnotes-active {
   fill: var(--seqnotes-accent) !important;
   font-weight: bold;
@@ -791,7 +789,6 @@ text.seqnotes-anchor, text.seqnotes-anchor tspan {
   stroke: var(--seqnotes-accent) !important;
   stroke-dasharray: 5 3;
 }
-.seqnotes-goto :is(text, tspan) { text-decoration: underline dotted; }
 .seqnotes-goto.seqnotes-jump-hover > rect,
 .seqnotes-note.seqnotes-anchor.seqnotes-jump-hover > rect { stroke-width: 3px !important; }
 .seqnotes-goto.seqnotes-jump-hover :is(text, tspan) { fill: var(--seqnotes-accent) !important; }
