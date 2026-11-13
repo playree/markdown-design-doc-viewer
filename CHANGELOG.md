@@ -2,7 +2,7 @@
 
 This changelog covers the extension, the command line and the embeddable viewer (npm package `markdown-design-doc-viewer-embed`). The desktop app has its own version and [changelog](desktop/CHANGELOG.md).
 
-## Unreleased
+## 1.5.3
 
 - Long labels of the arrows of the sequence diagrams are now broken into lines at 40 characters by default (it was 30), a full-width one counting as 2. The width is set with `mdDesignDoc.messageWrapWidth` (`--message-wrap-width` of the command line, `messageWrapWidth` of the embeddable viewer).
 - The labels of the arrows of the sequence diagrams that are linked to steps, and the text of the notes that jump with `%% @goto`, are no longer underlined with dots, which made them hard to read.
