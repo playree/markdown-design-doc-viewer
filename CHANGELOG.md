@@ -2,6 +2,10 @@
 
 This changelog covers the extension, the command line and the embeddable viewer (npm package `markdown-design-doc-viewer-embed`). The desktop app has its own version and [changelog](desktop/CHANGELOG.md).
 
+## Unreleased
+
+- Embeddable viewer: `exportHtml` (`markdown-design-doc-viewer-embed/export`) exports a design document to a single HTML file, the same as the extension's **Export Design Doc as HTML** and the command line's, with its diagrams rendered in the page. See [Exporting to an HTML file](docs/embed.md#exporting-to-an-html-file).
+
 ## 1.5.3
 
 - Long labels of the arrows of the sequence diagrams are now broken into lines at 40 characters by default (it was 30), a full-width one counting as 2. The width is set with `mdDesignDoc.messageWrapWidth` (`--message-wrap-width` of the command line, `messageWrapWidth` of the embeddable viewer).

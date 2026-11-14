@@ -16,7 +16,8 @@
     // The npm package of the embeddable viewer, which its demo (embed/demo/) imports as an app does.
     "paths": {
       "markdown-design-doc-viewer-embed": ["./embed/viewer.ts"],
-      "markdown-design-doc-viewer-embed/react": ["./embed/react.tsx"]
+      "markdown-design-doc-viewer-embed/react": ["./embed/react.tsx"],
+      "markdown-design-doc-viewer-embed/export": ["./embed/export.ts"]
     }
   },
   "include": ["src", "webview", "desktop", "embed", "test", "scripts"],

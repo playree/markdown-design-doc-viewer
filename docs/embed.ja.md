@@ -5,7 +5,7 @@
 
 [English](https://github.com/playree/markdown-design-doc-viewer/blob/main/docs/embed.md) | 日本語
 
-[Markdown 設計書ビューア](https://github.com/playree/markdown-design-doc-viewer/blob/main/README.ja.md)のビューアを、Web アプリの部品にしたものです。Markdown で書いた設計書を、VS Code 拡張のプレビューと同じようにページの要素の中に表示します。**mermaid のシーケンス図・フローチャート・ER 図・状態遷移図と処理概要を横並びにして**、矢印（ノード）と見出しを紐付け、画面のワイヤーフレームと項目の表も紐付けます。目次、front matter の設計書のヘッダ、ライト・ダークのテーマもあります。
+[Markdown 設計書ビューア](https://github.com/playree/markdown-design-doc-viewer/blob/main/README.ja.md)のビューアを、Web アプリの部品にしたものです。Markdown で書いた設計書を、VS Code 拡張のプレビューと同じようにページの要素の中に表示します。**mermaid のシーケンス図・フローチャート・ER 図・状態遷移図と処理概要を横並びにして**、矢印（ノード）と見出しを紐付け、画面のワイヤーフレームと項目の表も紐付けます。目次、front matter の設計書のヘッダ、ライト・ダークのテーマもあります。拡張と同じく、設計書を 1 つの HTML ファイルに書き出すこともできます（[HTML ファイルに書き出す](#html-ファイルに書き出す)）。
 
 ![シーケンス図の矢印にマウスを載せると右の処理概要がハイライトされ、クリックするとそこまでスクロールし、見出しにマウスを載せると矢印がハイライトされる](https://raw.githubusercontent.com/playree/markdown-design-doc-viewer/main/images/demo.ja.gif)
 
@@ -82,13 +82,47 @@ viewer.destroy();
 | `onOpenLink` | `openLinkInNewTab` | `(href) => void`: 設計書のリンク（ビューアがスクロールする `#見出し` 以外）を開きます。既定では http(s) と mailto のリンクを新しいタブで開き、ほかは何もしません。 |
 | `onRevealLine` | | `(line) => void`: ビューアでダブルクリックした Markdown の行（0 始まり）で呼ばれます（エディタでその行を表示するなど）。ないときはダブルクリックしても何もしません。 |
 
+## HTML ファイルに書き出す
+
+```ts
+const { exportHtml } = await import('markdown-design-doc-viewer-embed/export');
+
+const html = await exportHtml({
+  markdown,
+  lang: 'ja',
+  title: '設計書', // 設計書にタイトルがないとき
+  resolveImage: async (path) => toDataUri(path), // 画像をファイルに埋め込む
+});
+// 例: ファイルとしてダウンロードさせる
+const link = document.createElement('a');
+link.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+link.download = 'design-doc.html';
+link.click();
+setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+```
+
+`exportHtml(options)` は、設計書を 1 つの HTML ファイルにした文字列を返します。拡張の **Export Design Doc as HTML** や CLI の `md-design-doc export` と同じファイルです。スタイルとスクリプトを含むので、そのファイルだけで目次、図と処理概要の横並び、矢印と見出しのハイライト、印刷したときの縦並びが動きます。ライトテーマで、警告と紐付け漏れの印は入れません。
+
+- 図はビューアと同じく、呼び出したページの中でブラウザが描きます。図はそのスタイルで測るので、ビューアと同じく `viewer.css` を読み込んでください。ページのビューアの配色は変わりません（mermaid の描画は順番に行います）。
+- 描けない図は、ビューアと同じくエラーとともにファイルに入ります。そのときも `exportHtml` は完了します。
+- `export.js` は書き出すファイルのスタイルとスクリプトを含みます（ビューアの `index.js` には入っていません）。使うときに読み込んでください（`import()`）。
+
+| オプション | 既定値 | |
+| --- | --- | --- |
+| `markdown` | （必須） | 設計書の Markdown。 |
+| `title` | | 設計書にタイトル（front matter の `title` も `#` の見出しも）がないときの、ページのタイトル。 |
+| `resolveImage` | `baseUrl` から解決 | `(path) => string \| Promise<string>`: 設計書の画像（URL ではなくパス）を、ファイルの中で何にするか。埋め込むなら data URI、リンクにするなら URL を返します。画像の `src` からクエリとフラグメントを除いたもの（`icons.svg#save` なら `icons.svg`）を受け取り、返した URL にはそれを付け直します。失敗したときは `src` のままにします。 |
+| `baseUrl`, `readFile` | | ビューアと同じです。ワイヤーフレームのファイルと、`resolveImage` がないときの画像に使います。 |
+| `lang` | ブラウザの言語 | `'en'` または `'ja'`: ファイルの文言の言語。 |
+| `diagramLook`, `splitMinWidth`, `toc`, `limitContentWidth`, `stickyTableHeader`, `tableTreeHighlight`, `frontMatter`, `headingNumbers`, `messageWrapWidth` | ビューアと同じ | 書き出すファイルについての、ビューアと同じオプション（[オプション](#オプション)）。 |
+
 ## スタイル
 
 `viewer.css` はビューアのスタイルで、すべてビューアの要素（`.seqnotes-viewer`）の下に効き、ライト・ダークのテーマの色も含みます。**カスケードレイヤーに入れずに**（`@import "…" layer(components)` などにせずに）そのまま読み込んでください。設計書の要素（見出し・リスト・表など）のスタイルは詳細度を持たない（`:where()`）もので、ビューアはレイヤーに入れた CSS リセット（レイヤー `base` に入る Tailwind CSS v4 の preflight など）が消すブラウザの既定のスタイルを戻します。レイヤーの外にあるので、それらに勝ちます。レイヤーの外にある、ページの要素に対するグローバルなスタイル（`h1 { … }` や、Tailwind CSS v3 の preflight・normalize.css などのリセット）はビューアの中にも効きます。
 
 ## サーバーサイドレンダリング
 
-モジュールはサーバー（Next.js など）で import できます。document や window を使うのはビューアを作るときだけです。`DesignDocViewer` はビューアを effect の中、つまりブラウザで作ります。
+モジュールはサーバー（Next.js など）で import できます。document や window を使うのはビューアを作るとき（と設計書を書き出すとき）だけです。`DesignDocViewer` はビューアを effect の中、つまりブラウザで作ります。
 
 ## 制約
 

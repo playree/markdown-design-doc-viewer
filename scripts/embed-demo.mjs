@@ -13,6 +13,7 @@ import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writ
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as esbuild from 'esbuild';
+import { exportAssets } from './build-options.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, '.work', 'embed-demo');
@@ -34,8 +35,8 @@ if (usePackage && !existsSync(join(packageDir, 'package.json'))) {
 }
 /** The modules of the package, in the sources or in the package. */
 const modules = usePackage
-  ? { '': join(packageDir, 'index.js'), '/react': join(packageDir, 'react.js'), '/viewer.css': join(packageDir, 'viewer.css') }
-  : { '': join(ROOT, 'embed', 'viewer.ts'), '/react': join(ROOT, 'embed', 'react.tsx'), '/viewer.css': join(ROOT, 'embed', 'viewer.css') };
+  ? { '': join(packageDir, 'index.js'), '/react': join(packageDir, 'react.js'), '/export': join(packageDir, 'export.js'), '/viewer.css': join(packageDir, 'viewer.css') }
+  : { '': join(ROOT, 'embed', 'viewer.ts'), '/react': join(ROOT, 'embed', 'react.tsx'), '/export': join(ROOT, 'embed', 'export.ts'), '/viewer.css': join(ROOT, 'embed', 'viewer.css') };
 const viewerPackage = {
   name: 'viewer-package',
   setup(build) {
@@ -57,7 +58,8 @@ const context = await esbuild.context({
   sourcemap: true,
   logLevel: 'info',
   define: { 'process.env.NODE_ENV': '"development"' },
-  plugins: [viewerPackage],
+  // exportAssets: the styles and script of the exported page, which the sources of export.js leave to the build.
+  plugins: [viewerPackage, exportAssets],
 });
 console.log(`The demo uses the viewer of ${usePackage ? '.work/npm-embed' : 'embed/'}.`);
 await context.rebuild();

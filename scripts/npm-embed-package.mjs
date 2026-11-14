@@ -1,5 +1,6 @@
 /**
- * Prepares the npm package of the embeddable viewer (embed/: `createViewer`, and `DesignDocViewer` for React) in
+ * Prepares the npm package of the embeddable viewer (embed/: `createViewer`, `DesignDocViewer` for React, and
+ * `exportHtml`) in
  * .work/npm-embed, to be packed or published from there:
  *
  *   pnpm npm:embed-package && npm publish .work/npm-embed
@@ -31,6 +32,7 @@ const KEYWORDS = ['markdown', 'mermaid', 'design document', 'viewer', 'react', '
 const MODULES = [
   { file: 'index.js', source: 'embed/viewer.ts', exportPath: '.' },
   { file: 'react.js', source: 'embed/react.tsx', exportPath: './react' },
+  { file: 'export.js', source: 'embed/export.ts', exportPath: './export' },
 ];
 const STYLES = 'viewer.css';
 
@@ -82,7 +84,8 @@ writeFileSync(
   tsconfig,
   JSON.stringify({
     extends: join(ROOT, 'tsconfig.json'),
-    compilerOptions: { noEmit: false, declaration: true, emitDeclarationOnly: true, rootDir: ROOT, outDir: join(TYPES_TEMP, 'out') },
+    // What export.js uses from index.js (`@internal`) is left out.
+    compilerOptions: { noEmit: false, declaration: true, emitDeclarationOnly: true, stripInternal: true, rootDir: ROOT, outDir: join(TYPES_TEMP, 'out') },
     files: [...MODULES.map((module) => join(ROOT, module.source)), join(ROOT, 'src/markdown/markdown-it-footnote.d.ts')],
     include: [],
   }),

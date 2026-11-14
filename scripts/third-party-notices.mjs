@@ -27,7 +27,7 @@ const ARTIFACTS = [
   { name: 'the extension', outputs: ['dist/extension.js', 'dist/webview.js', 'dist/webview.css', 'dist/export.js', 'dist/export.css'] },
   { name: 'the command line', outputs: ['dist/cli.js', 'dist/webview.js', 'dist/webview.css', 'dist/export.js', 'dist/export.css'] },
   { name: 'the desktop app', outputs: ['desktop/dist/app.js', 'desktop/dist/app.css', 'desktop/dist/export.js', 'desktop/dist/webview.css', 'desktop/dist/export.css'] },
-  { name: 'the embeddable viewer', outputs: ['embed/dist/index.js', 'embed/dist/react.js', 'embed/dist/viewer.css'] },
+  { name: 'the embeddable viewer', outputs: ['embed/dist/index.js', 'embed/dist/react.js', 'embed/dist/export.js', 'embed/dist/viewer.css'] },
 ];
 
 /** Packages with no license text in their npm package: the package to take it from (same project and copyright). */
