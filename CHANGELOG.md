@@ -2,7 +2,7 @@
 
 This changelog covers the extension, the command line and the embeddable viewer (npm package `markdown-design-doc-viewer-embed`). The desktop app has its own version and [changelog](desktop/CHANGELOG.md).
 
-## Unreleased
+## 1.5.4
 
 - Embeddable viewer: `exportHtml` (`markdown-design-doc-viewer-embed/export`) exports a design document to a single HTML file, the same as the extension's **Export Design Doc as HTML** and the command line's, with its diagrams rendered in the page. See [Exporting to an HTML file](docs/embed.md#exporting-to-an-html-file).
 
