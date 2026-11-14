@@ -1,6 +1,7 @@
 /**
  * The demo of the embedded viewer (`pnpm embed:demo`): a React page with two viewers side by side, which shows the
- * examples copied next to it. A viewer's theme and document can be switched, and the other one double-clicked.
+ * examples copied next to it. A viewer's theme and document can be switched, and the other one double-clicked. The
+ * document of a viewer can be exported to an HTML file (`exportHtml`, imported when it is used, as an app would).
  * Tailwind's preflight can be put on the page, to see that the viewer looks the same in an app that uses it.
  *
  * It imports the viewer as an app does, from its npm package: scripts/embed-demo.mjs resolves it to the sources, or to
@@ -65,6 +66,9 @@ function Pane({ initial, revealLine }: { initial: string; revealLine?: boolean }
         <button type="button" onClick={() => viewer.current?.scrollToLine(40)}>
           Line 40
         </button>
+        <button type="button" disabled={!example} onClick={() => example && download(example, lang).catch((error: unknown) => console.error(error))}>
+          Export HTML
+        </button>
         {revealLine && <span className="demo-line">{line === undefined ? 'Double-click the document' : `Line ${line}`}</span>}
       </div>
       {example && (
@@ -81,6 +85,17 @@ function Pane({ initial, revealLine }: { initial: string; revealLine?: boolean }
       )}
     </section>
   );
+}
+
+/** Exports `example` to an HTML file, which the browser downloads. */
+async function download(example: { name: string; text: string }, lang: 'en' | 'ja'): Promise<void> {
+  const { exportHtml } = await import('markdown-design-doc-viewer-embed/export');
+  const html = await exportHtml({ markdown: example.text, lang, baseUrl, title: example.name });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+  link.download = example.name.replace(/\.md$/, '.html');
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
 
 /** Puts Tailwind's preflight (preflight.css, written by scripts/embed-demo.mjs) on the page, or takes it off. */

@@ -5,7 +5,7 @@
 
 English | [日本語](https://github.com/playree/markdown-design-doc-viewer/blob/main/docs/embed.ja.md)
 
-The viewer of [Markdown Design Doc Viewer](https://github.com/playree/markdown-design-doc-viewer) as a component of a web app: it shows a design document written in Markdown in an element of your page, as the VS Code extension's preview does. **Mermaid sequence diagrams, flowcharts, ER diagrams and state diagrams are shown side by side with their step descriptions**, each arrow (or node) linked to its heading, and wireframes of screens linked to their item tables, with the table of contents, the document header of the front matter, and the light and dark themes.
+The viewer of [Markdown Design Doc Viewer](https://github.com/playree/markdown-design-doc-viewer) as a component of a web app: it shows a design document written in Markdown in an element of your page, as the VS Code extension's preview does. **Mermaid sequence diagrams, flowcharts, ER diagrams and state diagrams are shown side by side with their step descriptions**, each arrow (or node) linked to its heading, and wireframes of screens linked to their item tables, with the table of contents, the document header of the front matter, and the light and dark themes. It can also export the document to a single HTML file, as the extension does ([Exporting to an HTML file](#exporting-to-an-html-file)).
 
 ![Hovering an arrow of the sequence diagram highlights its step on the right, clicking it scrolls to the step, and hovering a heading highlights its arrow](https://raw.githubusercontent.com/playree/markdown-design-doc-viewer/main/images/demo.gif)
 
@@ -82,13 +82,47 @@ viewer.destroy();
 | `onOpenLink` | `openLinkInNewTab` | `(href) => void`: opens a link of the document (other than `#heading`, which the viewer scrolls to). By default, http(s) and mailto links open in a new tab, and the others do nothing. |
 | `onRevealLine` | | `(line) => void`: called with the line (0-based) of the Markdown double-clicked in the viewer, e.g. to show it in an editor. Without it, a double-click does nothing. |
 
+## Exporting to an HTML file
+
+```ts
+const { exportHtml } = await import('markdown-design-doc-viewer-embed/export');
+
+const html = await exportHtml({
+  markdown,
+  lang: 'en',
+  title: 'Design doc', // when the document has no title of its own
+  resolveImage: async (path) => toDataUri(path), // embeds the images in the file
+});
+// e.g. downloaded as a file
+const link = document.createElement('a');
+link.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+link.download = 'design-doc.html';
+link.click();
+setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+```
+
+`exportHtml(options)` resolves with a single HTML file of the design document, as a string: the same file as the extension's **Export Design Doc as HTML** and the command line's `md-design-doc export`. Its styles and script are in it, so that it works on its own: the table of contents, the diagrams side by side with their steps, the highlighting of the arrows and steps, and the diagrams above their steps when it is printed. It has the light theme, without the warnings and the marks of missing links.
+
+- The diagrams are rendered in your page, by the browser, as the viewer does: import `viewer.css` (as for the viewer), with which they are measured. The viewers of the page keep their colors: the renders of mermaid wait for one another.
+- A diagram that cannot be rendered is in the file with its error, as in the viewer: `exportHtml` still resolves.
+- `export.js` has the styles and script of the exported file, which the viewer (`index.js`) does not carry: import it when it is needed (`import()`).
+
+| Option | Default | |
+| --- | --- | --- |
+| `markdown` | (required) | The Markdown of the design document. |
+| `title` | | The title of the page when the document has none (neither `title` in its front matter nor a `#` heading). |
+| `resolveImage` | resolved from `baseUrl` | `(path) => string \| Promise<string>`: what an image of the document (a path, not a URL) becomes in the file: a data URI that embeds it, or a URL that links it. It is given the `src` of the image without its query and fragment (`icons.svg` of `icons.svg#save`), which are added back to a URL. When it fails, the `src` is kept. |
+| `baseUrl`, `readFile` | | As for the viewer: the files of the wireframes, and the images without `resolveImage`. |
+| `lang` | that of the browser | `'en'` or `'ja'`: the language of the texts of the file. |
+| `diagramLook`, `splitMinWidth`, `toc`, `limitContentWidth`, `stickyTableHeader`, `tableTreeHighlight`, `frontMatter`, `headingNumbers`, `messageWrapWidth` | as for the viewer | As for the viewer (see [Options](#options)), for the exported file. |
+
 ## Styles
 
 `viewer.css` has the styles of the viewer, all under its element (`.seqnotes-viewer`), with the colors of its light and dark themes. Import it as is, **not in a cascade layer** (such as `@import "…" layer(components)`): the styles of the elements of the document (headings, lists, tables...) have no specificity (`:where()`), and the viewer gives back the defaults of the browser that a CSS reset in a layer takes away (such as the preflight of Tailwind CSS v4, in its layer `base`): they win over it because they are not in a layer. The global styles of your page for elements outside a layer (`h1 { … }`, or a reset such as Tailwind CSS v3's preflight or normalize.css) still apply in the viewer.
 
 ## Server-side rendering
 
-The modules can be imported on a server (Next.js, for instance): they use the document and the window only when a viewer is created. `DesignDocViewer` creates it in an effect, in the browser.
+The modules can be imported on a server (Next.js, for instance): they use the document and the window only when a viewer is created (or a document exported). `DesignDocViewer` creates it in an effect, in the browser.
 
 ## Limitations
 

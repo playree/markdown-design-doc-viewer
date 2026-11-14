@@ -12,9 +12,10 @@
  */
 import ja from '../l10n/bundle.l10n.ja.json';
 import { formatMessage, translatorFor, type Translate } from '../src/shared/l10n';
-import type { DiagramLook, FromWebview, WebviewState } from '../src/shared/protocol';
+import { WEBVIEW_TITLES, type DiagramLook, type FromWebview, type WebviewState } from '../src/shared/protocol';
+import { documentTitle, exportPage, renderForExport } from '../src/export/exportPage';
 import { createMarkdown, renderDocument } from '../src/markdown/render';
-import { loadWireframes, wireframeSources } from '../src/markdown/wireframe';
+import { loadWireframes, wireframeSources, type WireframeFiles } from '../src/markdown/wireframe';
 import { createPreview } from '../webview/preview';
 import { elementScrollHost, writeTitles } from '../webview/viewerContext';
 
@@ -62,7 +63,7 @@ export interface ViewerOptions {
   headingNumbers?: boolean;
   /**
    * Breaks the labels of the arrows of the sequence diagrams into lines at this many characters (a full-width one
-   * counts as 2). 0 does not break them. 30 by default.
+   * counts as 2). 0 does not break them. 40 by default.
    */
   messageWrapWidth?: number;
   /**
@@ -99,6 +100,16 @@ const md = createMarkdown();
 /** The number of viewers created, which starts the ids of their elements. */
 let viewers = 0;
 
+/** The language of the texts of a viewer: `lang`, or that of the browser. */
+function langOf(lang: ViewerOptions['lang']): 'en' | 'ja' {
+  return lang ?? (navigator.language.toLowerCase().startsWith('ja') ? 'ja' : 'en');
+}
+
+/** The translation of the texts into `lang`. */
+function translator(lang: 'en' | 'ja'): Translate {
+  return lang === 'ja' ? translatorFor(ja) : formatMessage;
+}
+
 /** Resolves `path` from `baseUrl`, or undefined when it is not a URL. */
 function resolveUrl(path: string, baseUrl: string): string | undefined {
   try {
@@ -125,6 +136,18 @@ function fetchFrom(baseUrl: string): (path: string) => Promise<string | undefine
   };
 }
 
+/**
+ * Reads the files of the wireframes of `markdown` with `readFile`, or with `fetch` from `baseUrl`; undefined without
+ * either. A file that cannot be read is shown as such, without the document failing.
+ */
+async function readWireframes(markdown: string, { readFile, baseUrl }: Pick<ViewerOptions, 'readFile' | 'baseUrl'>): Promise<WireframeFiles | undefined> {
+  const read = readFile ?? (baseUrl === undefined ? undefined : fetchFrom(baseUrl));
+  if (!read) {
+    return undefined;
+  }
+  return loadWireframes(md, wireframeSources(md.parse(markdown, {})), (path) => Promise.resolve().then(() => read(path)).catch(() => undefined));
+}
+
 /** The options that change the HTML of the document: it is rendered again when one of them changes. */
 const CONTENT_OPTIONS = ['markdown', 'baseUrl', 'readFile', 'resolveResource', 'frontMatter', 'headingNumbers', 'messageWrapWidth'] as const;
 /** The options of the preview, sent with the HTML rendered last when only they change. */
@@ -133,8 +156,8 @@ const VIEW_OPTIONS = ['documentId', 'splitMinWidth', 'toc', 'diagramLook', 'limi
 /** Shows the design document of `options` in `container`, which it fills. */
 export function createViewer(container: HTMLElement, options: ViewerOptions): Viewer {
   let current: ViewerOptions = { ...options };
-  const lang = options.lang ?? (navigator.language.toLowerCase().startsWith('ja') ? 'ja' : 'en');
-  const t: Translate = lang === 'ja' ? translatorFor(ja) : formatMessage;
+  const lang = langOf(options.lang);
+  const t = translator(lang);
 
   const el = document.createElement('div');
   el.className = 'seqnotes-viewer seqnotes-embedded';
@@ -223,11 +246,8 @@ export function createViewer(container: HTMLElement, options: ViewerOptions): Vi
     const seq = ++renders;
     pending = true;
     const { markdown, baseUrl } = current;
-    const read = current.readFile ?? (baseUrl === undefined ? undefined : fetchFrom(baseUrl));
     const resolveResource = current.resolveResource ?? (baseUrl === undefined ? undefined : (src: string) => resolveUrl(src, baseUrl) ?? src);
-    // A file that cannot be read is shown as such, without the document failing.
-    const readFile = read && ((path: string) => Promise.resolve().then(() => read(path)).catch(() => undefined));
-    const wireframes = readFile ? await loadWireframes(md, wireframeSources(md.parse(markdown, {})), readFile) : undefined;
+    const wireframes = await readWireframes(markdown, current);
     if (destroyed || seq !== renders) {
       return;
     }
@@ -279,4 +299,134 @@ export function createViewer(container: HTMLElement, options: ViewerOptions): Vi
       resolveReady();
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// HTML export: exportHtml of export.js (embed/export.ts), which imports index.js to share the state of the viewers
+// (mermaid, configured globally, renders the diagrams of one viewer at a time). The styles and script of the exported
+// page are only in export.js.
+
+/** The options of `exportHtml` (`markdown-design-doc-viewer-embed/export`). */
+export interface ExportOptions
+  extends Pick<
+    ViewerOptions,
+    | 'markdown'
+    | 'baseUrl'
+    | 'readFile'
+    | 'diagramLook'
+    | 'splitMinWidth'
+    | 'toc'
+    | 'limitContentWidth'
+    | 'stickyTableHeader'
+    | 'tableTreeHighlight'
+    | 'frontMatter'
+    | 'headingNumbers'
+    | 'messageWrapWidth'
+  > {
+  /** The language of the texts of the exported file: `en`, or `ja`. That of the browser by default. */
+  lang?: 'en' | 'ja';
+  /** The title of the page when the document has none (neither `title` in its front matter nor a `#` heading). */
+  title?: string;
+  /**
+   * What an image of the document (a path, not a URL) becomes in the exported file: a data URI to embed it, or a URL to
+   * link it. It is given the `src` of the image without its query and fragment (`icons.svg` of `icons.svg#save`), which
+   * are added back to a URL. By default, resolved from `baseUrl` (or left as it is without it). When it fails, the
+   * `src` is kept.
+   */
+  resolveImage?: (path: string) => string | Promise<string>;
+}
+
+/**
+ * The styles and script of an exported page: dist/webview.css and dist/export.css, and dist/export.js.
+ * @internal
+ */
+export interface ExportAssets {
+  styles: string[];
+  script: string;
+}
+
+/** The number of documents exported, which starts the ids of their elements. */
+let exportCount = 0;
+
+/**
+ * Renders the HTML of an exported file (`renderForExport`) with its diagrams, as the preview does for the export
+ * command: in a viewer out of sight, removed once it is done (or failed). A diagram that fails is in the body, with
+ * its error, as in an exported file.
+ */
+async function renderExportBody(html: string, t: Translate, diagramLook: DiagramLook): Promise<string> {
+  const el = document.createElement('div');
+  el.className = 'seqnotes-viewer seqnotes-embedded vscode-light';
+  el.dataset.seqnotesTheme = 'light';
+  el.setAttribute('aria-hidden', 'true');
+  // Rendered (mermaid measures the diagrams in it), but not seen: with the styles of viewer.css, as a viewer.
+  el.style.cssText = 'position: fixed; top: 0; left: 0; width: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none;';
+  writeTitles(el, t);
+  const root = document.createElement('div');
+  root.className = 'seqnotes-viewer-root';
+  el.append(root);
+  document.body.append(el);
+  let state: WebviewState | undefined;
+  let preview: ReturnType<typeof createPreview> | undefined;
+  try {
+    const exported = new Promise<Extract<FromWebview, { type: 'exported' }>>((resolve) => {
+      preview = createPreview({
+        el,
+        root,
+        scroll: elementScrollHost(root),
+        idPrefix: `seqnotes-export-${++exportCount}`,
+        post: (message) => message.type === 'exported' && resolve(message),
+        getState: () => state,
+        setState: (next) => (state = next),
+      });
+    });
+    await preview!.handle({ type: 'export', id: 1, html, diagramLook });
+    const { body, error } = await exported;
+    if (body === undefined) {
+      throw new Error(error ?? 'The diagrams could not be rendered.');
+    }
+    return body;
+  } finally {
+    preview?.destroy();
+    el.remove();
+  }
+}
+
+/**
+ * The exported HTML file of `options.markdown`, with `assets`: what `exportHtml` (embed/export.ts) returns.
+ * @internal
+ */
+export async function exportDocument(options: ExportOptions, assets: ExportAssets): Promise<string> {
+  const lang = langOf(options.lang);
+  const t = translator(lang);
+  const { markdown, baseUrl } = options;
+  const wireframes = await readWireframes(markdown, options);
+  const resolveImage = options.resolveImage ?? ((path: string) => (baseUrl === undefined ? path : (resolveUrl(path, baseUrl) ?? path)));
+  // Without its query and fragment, which renderForExport adds back to a URL.
+  const image = (src: string): Promise<string> => {
+    const [path] = src.split(/[?#]/, 1);
+    return Promise.resolve()
+      .then(() => resolveImage(path))
+      .then(
+        (url) => (typeof url === 'string' ? url : path),
+        () => path,
+      );
+  };
+  const html = await renderForExport(md, markdown, { t, frontMatter: options.frontMatter, headingNumbers: options.headingNumbers, messageWrapWidth: options.messageWrapWidth, wireframes }, image);
+  const body = await renderExportBody(html, t, options.diagramLook ?? 'neo');
+  return exportPage({
+    lang,
+    title: documentTitle(md, markdown, options.title ?? ''),
+    body,
+    styles: assets.styles,
+    script: assets.script,
+    settings: {
+      limitContentWidth: options.limitContentWidth ?? true,
+      stickyTableHeader: options.stickyTableHeader ?? true,
+      tableTreeHighlight: options.tableTreeHighlight ?? true,
+      splitMinWidth: options.splitMinWidth ?? 1000,
+      toc: options.toc ?? true,
+    },
+    tocTitle: t(WEBVIEW_TITLES['toc-title']),
+    splitterTitle: t(WEBVIEW_TITLES['splitter-title']),
+  });
 }

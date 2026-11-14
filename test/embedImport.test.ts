@@ -18,4 +18,9 @@ describe('embedded viewer on a server', () => {
     const react = await import('../embed/react');
     expect(react.DesignDocViewer).toBeDefined();
   });
+
+  it('imports exportHtml without touching the DOM', async () => {
+    const exported = await import('../embed/export');
+    expect(typeof exported.exportHtml).toBe('function');
+  });
 });
