@@ -81,6 +81,28 @@ viewer.destroy();
 | `messageWrapWidth` | `40` | Breaks the labels of the arrows of the sequence diagrams into lines at this many characters (a full-width one counts as 2). `0` does not break them. |
 | `onOpenLink` | `openLinkInNewTab` | `(href) => void`: opens a link of the document (other than `#heading`, which the viewer scrolls to). By default, http(s) and mailto links open in a new tab, and the others do nothing. |
 | `onRevealLine` | | `(line) => void`: called with the line (0-based) of the Markdown double-clicked in the viewer, e.g. to show it in an editor. Without it, a double-click does nothing. |
+| `compareWith` | | The Markdown of another version of the document (an older one, for instance): the viewer shows `markdown` with its differences from it ([Showing the differences from a version](#showing-the-differences-from-a-version)). Without it, the document alone. |
+| `compareLabel` | | What the document is compared with (e.g. `Compared with version 3 (2026-11-01)`), shown on the bar of the differences. |
+| `onCloseDiff` | | `() => void`: called when the bar of the differences is closed (its × button), e.g. to remove `compareWith`. Without it, the viewer shows the document alone until `compareWith` changes. |
+
+## Showing the differences from a version
+
+```tsx
+<DesignDocViewer
+  markdown={latest}
+  compareWith={compared?.markdown}
+  compareLabel={compared ? `Compared with version ${compared.version}` : undefined}
+  onCloseDiff={() => setCompared(undefined)}
+  style={{ height: 600 }}
+/>
+```
+
+With `compareWith`, the Markdown of another version of the document, the viewer shows `markdown` with its differences from that version, the same as the comparison with a Git revision of the extension: the blocks added, changed and deleted are marked, with the words changed in a changed block, the diagram before the change under a changed diagram (folded), and a bar at the bottom with what it is compared with (`compareLabel`), the number of blocks changed, and buttons to go from one change to the next. To see the changes of a newer version from an older one, give the newer one as `markdown` and the older one as `compareWith`.
+
+- Without `compareWith` (or with `undefined`), the document is shown alone again.
+- The × button of the bar calls `onCloseDiff`, with which the app removes `compareWith`. Without `onCloseDiff`, the viewer shows the document alone by itself, until `compareWith` changes.
+- The files of the wireframes are those of the document: they are not compared.
+- `exportHtml` takes `compareWith` and `compareLabel` too: the exported file shows the differences, with a bar that hides and shows them.
 
 ## Listing design documents
 
@@ -144,6 +166,7 @@ setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 | `resolveImage` | resolved from `baseUrl` | `(path) => string \| Promise<string>`: what an image of the document (a path, not a URL) becomes in the file: a data URI that embeds it, or a URL that links it. It is given the `src` of the image without its query and fragment (`icons.svg` of `icons.svg#save`), which are added back to a URL. When it fails, the `src` is kept. |
 | `baseUrl`, `readFile` | | As for the viewer: the files of the wireframes, and the images without `resolveImage`. |
 | `lang` | that of the browser | `'en'` or `'ja'`: the language of the texts of the file. |
+| `compareWith`, `compareLabel` | | As for the viewer: the exported file shows the differences from `compareWith`, with a bar that hides and shows them. |
 | `diagramLook`, `splitMinWidth`, `toc`, `limitContentWidth`, `stickyTableHeader`, `tableTreeHighlight`, `frontMatter`, `headingNumbers`, `messageWrapWidth` | as for the viewer | As for the viewer (see [Options](#options)), for the exported file. |
 
 ## Styles
@@ -160,7 +183,6 @@ The modules can be imported on a server (Next.js, for instance): they use the do
 - The `@font-face` rules of wireframes are added to the page (`document.adoptedStyleSheets`), since fonts are not loaded in a shadow root otherwise.
 - The zoomed diagrams and the popups of the footnotes are over the whole page (`position: fixed`).
 - Images are resolved synchronously (`resolveResource`): read them from URLs.
-- The differences from a revision (the extension's Git comparison) are not shown.
 
 ## Writing linked documents
 

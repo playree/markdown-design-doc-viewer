@@ -36,6 +36,11 @@ export interface Preview {
    * Its pending renders and exports are dropped. The document rendered in the root is left there.
    */
   destroy(): void;
+  /**
+   * Changes the label of the bar of the differences shown (or being rendered), without rendering the document again
+   * (the embedded viewer's `compareLabel`).
+   */
+  relabelDiff(label: string): void;
 }
 
 /**
@@ -478,7 +483,8 @@ export function createPreview(ctx: ViewerContext): Preview {
       }
     });
     setUpWarnings();
-    diffBar.show(diff);
+    // With the label it was given meanwhile (relabelDiff), if any.
+    diffBar.show(lastDiff);
     layoutWireframes(root);
     addZoomButtons();
     markZoomableImages();
@@ -1298,5 +1304,12 @@ export function createPreview(ctx: ViewerContext): Preview {
     el.style.removeProperty('--seqnotes-split');
   }
 
-  return { handle, destroy };
+  function relabelDiff(label: string): void {
+    if (lastDiff) {
+      lastDiff = { ...lastDiff, label };
+      diffBar.setLabel(label);
+    }
+  }
+
+  return { handle, destroy, relabelDiff };
 }

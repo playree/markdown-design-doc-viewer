@@ -41,6 +41,7 @@ export const DesignDocViewer = forwardRef<DesignDocViewerHandle, DesignDocViewer
   });
 
   const revealing = options.onRevealLine !== undefined;
+  const closing = options.onCloseDiff !== undefined;
   const viewerOptions = (): AllOptions<ViewerOptions> => {
     const o = latest.current;
     return {
@@ -60,9 +61,13 @@ export const DesignDocViewer = forwardRef<DesignDocViewerHandle, DesignDocViewer
       frontMatter: o.frontMatter,
       headingNumbers: o.headingNumbers,
       messageWrapWidth: o.messageWrapWidth,
+      compareWith: o.compareWith,
+      compareLabel: o.compareLabel,
       onOpenLink: (href) => (latest.current.onOpenLink ?? openLinkInNewTab)(href),
       // Only with one: without, a double-click does nothing.
       onRevealLine: o.onRevealLine !== undefined ? (line) => latest.current.onRevealLine?.(line) : undefined,
+      // Only with one: without, the viewer closes the differences by itself.
+      onCloseDiff: o.onCloseDiff !== undefined ? () => latest.current.onCloseDiff?.() : undefined,
     };
   };
 
@@ -77,7 +82,7 @@ export const DesignDocViewer = forwardRef<DesignDocViewerHandle, DesignDocViewer
     };
   }, [options.lang]);
 
-  const { markdown, documentId, baseUrl, readFile, resolveResource, theme, diagramLook, splitMinWidth, toc, limitContentWidth, stickyTableHeader, tableTreeHighlight, frontMatter, headingNumbers, messageWrapWidth } = options;
+  const { markdown, documentId, baseUrl, readFile, resolveResource, theme, diagramLook, splitMinWidth, toc, limitContentWidth, stickyTableHeader, tableTreeHighlight, frontMatter, headingNumbers, messageWrapWidth, compareWith, compareLabel } = options;
   useEffect(() => {
     // Run after the effect above in the same commit: not again with the options it was just created with.
     if (created.current) {
@@ -86,7 +91,7 @@ export const DesignDocViewer = forwardRef<DesignDocViewerHandle, DesignDocViewer
     }
     void viewer.current?.update(viewerOptions());
     // With `lang`: also run after the viewer is created again for another language, so that the flag is reset there.
-  }, [options.lang, markdown, documentId, baseUrl, readFile, resolveResource, theme, diagramLook, splitMinWidth, toc, limitContentWidth, stickyTableHeader, tableTreeHighlight, frontMatter, headingNumbers, messageWrapWidth, revealing]);
+  }, [options.lang, markdown, documentId, baseUrl, readFile, resolveResource, theme, diagramLook, splitMinWidth, toc, limitContentWidth, stickyTableHeader, tableTreeHighlight, frontMatter, headingNumbers, messageWrapWidth, compareWith, compareLabel, revealing, closing]);
 
   useImperativeHandle(ref, () => ({
     scrollToLine: (line) => viewer.current?.scrollToLine(line),

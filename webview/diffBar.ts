@@ -26,6 +26,8 @@ export type DiffSummary = Pick<DiffView, 'label' | 'stats'>;
 export interface DiffBar {
   /** Shows the bar for the differences rendered in the root, or hides it without. */
   show(diff: DiffSummary | undefined): void;
+  /** Changes the label of what the document is compared with, keeping the rest as it is. */
+  setLabel(text: string): void;
   /** Removes it. */
   dispose(): void;
 }
@@ -130,7 +132,13 @@ export function setupDiffBar(root: HTMLElement, action: DiffBarAction, { contain
     focusTimer = setTimeout(() => target.classList.remove('seqnotes-diff-focus'), FOCUS_MS);
   }
 
+  function setLabel(text: string): void {
+    label.textContent = text;
+    label.title = text;
+  }
+
   return {
+    setLabel,
     show(diff) {
       bar.hidden = !diff;
       current = undefined;
@@ -138,8 +146,7 @@ export function setupDiffBar(root: HTMLElement, action: DiffBarAction, { contain
       if (!diff) {
         return;
       }
-      label.textContent = diff.label;
-      label.title = diff.label;
+      setLabel(diff.label);
       const { added, changed, deleted } = diff.stats;
       const items: [string, number, string | undefined][] = [
         ['added', added, titles.seqnotesDiffAdded],

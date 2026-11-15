@@ -81,6 +81,28 @@ viewer.destroy();
 | `messageWrapWidth` | `40` | シーケンス図の矢印のラベルをこの文字数（全角は 2 文字と数える）で改行します。`0` にすると改行しません。 |
 | `onOpenLink` | `openLinkInNewTab` | `(href) => void`: 設計書のリンク（ビューアがスクロールする `#見出し` 以外）を開きます。既定では http(s) と mailto のリンクを新しいタブで開き、ほかは何もしません。 |
 | `onRevealLine` | | `(line) => void`: ビューアでダブルクリックした Markdown の行（0 始まり）で呼ばれます（エディタでその行を表示するなど）。ないときはダブルクリックしても何もしません。 |
+| `compareWith` | | 設計書の別の版（古い版など）の Markdown。指定すると、`markdown` をその版からの差分付きで表示します（[版との差分を表示する](#版との差分を表示する)）。ないときは設計書だけを表示します。 |
+| `compareLabel` | | 比べる版の説明（`バージョン 3（2026-11-01）と比較` など）。差分バーに表示します。 |
+| `onCloseDiff` | | `() => void`: 差分バーを閉じたとき（× ボタン）に呼ばれます（`compareWith` を外すなど）。ないときは、`compareWith` が変わるまでビューアが設計書だけを表示します。 |
+
+## 版との差分を表示する
+
+```tsx
+<DesignDocViewer
+  markdown={latest}
+  compareWith={compared?.markdown}
+  compareLabel={compared ? `バージョン ${compared.version} と比較` : undefined}
+  onCloseDiff={() => setCompared(undefined)}
+  style={{ height: 600 }}
+/>
+```
+
+`compareWith` に設計書の別の版の Markdown を渡すと、拡張の Git の版との比較と同じく、`markdown` をその版からの差分付きで表示します。追加・変更・削除したブロックに印を付け、変更したブロックでは変わった語を示し、変更した図の下には変更前の図を（折りたたんで）表示します。下部の差分バーには、比べている版（`compareLabel`）、変更したブロックの数と、変更の間を移動するボタンを表示します。古い版から新しい版への変更を見るときは、新しい版を `markdown` に、古い版を `compareWith` に渡します。
+
+- `compareWith` を外す（`undefined` にする）と、設計書だけの表示に戻ります。
+- 差分バーの × ボタンは `onCloseDiff` を呼びます。利用側はそこで `compareWith` を外します。`onCloseDiff` がないときは、`compareWith` が変わるまでビューアが自分で設計書だけを表示します。
+- ワイヤーフレームのファイルは設計書のものを使い、比べません。
+- `exportHtml` も `compareWith` と `compareLabel` を受け取ります。書き出したファイルは差分を表示し、差分バーで差分を隠したり表示したりできます。
 
 ## 設計書一覧
 
@@ -144,6 +166,7 @@ setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 | `resolveImage` | `baseUrl` から解決 | `(path) => string \| Promise<string>`: 設計書の画像（URL ではなくパス）を、ファイルの中で何にするか。埋め込むなら data URI、リンクにするなら URL を返します。画像の `src` からクエリとフラグメントを除いたもの（`icons.svg#save` なら `icons.svg`）を受け取り、返した URL にはそれを付け直します。失敗したときは `src` のままにします。 |
 | `baseUrl`, `readFile` | | ビューアと同じです。ワイヤーフレームのファイルと、`resolveImage` がないときの画像に使います。 |
 | `lang` | ブラウザの言語 | `'en'` または `'ja'`: ファイルの文言の言語。 |
+| `compareWith`, `compareLabel` | | ビューアと同じです。書き出したファイルは `compareWith` からの差分を表示し、差分バーで隠したり表示したりできます。 |
 | `diagramLook`, `splitMinWidth`, `toc`, `limitContentWidth`, `stickyTableHeader`, `tableTreeHighlight`, `frontMatter`, `headingNumbers`, `messageWrapWidth` | ビューアと同じ | 書き出すファイルについての、ビューアと同じオプション（[オプション](#オプション)）。 |
 
 ## スタイル
@@ -160,7 +183,6 @@ setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 - ワイヤーフレームの `@font-face` は、Shadow DOM の中ではフォントを読み込まないので、ページに追加します（`document.adoptedStyleSheets`）。
 - 拡大した図と脚注のポップアップは、ページ全体の上に表示します（`position: fixed`）。
 - 画像は同期で解決します（`resolveResource`）。URL から読むようにしてください。
-- リビジョンとの差分（拡張の Git の比較）は表示できません。
 
 ## 書き方
 
