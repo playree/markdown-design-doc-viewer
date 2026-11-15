@@ -110,7 +110,7 @@ import { DesignDocList } from 'markdown-design-doc-viewer-embed/react';
 | `empty` | | The text without documents. By default, the one of the extension. |
 | `keepOrder` | `false` | Lists the folders and the documents in the order of `documents` (a folder where its first document is), instead of by name. |
 | `lang`, `theme`, `limitContentWidth` | as the viewer | The same as the options of the viewer ([Options](#options)). |
-| `onOpenLink` | `openLinkInPage` | `(href) => void`: opens the link of a title. By default, goes to it in the page (except `javascript:` links). A link that starts with `#` scrolls the list to that fragment instead. |
+| `onOpenLink` | `openLinkInPage` | `(href) => void`: opens the link of a title. By default, goes to it in the page (except `javascript:`, `data:` and `vbscript:` links). A link that starts with `#` scrolls the list to that fragment instead. |
 
 ## Exporting to an HTML file
 

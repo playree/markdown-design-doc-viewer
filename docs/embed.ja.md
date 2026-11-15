@@ -110,7 +110,7 @@ import { DesignDocList } from 'markdown-design-doc-viewer-embed/react';
 | `empty` | | 文書がないときの文言。既定は拡張と同じです。 |
 | `keepOrder` | `false` | フォルダと文書を、名前順ではなく `documents` の順（フォルダは最初の文書の位置）に並べます。 |
 | `lang`, `theme`, `limitContentWidth` | ビューアと同じ | ビューアと同じオプション（[オプション](#オプション)）。 |
-| `onOpenLink` | `openLinkInPage` | `(href) => void`: タイトルのリンクを開きます。既定ではページをそのリンクへ移します（`javascript:` のリンクを除く）。`#` で始まるリンクは、代わりに一覧の中のその位置へスクロールします。 |
+| `onOpenLink` | `openLinkInPage` | `(href) => void`: タイトルのリンクを開きます。既定ではページをそのリンクへ移します（`javascript:`・`data:`・`vbscript:` のリンクを除く）。`#` で始まるリンクは、代わりに一覧の中のその位置へスクロールします。 |
 
 ## HTML ファイルに書き出す
 

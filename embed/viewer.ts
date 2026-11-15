@@ -359,9 +359,12 @@ const LIST_URI = 'seqnotes-design-doc-list';
 /** The options that change the HTML of a list: it is made again when one of them changes. */
 const LIST_CONTENT_OPTIONS = ['documents', 'title', 'fileLabel', 'filterPlaceholder', 'empty', 'keepOrder'] as const;
 
+/** The schemes of the links that run a script, which a list does not go to. */
+const SCRIPT_SCHEMES = new Set(['javascript:', 'data:', 'vbscript:']);
+
 /**
  * What `onOpenLink` of a list does by default: goes to the link in the page, as the links of a list are those of the
- * app (except `javascript:` ones).
+ * app (except `javascript:`, `data:` and `vbscript:` ones).
  */
 export function openLinkInPage(href: string): void {
   // From the URL as the browser parses it, which removes tabs and newlines (`java\tscript:`).
@@ -371,7 +374,7 @@ export function openLinkInPage(href: string): void {
   } catch {
     return;
   }
-  if (url.protocol !== 'javascript:') {
+  if (!SCRIPT_SCHEMES.has(url.protocol)) {
     window.location.assign(url.href);
   }
 }

@@ -78,11 +78,14 @@ describe('openLinkInPage', () => {
     expect(open('https://example.org/')).toEqual(['https://example.org/']);
   });
 
-  it('does not go to a javascript: link, however it is written', () => {
+  it('does not go to a link that runs a script, however it is written', () => {
     expect(open('javascript:alert(1)')).toEqual([]);
     expect(open(' JavaScript:alert(1)')).toEqual([]);
     expect(open('java\tscript:alert(1)')).toEqual([]);
     expect(open('java\nscript:alert(1)')).toEqual([]);
+    expect(open('data:text/html,<script>alert(1)</script>')).toEqual([]);
+    expect(open(' DATA:text/html,x')).toEqual([]);
+    expect(open('vbscript:msgbox(1)')).toEqual([]);
   });
 
   it('does not go to a link that is not a URL', () => {
