@@ -381,13 +381,13 @@ export function createViewer(container: HTMLElement, options: ViewerOptions): Vi
       if (pending) {
         return rendering;
       }
-      // Only the label of the bar, if the differences are shown.
-      const relabeled = diff !== undefined && current.compareLabel !== previous.compareLabel;
-      if (relabeled) {
-        diff = diffView(diff!, current.compareLabel);
+      // Only the label of the bar, if the differences are shown: the document is not rendered again.
+      if (diff !== undefined && current.compareLabel !== previous.compareLabel) {
+        diff = diffView(diff, current.compareLabel);
+        preview.relabelDiff(diff.label);
       }
       const revealing = (options: ViewerOptions): boolean => options.onRevealLine !== undefined;
-      if (relabeled || VIEW_OPTIONS.some((name) => current[name] !== previous[name]) || revealing(current) !== revealing(previous)) {
+      if (VIEW_OPTIONS.some((name) => current[name] !== previous[name]) || revealing(current) !== revealing(previous)) {
         return show(html, diff);
       }
       return Promise.resolve();
