@@ -36,3 +36,15 @@
   position: absolute;
   max-width: calc(100% - 32px);
 }
+
+/* A list of design documents (createDesignDocList): as high as the list, which the page scrolls. The list scrolls
+   sideways when its tables are wider than the element (a narrow screen), instead of widening the page. */
+.seqnotes-viewer.seqnotes-embedded.seqnotes-embedded-list {
+  height: auto;
+}
+.seqnotes-embedded-list > .seqnotes-viewer-scroller {
+  height: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0;
+}

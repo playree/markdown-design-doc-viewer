@@ -82,6 +82,36 @@ viewer.destroy();
 | `onOpenLink` | `openLinkInNewTab` | `(href) => void`: 設計書のリンク（ビューアがスクロールする `#見出し` 以外）を開きます。既定では http(s) と mailto のリンクを新しいタブで開き、ほかは何もしません。 |
 | `onRevealLine` | | `(line) => void`: ビューアでダブルクリックした Markdown の行（0 始まり）で呼ばれます（エディタでその行を表示するなど）。ないときはダブルクリックしても何もしません。 |
 
+## 設計書一覧
+
+```tsx
+import { DesignDocList } from 'markdown-design-doc-viewer-embed/react';
+
+<DesignDocList
+  documents={[
+    { markdown: loginMarkdown, href: '/docs/login', file: 'login.md' },
+    { markdown: frontMatterOnly, href: '/docs/screens/top', folder: 'screens', file: 'top.md' },
+  ]}
+  onOpenLink={(href) => router.push(href)}
+/>
+```
+
+`DesignDocList`（React を使わないときは `createDesignDocList(container, options)`）は、拡張・デスクトップアプリの設計書一覧と同じ一覧を表示します。フォルダごとの表に、文書のタイトルとファイル名、front matter の版数・プロダクト・ステータス・更新日（どれかの文書が持つ列）を並べ、絞り込みの入力欄と並べ替えられる列見出しが付きます。ビューアと違って高さは要らず、一覧の高さで表示します。`createDesignDocList` は `ready`、`update(options)`（絞り込みと並び順は保ちます）、`destroy()` を返します。
+
+- 文書の `markdown` は Markdown 全体か、front matter だけでもかまいません。タイトルとメタ情報はビューアと同じように読み取ります。
+- `documents` が変わると表示し直すので、変わらない間は描画のたびに同じ配列を渡してください（`useMemo`）。
+
+| オプション | 既定値 | |
+| --- | --- | --- |
+| `documents` | （必須） | `{ markdown, href, folder?, file?, title? }[]`: 文書。`href` はタイトルのリンク。`folder`（フォルダの間は `/`、最上位は `''`）ごとに表と見出しを分けます。`file` はタイトルの横に出します。`title` は Markdown のタイトル（front matter の `title`、最初の `#` の見出し、`file`、または `href`）の代わりに使います。 |
+| `title` | `設計書一覧`（`Design Docs`） | 一覧の見出し。 |
+| `fileLabel` | `ファイル`（`File`） | `file` の列の見出し（ページの番号など）。 |
+| `filterPlaceholder` | | 絞り込みの入力欄のプレースホルダ。既定ではタイトル・ファイル名・メタ情報を挙げます。 |
+| `empty` | | 文書がないときの文言。既定は拡張と同じです。 |
+| `keepOrder` | `false` | フォルダと文書を、名前順ではなく `documents` の順（フォルダは最初の文書の位置）に並べます。 |
+| `lang`, `theme`, `limitContentWidth` | ビューアと同じ | ビューアと同じオプション（[オプション](#オプション)）。 |
+| `onOpenLink` | `openLinkInPage` | `(href) => void`: タイトルのリンクを開きます。既定ではページをそのリンクへ移します（`javascript:` のリンクを除く）。`#` で始まるリンクは、代わりに一覧の中のその位置へスクロールします。 |
+
 ## HTML ファイルに書き出す
 
 ```ts

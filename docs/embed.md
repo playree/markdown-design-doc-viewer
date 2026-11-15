@@ -82,6 +82,36 @@ viewer.destroy();
 | `onOpenLink` | `openLinkInNewTab` | `(href) => void`: opens a link of the document (other than `#heading`, which the viewer scrolls to). By default, http(s) and mailto links open in a new tab, and the others do nothing. |
 | `onRevealLine` | | `(line) => void`: called with the line (0-based) of the Markdown double-clicked in the viewer, e.g. to show it in an editor. Without it, a double-click does nothing. |
 
+## Listing design documents
+
+```tsx
+import { DesignDocList } from 'markdown-design-doc-viewer-embed/react';
+
+<DesignDocList
+  documents={[
+    { markdown: loginMarkdown, href: '/docs/login', file: 'login.md' },
+    { markdown: frontMatterOnly, href: '/docs/screens/top', folder: 'screens', file: 'top.md' },
+  ]}
+  onOpenLink={(href) => router.push(href)}
+/>
+```
+
+`DesignDocList` (`createDesignDocList(container, options)` without React) shows a list of design documents, the same as the list of the design docs of the extension and the desktop app: a table for each folder, with the title and file name of each document and the version, product, status and updated date of its front matter (the columns that a document has), a search box and sortable columns. Unlike the viewer, it does not need a height: it is as high as the list. `createDesignDocList` returns `ready`, `update(options)` (which keeps the search and the order) and `destroy()`.
+
+- `markdown` of a document is its Markdown, or only its front matter: its title and entries are read from it as the viewer does.
+- `documents` shows the list again when it changes: keep it the same across renders while it does not change (`useMemo`).
+
+| Option | Default | |
+| --- | --- | --- |
+| `documents` | (required) | `{ markdown, href, folder?, file?, title? }[]`: the documents. `href` is the link of the title. `folder` (with `/` between folders, `''` at the top) gives a table and a heading to each folder. `file` is shown next to the title. `title` replaces that of the Markdown (the `title` of its front matter, its first `#` heading, `file`, or `href`). |
+| `title` | `Design Docs` | The heading of the list. |
+| `fileLabel` | `File` | The header of the column of `file` (e.g. the number of a page). |
+| `filterPlaceholder` | | The placeholder of the search box. By default, it names the title, the file name and the metadata. |
+| `empty` | | The text without documents. By default, the one of the extension. |
+| `keepOrder` | `false` | Lists the folders and the documents in the order of `documents` (a folder where its first document is), instead of by name. |
+| `lang`, `theme`, `limitContentWidth` | as the viewer | The same as the options of the viewer ([Options](#options)). |
+| `onOpenLink` | `openLinkInPage` | `(href) => void`: opens the link of a title. By default, goes to it in the page (except `javascript:` links). A link that starts with `#` scrolls the list to that fragment instead. |
+
 ## Exporting to an HTML file
 
 ```ts

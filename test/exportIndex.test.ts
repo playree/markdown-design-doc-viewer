@@ -123,8 +123,21 @@ describe('indexBody', () => {
     expect(indexBody('Docs', [entry('', 'a.md')], formatMessage)).not.toContain('Changes');
   });
 
+  it('takes the header of the file names and the placeholder of the search box', () => {
+    const html = indexBody('Docs', [entry('', 'a.md')], formatMessage, { fileLabel: 'No.', filterPlaceholder: 'Filter <docs>' });
+    expect(html).toContain('<th data-seqnotes-column="file">No.</th>');
+    expect(html).toContain('data-seqnotes-filter-placeholder="Filter &lt;docs&gt;"');
+  });
+
+  it('keeps the order of the entries when asked to', () => {
+    const html = indexBody('Docs', [entry('', 'z.md'), entry('b', 'y.md'), entry('', 'a.md'), entry('a', 'x.md')], formatMessage, { keepOrder: true });
+    const order = ['href="z.html"', 'href="a.html"', '<h2>b/</h2>', '<h2>a/</h2>'].map((s) => html.indexOf(s));
+    expect(order.every((at) => at >= 0)).toBe(true);
+    expect(order).toEqual([...order].sort((x, y) => x - y));
+  });
+
   it('shows a text in place of the tables without documents', () => {
-    const html = indexBody('Docs', [], formatMessage, 'No <docs>.');
+    const html = indexBody('Docs', [], formatMessage, { empty: 'No <docs>.' });
     expect(html).toContain('<p class="seqnotes-index-empty">No &lt;docs&gt;.</p>');
     expect(html).not.toContain('<table>');
   });

@@ -9,6 +9,8 @@
  *   viewer.destroy();
  *
  * The element needs a height: the viewer fills it and scrolls inside it.
+ *
+ * `createDesignDocList` shows a list of design documents in the same way, as high as the list.
  */
 import ja from '../l10n/bundle.l10n.ja.json';
 import { formatMessage, translatorFor, type Translate } from '../src/shared/l10n';
@@ -18,8 +20,10 @@ import { createMarkdown, renderDocument } from '../src/markdown/render';
 import { loadWireframes, wireframeSources, type WireframeFiles } from '../src/markdown/wireframe';
 import { createPreview } from '../webview/preview';
 import { elementScrollHost, writeTitles } from '../webview/viewerContext';
+import { designDocListHtml, type DesignDocListContent } from './designDocList';
 
 export type { DiagramLook };
+export type { DesignDocListContent, DesignDocListDocument } from './designDocList';
 
 export interface ViewerOptions {
   /** The Markdown of the design document. */
@@ -153,14 +157,25 @@ const CONTENT_OPTIONS = ['markdown', 'baseUrl', 'readFile', 'resolveResource', '
 /** The options of the preview, sent with the HTML rendered last when only they change. */
 const VIEW_OPTIONS = ['documentId', 'splitMinWidth', 'toc', 'diagramLook', 'limitContentWidth', 'stickyTableHeader', 'tableTreeHighlight'] as const;
 
-/** Shows the design document of `options` in `container`, which it fills. */
-export function createViewer(container: HTMLElement, options: ViewerOptions): Viewer {
-  let current: ViewerOptions = { ...options };
-  const lang = langOf(options.lang);
-  const t = translator(lang);
+/** What the element of a viewer (`mountViewer`) reads from its options each time. */
+type MountOptions = Pick<ViewerOptions, 'theme' | 'onOpenLink' | 'onRevealLine'>;
 
+/** The element of a viewer in `container`, with its preview and colors. */
+interface MountedViewer {
+  preview: ReturnType<typeof createPreview>;
+  /** Sets the colors of the theme of now (`options().theme`). */
+  applyTheme(): void;
+  /** Removes the element. */
+  destroy(): void;
+}
+
+/**
+ * Creates the element of a viewer in `container` (`.seqnotes-viewer.seqnotes-embedded`, with `className`) and its
+ * preview, whose links and double-clicks go to the callbacks of `options()`.
+ */
+function mountViewer(container: HTMLElement, lang: 'en' | 'ja', t: Translate, options: () => MountOptions, className = ''): MountedViewer {
   const el = document.createElement('div');
-  el.className = 'seqnotes-viewer seqnotes-embedded';
+  el.className = `seqnotes-viewer seqnotes-embedded ${className}`.trim();
   el.lang = lang;
   el.dataset.seqnotesTheme = 'auto';
   writeTitles(el, t);
@@ -182,9 +197,9 @@ export function createViewer(container: HTMLElement, options: ViewerOptions): Vi
   let state: WebviewState | undefined;
   const post = (message: FromWebview): void => {
     if (message.type === 'openLink') {
-      (current.onOpenLink ?? openLinkInNewTab)(message.href);
+      (options().onOpenLink ?? openLinkInNewTab)(message.href);
     } else if (message.type === 'revealLine') {
-      current.onRevealLine?.(message.line);
+      options().onRevealLine?.(message.line);
     }
   };
   const preview = createPreview({
@@ -201,12 +216,32 @@ export function createViewer(container: HTMLElement, options: ViewerOptions): Vi
   // diagrams, which the preview renders again when it changes.
   const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
   const applyTheme = (): void => {
-    const dark = current.theme === 'dark' || (current.theme !== 'light' && systemDark.matches);
+    const { theme } = options();
+    const dark = theme === 'dark' || (theme !== 'light' && systemDark.matches);
     el.classList.toggle('vscode-dark', dark);
     el.classList.toggle('vscode-light', !dark);
   };
   systemDark.addEventListener('change', applyTheme);
   applyTheme();
+
+  return {
+    preview,
+    applyTheme,
+    destroy() {
+      preview.destroy();
+      systemDark.removeEventListener('change', applyTheme);
+      stopSizing();
+      el.remove();
+    },
+  };
+}
+
+/** Shows the design document of `options` in `container`, which it fills. */
+export function createViewer(container: HTMLElement, options: ViewerOptions): Viewer {
+  let current: ViewerOptions = { ...options };
+  const lang = langOf(options.lang);
+  const t = translator(lang);
+  const { preview, applyTheme, destroy: unmount } = mountViewer(container, lang, t, () => current);
 
   let destroyed = false;
   let resolveReady!: () => void;
@@ -292,10 +327,111 @@ export function createViewer(container: HTMLElement, options: ViewerOptions): Vi
         return;
       }
       destroyed = true;
-      preview.destroy();
-      systemDark.removeEventListener('change', applyTheme);
-      stopSizing();
-      el.remove();
+      unmount();
+      resolveReady();
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// The list of the design documents, as in the extension and the desktop app.
+
+/** The options of `createDesignDocList`. */
+export interface DesignDocListOptions extends DesignDocListContent, Pick<ViewerOptions, 'theme' | 'limitContentWidth'> {
+  /** The language of the texts of the list (`en` by default, or that of the browser). Only read by `createDesignDocList`. */
+  lang?: 'en' | 'ja';
+  /** Opens the link of a title (`href` of its document). By default, goes to it in the page (`openLinkInPage`). */
+  onOpenLink?: (href: string) => void;
+}
+
+export interface DesignDocList {
+  /** Resolves once the list is shown. */
+  ready: Promise<void>;
+  /** Changes some options (all but `lang`) and shows the list again, keeping its search and order. */
+  update(options: Partial<Omit<DesignDocListOptions, 'lang'>>): Promise<void>;
+  /** Removes the list from its element. */
+  destroy(): void;
+}
+
+/** The document of a list, which stays the same so that the search and order of the list are kept across updates. */
+const LIST_URI = 'seqnotes-design-doc-list';
+
+/** The options that change the HTML of a list: it is made again when one of them changes. */
+const LIST_CONTENT_OPTIONS = ['documents', 'title', 'fileLabel', 'filterPlaceholder', 'empty', 'keepOrder'] as const;
+
+/**
+ * What `onOpenLink` of a list does by default: goes to the link in the page, as the links of a list are those of the
+ * app (except `javascript:` ones).
+ */
+export function openLinkInPage(href: string): void {
+  if (!/^\s*javascript:/i.test(href)) {
+    window.location.assign(href);
+  }
+}
+
+/**
+ * Shows the list of the design documents of `options` in `container`: a table for each folder, with the main entries
+ * of their front matter, a search box and sortable columns. Unlike a viewer, it does not scroll inside the element:
+ * it is as high as the list.
+ */
+export function createDesignDocList(container: HTMLElement, options: DesignDocListOptions): DesignDocList {
+  let current: DesignDocListOptions = { ...options };
+  const lang = langOf(options.lang);
+  const t = translator(lang);
+  const { preview, applyTheme, destroy: unmount } = mountViewer(
+    container,
+    lang,
+    t,
+    () => ({ ...current, onOpenLink: current.onOpenLink ?? openLinkInPage }),
+    'seqnotes-embedded-list',
+  );
+
+  let destroyed = false;
+  let resolveReady!: () => void;
+  const ready = new Promise<void>((resolve) => (resolveReady = resolve));
+  /** The HTML of the list, made again only when its content changes (not for the theme, for instance). */
+  let html = designDocListHtml(md, current, t);
+  async function show(): Promise<void> {
+    if (destroyed) {
+      return;
+    }
+    await preview.handle({
+      type: 'update',
+      uri: LIST_URI,
+      html,
+      splitMinWidth: 1000,
+      syncEditor: false,
+      toc: false,
+      diagramLook: 'neo',
+      theme: 'auto',
+      limitContentWidth: current.limitContentWidth ?? true,
+      stickyTableHeader: false,
+      tableTreeHighlight: false,
+    });
+    resolveReady();
+  }
+  void show();
+
+  return {
+    ready,
+    update(changes) {
+      if (destroyed) {
+        return Promise.resolve();
+      }
+      const previous = current;
+      current = { ...current, ...changes, lang: current.lang };
+      applyTheme();
+      if (LIST_CONTENT_OPTIONS.some((name) => current[name] !== previous[name])) {
+        html = designDocListHtml(md, current, t);
+      }
+      return show();
+    },
+    destroy() {
+      if (destroyed) {
+        return;
+      }
+      destroyed = true;
+      unmount();
       resolveReady();
     },
   };

@@ -99,26 +99,47 @@ function changesCell(changes: NonNullable<IndexEntry['changes']>, t: Translate):
   return `<td class="seqnotes-index-changes" data-seqnotes-sort="${changes.isNew ? Number.MAX_SAFE_INTEGER : total}">${content}</td>`;
 }
 
-/** The documents by folder: the top folder first, each followed by its subfolders, and the files by name. */
-export function groupByFolder<T extends { folder: string; file: string }>(entries: T[]): { folder: string; entries: T[] }[] {
-  const folders = [...new Set(entries.map((entry) => entry.folder))].sort(compareFolders);
-  return folders.map((folder) => ({ folder, entries: entries.filter((entry) => entry.folder === folder).sort((a, b) => a.file.localeCompare(b.file)) }));
+/**
+ * The documents by folder: the top folder first, each followed by its subfolders, and the files by name. With
+ * `keepOrder`, the folders and the documents of each are in the order of `entries` instead (a folder where its first
+ * document is).
+ */
+export function groupByFolder<T extends { folder: string; file: string }>(entries: T[], keepOrder = false): { folder: string; entries: T[] }[] {
+  const unique = [...new Set(entries.map((entry) => entry.folder))];
+  const folders = keepOrder ? unique : unique.sort(compareFolders);
+  return folders.map((folder) => {
+    const rows = entries.filter((entry) => entry.folder === folder);
+    return { folder, entries: keepOrder ? rows : rows.sort((a, b) => a.file.localeCompare(b.file)) };
+  });
+}
+
+/** What may be changed in an index (`indexBody`), for documents that are not files (embed/designDocList.ts). */
+export interface IndexBodyOptions {
+  /** The text when there are no documents. */
+  empty?: string;
+  /** The header of the column of the file names, instead of the translation of `File`. */
+  fileLabel?: string;
+  /** The placeholder of the search box, instead of the translation of its text, which names the files. */
+  filterPlaceholder?: string;
+  /** The folders and the documents in the order of the entries, instead of by name (`groupByFolder`). */
+  keepOrder?: boolean;
 }
 
 /**
  * The body of the index: a table for each folder, the top one first, without the columns no document has; `empty`
  * in their place when there are no documents. The texts of its search box are given to the script in data attributes.
  */
-export function indexBody(title: string, entries: IndexEntry[], t: Translate, empty = ''): string {
+export function indexBody(title: string, entries: IndexEntry[], t: Translate, { empty = '', fileLabel, filterPlaceholder, keepOrder = false }: IndexBodyOptions = {}): string {
   const columns = DESIGN_DOC_META.filter(({ key }) => entries.some((entry) => key in entry.meta));
   const changes = entries.some((entry) => entry.changes !== undefined);
   // Named for the script, which keeps the column sorted by while the columns change.
-  const head =
-    '<thead><tr>' +
-    [{ key: 'title', label: 'Title' }, { key: 'file', label: 'File' }, ...columns, ...(changes ? [{ key: 'changes', label: 'Changes' }] : [])]
-      .map(({ key, label }) => `<th data-seqnotes-column="${key}">${escapeHtml(t(label))}</th>`)
-      .join('') +
-    '</tr></thead>\n';
+  const headers = [
+    { key: 'title', label: t('Title') },
+    { key: 'file', label: fileLabel ?? t('File') },
+    ...columns.map(({ key, label }) => ({ key, label: t(label) })),
+    ...(changes ? [{ key: 'changes', label: t('Changes') }] : []),
+  ];
+  const head = '<thead><tr>' + headers.map(({ key, label }) => `<th data-seqnotes-column="${key}">${escapeHtml(label)}</th>`).join('') + '</tr></thead>\n';
   const row = (entry: IndexEntry): string =>
     '<tr>' +
     `<td class="seqnotes-index-title"><a href="${escapeHtml(entry.href)}">${escapeHtml(entry.title)}</a></td>` +
@@ -131,13 +152,13 @@ export function indexBody(title: string, entries: IndexEntry[], t: Translate, em
       .join('') +
     (!changes ? '' : entry.changes ? changesCell(entry.changes, t) : '<td class="seqnotes-index-changes"></td>') +
     '</tr>\n';
-  const tables = groupByFolder(entries).map(
+  const tables = groupByFolder(entries, keepOrder).map(
     ({ folder, entries: rows }) =>
       (folder === '' ? '' : `<h2>${escapeHtml(folder)}/</h2>\n`) + `<table>\n${head}<tbody>\n${rows.map(row).join('')}</tbody>\n</table>\n`,
   );
   const texts = {
     'filter-label': t('Filter'),
-    'filter-placeholder': t('Filter by title, file name or metadata'),
+    'filter-placeholder': filterPlaceholder ?? t('Filter by title, file name or metadata'),
     // `{0}` documents shown of `{1}`, filled in by the script.
     count: t('{0} of {1} documents'),
     'no-match': t('No documents match the filter.'),

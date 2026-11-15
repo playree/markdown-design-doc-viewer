@@ -392,7 +392,7 @@ See [the command line's README](docs/cli.md) for its options and an example of G
 
 ## Embedding in a web app
 
-The viewer also comes as an npm package, [markdown-design-doc-viewer-embed](https://www.npmjs.com/package/markdown-design-doc-viewer-embed), to show design documents in a web app, such as a wiki or a review tool: a React component (`DesignDocViewer`), or a function for any page (`createViewer`), with the same diagrams, links and themes as the preview.
+The viewer also comes as an npm package, [markdown-design-doc-viewer-embed](https://www.npmjs.com/package/markdown-design-doc-viewer-embed), to show design documents in a web app, such as a wiki or a review tool: a React component (`DesignDocViewer`), or a function for any page (`createViewer`), with the same diagrams, links and themes as the preview. It can also show a list of design documents (`DesignDocList`), the same as the list of the design docs of the extension.
 
 ```tsx
 import { DesignDocViewer } from 'markdown-design-doc-viewer-embed/react';
