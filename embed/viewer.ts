@@ -10,13 +10,17 @@
  *
  * The element needs a height: the viewer fills it and scrolls inside it.
  *
+ * With `compareWith` (the Markdown of another version), it shows the differences from that version, as the extension
+ * does when the document is compared with a commit.
+ *
  * `createDesignDocList` shows a list of design documents in the same way, as high as the list.
  */
 import ja from '../l10n/bundle.l10n.ja.json';
 import { formatMessage, translatorFor, type Translate } from '../src/shared/l10n';
-import { WEBVIEW_TITLES, type DiagramLook, type FromWebview, type WebviewState } from '../src/shared/protocol';
-import { documentTitle, exportPage, renderForExport } from '../src/export/exportPage';
-import { createMarkdown, renderDocument } from '../src/markdown/render';
+import { WEBVIEW_TITLES, type DiagramLook, type DiffView, type FromWebview, type WebviewState } from '../src/shared/protocol';
+import { renderDiff } from '../src/diff/diffRender';
+import { documentTitle, exportDiff, exportPage, renderDiffForExport, renderForExport } from '../src/export/exportPage';
+import { createMarkdown, renderDocument, type RenderEnv } from '../src/markdown/render';
 import { loadWireframes, wireframeSources, type WireframeFiles } from '../src/markdown/wireframe';
 import { createPreview } from '../webview/preview';
 import { elementScrollHost, writeTitles } from '../webview/viewerContext';
@@ -77,6 +81,20 @@ export interface ViewerOptions {
   onOpenLink?: (href: string) => void;
   /** Called with the line (0-based) of the Markdown double-clicked in the viewer, e.g. to show it in an editor. */
   onRevealLine?: (line: number) => void;
+  /**
+   * The Markdown of another version of the document (an older one, for instance). With it, the viewer shows `markdown`
+   * with its differences from that version: the blocks added, changed (with the words changed) and deleted, the
+   * diagrams before the change, and a bar with their numbers and buttons to go from one change to the next. Without it,
+   * the document alone.
+   */
+  compareWith?: string;
+  /** What the document is compared with (e.g. `Version 3 (2026-11-01)`), shown on the bar of the differences. */
+  compareLabel?: string;
+  /**
+   * Called when the bar of the differences is closed (its × button), e.g. to remove `compareWith`. Without it, the
+   * viewer shows the document alone until `compareWith` changes.
+   */
+  onCloseDiff?: () => void;
 }
 
 export interface Viewer {
@@ -152,13 +170,26 @@ async function readWireframes(markdown: string, { readFile, baseUrl }: Pick<View
   return loadWireframes(md, wireframeSources(md.parse(markdown, {})), (path) => Promise.resolve().then(() => read(path)).catch(() => undefined));
 }
 
+/**
+ * The HTML of `markdown` for the preview, with its differences from `compareWith` when given (and what the preview
+ * needs to show them).
+ * @internal
+ */
+export function viewerContent(markdown: string, env: RenderEnv, compareWith?: string, compareLabel?: string): { html: string; diff?: DiffView } {
+  if (compareWith === undefined) {
+    return { html: renderDocument(md, markdown, env) };
+  }
+  const { html, old, stats } = renderDiff(md, compareWith, markdown, env);
+  return { html, diff: { label: compareLabel ?? '', old, stats } };
+}
+
 /** The options that change the HTML of the document: it is rendered again when one of them changes. */
-const CONTENT_OPTIONS = ['markdown', 'baseUrl', 'readFile', 'resolveResource', 'frontMatter', 'headingNumbers', 'messageWrapWidth'] as const;
+const CONTENT_OPTIONS = ['markdown', 'baseUrl', 'readFile', 'resolveResource', 'frontMatter', 'headingNumbers', 'messageWrapWidth', 'compareWith', 'compareLabel'] as const;
 /** The options of the preview, sent with the HTML rendered last when only they change. */
 const VIEW_OPTIONS = ['documentId', 'splitMinWidth', 'toc', 'diagramLook', 'limitContentWidth', 'stickyTableHeader', 'tableTreeHighlight'] as const;
 
 /** What the element of a viewer (`mountViewer`) reads from its options each time. */
-type MountOptions = Pick<ViewerOptions, 'theme' | 'onOpenLink' | 'onRevealLine'>;
+type MountOptions = Pick<ViewerOptions, 'theme' | 'onOpenLink' | 'onRevealLine' | 'onCloseDiff'>;
 
 /** The element of a viewer in `container`, with its preview and colors. */
 interface MountedViewer {
@@ -200,6 +231,8 @@ function mountViewer(container: HTMLElement, lang: 'en' | 'ja', t: Translate, op
       (options().onOpenLink ?? openLinkInNewTab)(message.href);
     } else if (message.type === 'revealLine') {
       options().onRevealLine?.(message.line);
+    } else if (message.type === 'closeDiff') {
+      options().onCloseDiff?.();
     }
   };
   const preview = createPreview({
@@ -241,13 +274,27 @@ export function createViewer(container: HTMLElement, options: ViewerOptions): Vi
   let current: ViewerOptions = { ...options };
   const lang = langOf(options.lang);
   const t = translator(lang);
-  const { preview, applyTheme, destroy: unmount } = mountViewer(container, lang, t, () => current);
+  /**
+   * The `compareWith` whose differences were closed without `onCloseDiff`: the document is shown alone until it
+   * changes.
+   */
+  let dismissed: string | undefined;
+  const closeDiff = (): void => {
+    if (current.onCloseDiff) {
+      current.onCloseDiff();
+    } else if (!destroyed && current.compareWith !== undefined) {
+      dismissed = current.compareWith;
+      rendering = render();
+    }
+  };
+  const { preview, applyTheme, destroy: unmount } = mountViewer(container, lang, t, () => ({ ...current, onCloseDiff: closeDiff }));
 
   let destroyed = false;
   let resolveReady!: () => void;
   const ready = new Promise<void>((resolve) => (resolveReady = resolve));
-  /** The HTML rendered last. */
+  /** The HTML rendered last, and its differences from `compareWith`, if any. */
   let html: string | undefined;
+  let diff: DiffView | undefined;
   /** The last render started, whether it is under way, and its number: an older one that ends later is not shown. */
   let rendering: Promise<void> = Promise.resolve();
   let pending = false;
@@ -256,7 +303,7 @@ export function createViewer(container: HTMLElement, options: ViewerOptions): Vi
   let shown = 0;
 
   /** Sends the HTML to the preview with the options of now. Resolves once it is shown, or superseded by another. */
-  async function show(rendered: string): Promise<void> {
+  async function show(rendered: string, differences: DiffView | undefined): Promise<void> {
     const seq = ++shown;
     await preview.handle({
       type: 'update',
@@ -271,6 +318,7 @@ export function createViewer(container: HTMLElement, options: ViewerOptions): Vi
       limitContentWidth: current.limitContentWidth ?? true,
       stickyTableHeader: current.stickyTableHeader ?? true,
       tableTreeHighlight: current.tableTreeHighlight ?? true,
+      ...(differences ? { diff: differences } : {}),
     });
     if (seq === shown) {
       resolveReady();
@@ -287,8 +335,14 @@ export function createViewer(container: HTMLElement, options: ViewerOptions): Vi
       return;
     }
     pending = false;
-    html = renderDocument(md, markdown, { t, frontMatter: current.frontMatter, headingNumbers: current.headingNumbers, messageWrapWidth: current.messageWrapWidth, wireframes, resolveResource });
-    await show(html);
+    const compareWith = current.compareWith === dismissed ? undefined : current.compareWith;
+    ({ html, diff } = viewerContent(
+      markdown,
+      { t, frontMatter: current.frontMatter, headingNumbers: current.headingNumbers, messageWrapWidth: current.messageWrapWidth, wireframes, resolveResource },
+      compareWith,
+      current.compareLabel,
+    ));
+    await show(html, diff);
   }
 
   rendering = render();
@@ -302,6 +356,9 @@ export function createViewer(container: HTMLElement, options: ViewerOptions): Vi
       const previous = current;
       current = { ...current, ...changes, lang: current.lang };
       applyTheme();
+      if (current.compareWith !== previous.compareWith) {
+        dismissed = undefined;
+      }
       if (html === undefined || CONTENT_OPTIONS.some((name) => current[name] !== previous[name])) {
         rendering = render();
         return rendering;
@@ -312,7 +369,7 @@ export function createViewer(container: HTMLElement, options: ViewerOptions): Vi
       }
       const revealing = (options: ViewerOptions): boolean => options.onRevealLine !== undefined;
       if (VIEW_OPTIONS.some((name) => current[name] !== previous[name]) || revealing(current) !== revealing(previous)) {
-        return show(html);
+        return show(html, diff);
       }
       return Promise.resolve();
     },
@@ -473,6 +530,8 @@ export interface ExportOptions
     | 'frontMatter'
     | 'headingNumbers'
     | 'messageWrapWidth'
+    | 'compareWith'
+    | 'compareLabel'
   > {
   /** The language of the texts of the exported file: `en`, or `ja`. That of the browser by default. */
   lang?: 'en' | 'ja';
@@ -504,7 +563,7 @@ let exportCount = 0;
  * command: in a viewer out of sight, removed once it is done (or failed). A diagram that fails is in the body, with
  * its error, as in an exported file.
  */
-async function renderExportBody(html: string, t: Translate, diagramLook: DiagramLook): Promise<string> {
+async function renderExportBody(html: string, t: Translate, diagramLook: DiagramLook, diff: DiffView | undefined): Promise<string> {
   const el = document.createElement('div');
   el.className = 'seqnotes-viewer seqnotes-embedded vscode-light';
   el.dataset.seqnotesTheme = 'light';
@@ -530,7 +589,7 @@ async function renderExportBody(html: string, t: Translate, diagramLook: Diagram
         setState: (next) => (state = next),
       });
     });
-    await preview!.handle({ type: 'export', id: 1, html, diagramLook });
+    await preview!.handle({ type: 'export', id: 1, html, diagramLook, ...(diff ? { diff } : {}) });
     const { body, error } = await exported;
     if (body === undefined) {
       throw new Error(error ?? 'The diagrams could not be rendered.');
@@ -562,8 +621,18 @@ export async function exportDocument(options: ExportOptions, assets: ExportAsset
         () => path,
       );
   };
-  const html = await renderForExport(md, markdown, { t, frontMatter: options.frontMatter, headingNumbers: options.headingNumbers, messageWrapWidth: options.messageWrapWidth, wireframes }, image);
-  const body = await renderExportBody(html, t, options.diagramLook ?? 'neo');
+  const env = { t, frontMatter: options.frontMatter, headingNumbers: options.headingNumbers, messageWrapWidth: options.messageWrapWidth, wireframes };
+  // With the differences from `compareWith`, if any, as the viewer shows them.
+  let html: string;
+  let diff: DiffView | undefined;
+  if (options.compareWith !== undefined) {
+    const result = await renderDiffForExport(md, options.compareWith, markdown, env, image);
+    html = result.html;
+    diff = { label: options.compareLabel ?? '', old: result.old, stats: result.stats };
+  } else {
+    html = await renderForExport(md, markdown, env, image);
+  }
+  const body = await renderExportBody(html, t, options.diagramLook ?? 'neo', diff);
   return exportPage({
     lang,
     title: documentTitle(md, markdown, options.title ?? ''),
@@ -579,5 +648,6 @@ export async function exportDocument(options: ExportOptions, assets: ExportAsset
     },
     tocTitle: t(WEBVIEW_TITLES['toc-title']),
     splitterTitle: t(WEBVIEW_TITLES['splitter-title']),
+    ...(diff ? { diff: exportDiff(diff, t) } : {}),
   });
 }
