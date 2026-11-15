@@ -2,6 +2,10 @@
 
 This changelog covers the extension, the command line and the embeddable viewer (npm package `markdown-design-doc-viewer-embed`). The desktop app has its own version and [changelog](desktop/CHANGELOG.md).
 
+## Unreleased
+
+- Embeddable viewer: `createDesignDocList` and the React component `DesignDocList` show a list of design documents given by the app, the same as the list of the design docs of the extension and the desktop app: a table for each folder with the version, product, status and updated date of their front matter, a search box and sortable columns. The header of the file names, the texts and the order can be changed, and a click on a title goes to `onOpenLink`. See [Listing design documents](docs/embed.md#listing-design-documents).
+
 ## 1.5.4
 
 - Embeddable viewer: `exportHtml` (`markdown-design-doc-viewer-embed/export`) exports a design document to a single HTML file, the same as the extension's **Export Design Doc as HTML** and the command line's, with its diagrams rendered in the page. See [Exporting to an HTML file](docs/embed.md#exporting-to-an-html-file).

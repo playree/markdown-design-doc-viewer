@@ -596,12 +596,12 @@ async function renderDesignDocs(): Promise<void> {
       const href = [...file.folder.split('/').filter(Boolean), file.name].map(encodeURIComponent).join('/');
       return designDoc ? [{ ...info, href, folder: file.folder, file: file.name }] : [];
     });
-    html = indexBody(t('Design Docs'), entries, t, t(NO_DESIGN_DOCS));
+    html = indexBody(t('Design Docs'), entries, t, { empty: t(NO_DESIGN_DOCS) });
     if (truncated) {
       html += `<p class="seqnotes-index-empty">${escapeHtml(t('The folder has too many files: some of them are not listed.'))}</p>`;
     }
   } catch (error) {
-    html = indexBody(t('Design Docs'), [], t, `${t('Could not open {0}.', path)}\n${reason(error)}`);
+    html = indexBody(t('Design Docs'), [], t, { empty: `${t('Could not open {0}.', path)}\n${reason(error)}` });
   }
   // Unless the list was left meanwhile. Another folder chosen meanwhile is rendered next (`setFolder`).
   if (listShown) {

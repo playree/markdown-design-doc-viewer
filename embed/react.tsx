@@ -2,14 +2,18 @@
  * The viewer of embed/viewer.ts as a React component. Its styles are embed/viewer.css, which the app imports.
  *
  *   <DesignDocViewer markdown={text} baseUrl="/docs/" style={{ height: 600 }} />
+ *   <DesignDocList documents={[{ markdown, href: '/docs/login', file: 'login.md' }]} onOpenLink={navigate} />
  *
  * It needs a height, which the viewer fills. `readFile` and `resolveResource` render the document again when they
  * change: keep them the same across renders (`useCallback`). The other callbacks may change freely.
  */
 import { forwardRef, useEffect, useImperativeHandle, useRef, type CSSProperties } from 'react';
-import { createViewer, openLinkInNewTab, type Viewer, type ViewerOptions } from './viewer';
+import { createDesignDocList, createViewer, openLinkInNewTab, openLinkInPage, type DesignDocList as List, type DesignDocListOptions, type Viewer, type ViewerOptions } from './viewer';
 
-export type { ViewerOptions } from './viewer';
+export type { DesignDocListDocument, DesignDocListOptions, ViewerOptions } from './viewer';
+
+/** All the options, with those not given as undefined: an update then resets an option removed from the props. */
+type AllOptions<T> = { [K in keyof Required<T>]: T[K] };
 
 export interface DesignDocViewerProps extends ViewerOptions {
   className?: string;
@@ -29,17 +33,38 @@ export const DesignDocViewer = forwardRef<DesignDocViewerHandle, DesignDocViewer
   const viewer = useRef<Viewer | undefined>(undefined);
   /** true from the creation of the viewer until the effect that updates it: it was created with the options of now. */
   const created = useRef(false);
-  // The callbacks of the last render, called through these.
+  // The options of the last render committed, whose callbacks are called through these.
   const latest = useRef(options);
-  latest.current = options;
+  // Before the effects below, which read it: not in the render, which React may discard.
+  useEffect(() => {
+    latest.current = options;
+  });
 
   const revealing = options.onRevealLine !== undefined;
-  const viewerOptions = (): ViewerOptions => ({
-    ...latest.current,
-    onOpenLink: (href) => (latest.current.onOpenLink ?? openLinkInNewTab)(href),
-    // Only with one: without, a double-click does nothing.
-    onRevealLine: revealing ? (line) => latest.current.onRevealLine?.(line) : undefined,
-  });
+  const viewerOptions = (): AllOptions<ViewerOptions> => {
+    const o = latest.current;
+    return {
+      markdown: o.markdown,
+      documentId: o.documentId,
+      baseUrl: o.baseUrl,
+      readFile: o.readFile,
+      resolveResource: o.resolveResource,
+      lang: o.lang,
+      theme: o.theme,
+      diagramLook: o.diagramLook,
+      splitMinWidth: o.splitMinWidth,
+      toc: o.toc,
+      limitContentWidth: o.limitContentWidth,
+      stickyTableHeader: o.stickyTableHeader,
+      tableTreeHighlight: o.tableTreeHighlight,
+      frontMatter: o.frontMatter,
+      headingNumbers: o.headingNumbers,
+      messageWrapWidth: o.messageWrapWidth,
+      onOpenLink: (href) => (latest.current.onOpenLink ?? openLinkInNewTab)(href),
+      // Only with one: without, a double-click does nothing.
+      onRevealLine: o.onRevealLine !== undefined ? (line) => latest.current.onRevealLine?.(line) : undefined,
+    };
+  };
 
   // Created again for another language, which the viewer takes at its creation only.
   useEffect(() => {
@@ -70,3 +95,62 @@ export const DesignDocViewer = forwardRef<DesignDocViewerHandle, DesignDocViewer
 
   return <div ref={element} className={className} style={style} />;
 });
+
+export interface DesignDocListProps extends DesignDocListOptions {
+  className?: string;
+  style?: CSSProperties;
+}
+
+/**
+ * The list of the design documents of createDesignDocList (embed/viewer.ts), as high as the list. `onOpenLink` may
+ * change freely; the list is shown again when the other options change (keep `documents` the same across renders
+ * while they do not change: `useMemo`).
+ */
+export function DesignDocList({ className, style, ...options }: DesignDocListProps) {
+  const element = useRef<HTMLDivElement>(null);
+  const list = useRef<List | undefined>(undefined);
+  /** true from the creation of the list until the effect that updates it: it was created with the options of now. */
+  const created = useRef(false);
+  const latest = useRef(options);
+  useEffect(() => {
+    latest.current = options;
+  });
+
+  const listOptions = (): AllOptions<DesignDocListOptions> => {
+    const o = latest.current;
+    return {
+      documents: o.documents,
+      title: o.title,
+      fileLabel: o.fileLabel,
+      filterPlaceholder: o.filterPlaceholder,
+      empty: o.empty,
+      keepOrder: o.keepOrder,
+      lang: o.lang,
+      theme: o.theme,
+      limitContentWidth: o.limitContentWidth,
+      onOpenLink: (href) => (latest.current.onOpenLink ?? openLinkInPage)(href),
+    };
+  };
+
+  // Created again for another language, which the list takes at its creation only.
+  useEffect(() => {
+    const instance = createDesignDocList(element.current!, listOptions());
+    list.current = instance;
+    created.current = true;
+    return () => {
+      instance.destroy();
+      list.current = undefined;
+    };
+  }, [options.lang]);
+
+  const { documents, title, fileLabel, filterPlaceholder, empty, keepOrder, theme, limitContentWidth } = options;
+  useEffect(() => {
+    if (created.current) {
+      created.current = false;
+      return;
+    }
+    void list.current?.update(listOptions());
+  }, [options.lang, documents, title, fileLabel, filterPlaceholder, empty, keepOrder, theme, limitContentWidth]);
+
+  return <div ref={element} className={className} style={style} />;
+}

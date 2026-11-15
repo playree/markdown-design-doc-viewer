@@ -390,7 +390,7 @@ npx markdown-design-doc-viewer export docs -o site --index --diff-base v1.0   # 
 
 ## Web アプリへの埋め込み
 
-ビューアは npm パッケージ [markdown-design-doc-viewer-embed](https://www.npmjs.com/package/markdown-design-doc-viewer-embed) としても使え、Wiki やレビューのツールなどの Web アプリに設計書を表示できます。React の部品（`DesignDocViewer`）と、どのページでも使える関数（`createViewer`）があり、図・紐付け・テーマはプレビューと同じです。
+ビューアは npm パッケージ [markdown-design-doc-viewer-embed](https://www.npmjs.com/package/markdown-design-doc-viewer-embed) としても使え、Wiki やレビューのツールなどの Web アプリに設計書を表示できます。React の部品（`DesignDocViewer`）と、どのページでも使える関数（`createViewer`）があり、図・紐付け・テーマはプレビューと同じです。拡張の設計書一覧と同じ一覧（`DesignDocList`）も表示できます。
 
 ```tsx
 import { DesignDocViewer } from 'markdown-design-doc-viewer-embed/react';

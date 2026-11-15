@@ -12,11 +12,13 @@ describe('embedded viewer on a server', () => {
     const viewer = await import('../embed/viewer');
     expect(typeof viewer.createViewer).toBe('function');
     expect(typeof viewer.openLinkInNewTab).toBe('function');
+    expect(typeof viewer.createDesignDocList).toBe('function');
   });
 
   it('imports the React component without touching the DOM', async () => {
     const react = await import('../embed/react');
     expect(react.DesignDocViewer).toBeDefined();
+    expect(react.DesignDocList).toBeDefined();
   });
 
   it('imports exportHtml without touching the DOM', async () => {

@@ -114,7 +114,7 @@ export class DesignDocsPanel implements vscode.Disposable {
       t('Design Docs'),
       (docs ?? []).map((doc) => ({ title: doc.title, meta: doc.meta, href: href(doc), folder: doc.folder, file: doc.file })),
       t,
-      docs ? t(NO_DESIGN_DOCS) : failure,
+      { empty: docs ? t(NO_DESIGN_DOCS) : failure },
     );
     const { splitMinWidth, toc, diagramLook, theme, limitContentWidth, stickyTableHeader, tableTreeHighlight } = readSettings();
     const message: ToWebview = { type: 'update', uri: LIST_URI, html, splitMinWidth, syncEditor: false, toc, diagramLook, theme, limitContentWidth, stickyTableHeader, tableTreeHighlight };
