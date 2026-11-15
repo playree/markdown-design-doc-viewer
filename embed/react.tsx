@@ -12,6 +12,9 @@ import { createDesignDocList, createViewer, openLinkInNewTab, openLinkInPage, ty
 
 export type { DesignDocListDocument, DesignDocListOptions, ViewerOptions } from './viewer';
 
+/** All the options, with those not given as undefined: an update then resets an option removed from the props. */
+type AllOptions<T> = { [K in keyof Required<T>]: T[K] };
+
 export interface DesignDocViewerProps extends ViewerOptions {
   className?: string;
   style?: CSSProperties;
@@ -30,17 +33,38 @@ export const DesignDocViewer = forwardRef<DesignDocViewerHandle, DesignDocViewer
   const viewer = useRef<Viewer | undefined>(undefined);
   /** true from the creation of the viewer until the effect that updates it: it was created with the options of now. */
   const created = useRef(false);
-  // The callbacks of the last render, called through these.
+  // The options of the last render committed, whose callbacks are called through these.
   const latest = useRef(options);
-  latest.current = options;
+  // Before the effects below, which read it: not in the render, which React may discard.
+  useEffect(() => {
+    latest.current = options;
+  });
 
   const revealing = options.onRevealLine !== undefined;
-  const viewerOptions = (): ViewerOptions => ({
-    ...latest.current,
-    onOpenLink: (href) => (latest.current.onOpenLink ?? openLinkInNewTab)(href),
-    // Only with one: without, a double-click does nothing.
-    onRevealLine: revealing ? (line) => latest.current.onRevealLine?.(line) : undefined,
-  });
+  const viewerOptions = (): AllOptions<ViewerOptions> => {
+    const o = latest.current;
+    return {
+      markdown: o.markdown,
+      documentId: o.documentId,
+      baseUrl: o.baseUrl,
+      readFile: o.readFile,
+      resolveResource: o.resolveResource,
+      lang: o.lang,
+      theme: o.theme,
+      diagramLook: o.diagramLook,
+      splitMinWidth: o.splitMinWidth,
+      toc: o.toc,
+      limitContentWidth: o.limitContentWidth,
+      stickyTableHeader: o.stickyTableHeader,
+      tableTreeHighlight: o.tableTreeHighlight,
+      frontMatter: o.frontMatter,
+      headingNumbers: o.headingNumbers,
+      messageWrapWidth: o.messageWrapWidth,
+      onOpenLink: (href) => (latest.current.onOpenLink ?? openLinkInNewTab)(href),
+      // Only with one: without, a double-click does nothing.
+      onRevealLine: o.onRevealLine !== undefined ? (line) => latest.current.onRevealLine?.(line) : undefined,
+    };
+  };
 
   // Created again for another language, which the viewer takes at its creation only.
   useEffect(() => {
@@ -88,12 +112,25 @@ export function DesignDocList({ className, style, ...options }: DesignDocListPro
   /** true from the creation of the list until the effect that updates it: it was created with the options of now. */
   const created = useRef(false);
   const latest = useRef(options);
-  latest.current = options;
-
-  const listOptions = (): DesignDocListOptions => ({
-    ...latest.current,
-    onOpenLink: (href) => (latest.current.onOpenLink ?? openLinkInPage)(href),
+  useEffect(() => {
+    latest.current = options;
   });
+
+  const listOptions = (): AllOptions<DesignDocListOptions> => {
+    const o = latest.current;
+    return {
+      documents: o.documents,
+      title: o.title,
+      fileLabel: o.fileLabel,
+      filterPlaceholder: o.filterPlaceholder,
+      empty: o.empty,
+      keepOrder: o.keepOrder,
+      lang: o.lang,
+      theme: o.theme,
+      limitContentWidth: o.limitContentWidth,
+      onOpenLink: (href) => (latest.current.onOpenLink ?? openLinkInPage)(href),
+    };
+  };
 
   // Created again for another language, which the list takes at its creation only.
   useEffect(() => {

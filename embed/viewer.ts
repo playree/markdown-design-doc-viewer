@@ -364,8 +364,15 @@ const LIST_CONTENT_OPTIONS = ['documents', 'title', 'fileLabel', 'filterPlacehol
  * app (except `javascript:` ones).
  */
 export function openLinkInPage(href: string): void {
-  if (!/^\s*javascript:/i.test(href)) {
-    window.location.assign(href);
+  // From the URL as the browser parses it, which removes tabs and newlines (`java\tscript:`).
+  let url: URL;
+  try {
+    url = new URL(href, document.baseURI);
+  } catch {
+    return;
+  }
+  if (url.protocol !== 'javascript:') {
+    window.location.assign(url.href);
   }
 }
 
@@ -391,10 +398,13 @@ export function createDesignDocList(container: HTMLElement, options: DesignDocLi
   const ready = new Promise<void>((resolve) => (resolveReady = resolve));
   /** The HTML of the list, made again only when its content changes (not for the theme, for instance). */
   let html = designDocListHtml(md, current, t);
+  /** The number of the last HTML sent to the preview: an older one that ends later does not resolve `ready`. */
+  let shown = 0;
   async function show(): Promise<void> {
     if (destroyed) {
       return;
     }
+    const seq = ++shown;
     await preview.handle({
       type: 'update',
       uri: LIST_URI,
@@ -408,7 +418,9 @@ export function createDesignDocList(container: HTMLElement, options: DesignDocLi
       stickyTableHeader: false,
       tableTreeHighlight: false,
     });
-    resolveReady();
+    if (seq === shown) {
+      resolveReady();
+    }
   }
   void show();
 

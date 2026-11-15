@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { designDocListHtml } from '../embed/designDocList';
+import { openLinkInPage } from '../embed/viewer';
 import { createMarkdown } from '../src/markdown/render';
 import { formatMessage, translatorFor } from '../src/shared/l10n';
 import ja from '../l10n/bundle.l10n.ja.json';
@@ -54,5 +55,37 @@ describe('designDocListHtml', () => {
     expect(order(true)[0]).toBeLessThan(order(true)[1]);
     // By file name, as in the extension.
     expect(order(false)[0]).toBeGreaterThan(order(false)[1]);
+  });
+});
+
+describe('openLinkInPage', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /** The URLs `openLinkInPage` goes to for `href`. */
+  function open(href: string): string[] {
+    const assign = vi.fn();
+    vi.stubGlobal('document', { baseURI: 'https://example.com/app/' });
+    vi.stubGlobal('window', { location: { assign } });
+    openLinkInPage(href);
+    return assign.mock.calls.map(([url]) => url as string);
+  }
+
+  it('goes to a link of the app, resolved from the page', () => {
+    expect(open('/docs/a')).toEqual(['https://example.com/docs/a']);
+    expect(open('b?x=1')).toEqual(['https://example.com/app/b?x=1']);
+    expect(open('https://example.org/')).toEqual(['https://example.org/']);
+  });
+
+  it('does not go to a javascript: link, however it is written', () => {
+    expect(open('javascript:alert(1)')).toEqual([]);
+    expect(open(' JavaScript:alert(1)')).toEqual([]);
+    expect(open('java\tscript:alert(1)')).toEqual([]);
+    expect(open('java\nscript:alert(1)')).toEqual([]);
+  });
+
+  it('does not go to a link that is not a URL', () => {
+    expect(open('http://[')).toEqual([]);
   });
 });
