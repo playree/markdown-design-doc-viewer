@@ -2,7 +2,7 @@
 
 This changelog covers the extension, the command line and the embeddable viewer (npm package `markdown-design-doc-viewer-embed`). The desktop app has its own version and [changelog](desktop/CHANGELOG.md).
 
-## Unreleased
+## 1.5.5
 
 - Embeddable viewer: `createDesignDocList` and the React component `DesignDocList` show a list of design documents given by the app, the same as the list of the design docs of the extension and the desktop app: a table for each folder with the version, product, status and updated date of their front matter, a search box and sortable columns. The header of the file names, the texts and the order can be changed, and a click on a title goes to `onOpenLink`. See [Listing design documents](docs/embed.md#listing-design-documents).
 - Embeddable viewer: `compareWith` (the Markdown of another version of the document) shows the document with its differences from that version, the same as the comparison with a Git revision of the extension: the blocks added, changed and deleted, the words changed, the diagrams before the change, and the bar with the number of changes and buttons to go from one to the next. `compareLabel` names the version on the bar, and `onCloseDiff` is called when the bar is closed. `exportHtml` takes them too. See [Showing the differences from a version](docs/embed.md#showing-the-differences-from-a-version).
