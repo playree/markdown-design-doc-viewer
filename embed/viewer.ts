@@ -88,7 +88,7 @@ export interface ViewerOptions {
    * the document alone.
    */
   compareWith?: string;
-  /** What the document is compared with (e.g. `Version 3 (2026-11-01)`), shown on the bar of the differences. */
+  /** What the document is compared with (e.g. `Compared with version 3 (2026-11-01)`), shown on the bar of the differences. */
   compareLabel?: string;
   /**
    * Called when the bar of the differences is closed (its × button), e.g. to remove `compareWith`. Without it, the
@@ -179,12 +179,17 @@ export function viewerContent(markdown: string, env: RenderEnv, compareWith?: st
   if (compareWith === undefined) {
     return { html: renderDocument(md, markdown, env) };
   }
-  const { html, old, stats } = renderDiff(md, compareWith, markdown, env);
-  return { html, diff: { label: compareLabel ?? '', old, stats } };
+  const result = renderDiff(md, compareWith, markdown, env);
+  return { html: result.html, diff: diffView(result, compareLabel) };
+}
+
+/** The differences of `renderDiff` (or `renderDiffForExport`) for the preview, with the label of the bar. */
+function diffView({ old, stats }: Pick<DiffView, 'old' | 'stats'>, compareLabel: string | undefined): DiffView {
+  return { label: compareLabel ?? '', old, stats };
 }
 
 /** The options that change the HTML of the document: it is rendered again when one of them changes. */
-const CONTENT_OPTIONS = ['markdown', 'baseUrl', 'readFile', 'resolveResource', 'frontMatter', 'headingNumbers', 'messageWrapWidth', 'compareWith', 'compareLabel'] as const;
+const CONTENT_OPTIONS = ['markdown', 'baseUrl', 'readFile', 'resolveResource', 'frontMatter', 'headingNumbers', 'messageWrapWidth', 'compareWith'] as const;
 /** The options of the preview, sent with the HTML rendered last when only they change. */
 const VIEW_OPTIONS = ['documentId', 'splitMinWidth', 'toc', 'diagramLook', 'limitContentWidth', 'stickyTableHeader', 'tableTreeHighlight'] as const;
 
@@ -274,20 +279,6 @@ export function createViewer(container: HTMLElement, options: ViewerOptions): Vi
   let current: ViewerOptions = { ...options };
   const lang = langOf(options.lang);
   const t = translator(lang);
-  /**
-   * The `compareWith` whose differences were closed without `onCloseDiff`: the document is shown alone until it
-   * changes.
-   */
-  let dismissed: string | undefined;
-  const closeDiff = (): void => {
-    if (current.onCloseDiff) {
-      current.onCloseDiff();
-    } else if (!destroyed && current.compareWith !== undefined) {
-      dismissed = current.compareWith;
-      rendering = render();
-    }
-  };
-  const { preview, applyTheme, destroy: unmount } = mountViewer(container, lang, t, () => ({ ...current, onCloseDiff: closeDiff }));
 
   let destroyed = false;
   let resolveReady!: () => void;
@@ -295,12 +286,33 @@ export function createViewer(container: HTMLElement, options: ViewerOptions): Vi
   /** The HTML rendered last, and its differences from `compareWith`, if any. */
   let html: string | undefined;
   let diff: DiffView | undefined;
+  /** The files of the wireframes read by the last render, for one without the differences only. */
+  let wireframesRead: { files: WireframeFiles | undefined } | undefined;
   /** The last render started, whether it is under way, and its number: an older one that ends later is not shown. */
   let rendering: Promise<void> = Promise.resolve();
   let pending = false;
   let renders = 0;
   /** The number of the last HTML sent to the preview. */
   let shown = 0;
+  /**
+   * The `compareWith` whose differences were closed without `onCloseDiff`: the document is shown alone until it
+   * changes.
+   */
+  let dismissed: string | undefined;
+
+  /** The × of the bar of the differences: `onCloseDiff`, or the document alone. */
+  const closeDiff = (): void => {
+    if (current.onCloseDiff) {
+      current.onCloseDiff();
+    } else if (!destroyed && current.compareWith !== undefined && current.compareWith !== dismissed) {
+      dismissed = current.compareWith;
+      // A render under way takes it; else the document again, with its wireframes as they were read.
+      if (!pending) {
+        rendering = render(true);
+      }
+    }
+  };
+  const { preview, applyTheme, destroy: unmount } = mountViewer(container, lang, t, () => ({ ...current, onCloseDiff: closeDiff }));
 
   /** Sends the HTML to the preview with the options of now. Resolves once it is shown, or superseded by another. */
   async function show(rendered: string, differences: DiffView | undefined): Promise<void> {
@@ -325,16 +337,18 @@ export function createViewer(container: HTMLElement, options: ViewerOptions): Vi
     }
   }
 
-  async function render(): Promise<void> {
+  /** Renders the document, with the wireframes of the last render (`sameWireframes`) or read again. */
+  async function render(sameWireframes = false): Promise<void> {
     const seq = ++renders;
     pending = true;
     const { markdown, baseUrl } = current;
     const resolveResource = current.resolveResource ?? (baseUrl === undefined ? undefined : (src: string) => resolveUrl(src, baseUrl) ?? src);
-    const wireframes = await readWireframes(markdown, current);
+    const wireframes = sameWireframes && wireframesRead ? wireframesRead.files : await readWireframes(markdown, current);
     if (destroyed || seq !== renders) {
       return;
     }
     pending = false;
+    wireframesRead = { files: wireframes };
     const compareWith = current.compareWith === dismissed ? undefined : current.compareWith;
     ({ html, diff } = viewerContent(
       markdown,
@@ -367,8 +381,13 @@ export function createViewer(container: HTMLElement, options: ViewerOptions): Vi
       if (pending) {
         return rendering;
       }
+      // Only the label of the bar, if the differences are shown.
+      const relabeled = diff !== undefined && current.compareLabel !== previous.compareLabel;
+      if (relabeled) {
+        diff = diffView(diff!, current.compareLabel);
+      }
       const revealing = (options: ViewerOptions): boolean => options.onRevealLine !== undefined;
-      if (VIEW_OPTIONS.some((name) => current[name] !== previous[name]) || revealing(current) !== revealing(previous)) {
+      if (relabeled || VIEW_OPTIONS.some((name) => current[name] !== previous[name]) || revealing(current) !== revealing(previous)) {
         return show(html, diff);
       }
       return Promise.resolve();
@@ -628,7 +647,7 @@ export async function exportDocument(options: ExportOptions, assets: ExportAsset
   if (options.compareWith !== undefined) {
     const result = await renderDiffForExport(md, options.compareWith, markdown, env, image);
     html = result.html;
-    diff = { label: options.compareLabel ?? '', old: result.old, stats: result.stats };
+    diff = diffView(result, options.compareLabel);
   } else {
     html = await renderForExport(md, markdown, env, image);
   }

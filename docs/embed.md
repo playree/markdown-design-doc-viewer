@@ -82,7 +82,7 @@ viewer.destroy();
 | `onOpenLink` | `openLinkInNewTab` | `(href) => void`: opens a link of the document (other than `#heading`, which the viewer scrolls to). By default, http(s) and mailto links open in a new tab, and the others do nothing. |
 | `onRevealLine` | | `(line) => void`: called with the line (0-based) of the Markdown double-clicked in the viewer, e.g. to show it in an editor. Without it, a double-click does nothing. |
 | `compareWith` | | The Markdown of another version of the document (an older one, for instance): the viewer shows `markdown` with its differences from it ([Showing the differences from a version](#showing-the-differences-from-a-version)). Without it, the document alone. |
-| `compareLabel` | | What the document is compared with (e.g. `Version 3 (2026-11-01)`), shown on the bar of the differences. |
+| `compareLabel` | | What the document is compared with (e.g. `Compared with version 3 (2026-11-01)`), shown on the bar of the differences. |
 | `onCloseDiff` | | `() => void`: called when the bar of the differences is closed (its × button), e.g. to remove `compareWith`. Without it, the viewer shows the document alone until `compareWith` changes. |
 
 ## Showing the differences from a version
