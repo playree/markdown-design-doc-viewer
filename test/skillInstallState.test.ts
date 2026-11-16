@@ -109,8 +109,10 @@ describe('skillRevision', () => {
     expect(skillRevision(skillMd('metadata:\n  revision: "x"\n'))).toBe(0);
   });
 
-  it('does not read a revision after the metadata', () => {
+  it('does not read a revision after the metadata, or in a map of it', () => {
     expect(skillRevision(skillMd('metadata:\n  author: me\nother:\n  revision: "8"\n'))).toBe(0);
+    expect(skillRevision(skillMd('metadata:\n  source:\n    revision: "99"\n'))).toBe(0);
+    expect(skillRevision(skillMd('metadata:\n  source:\n    revision: "99"\n  revision: "9"\n'))).toBe(9);
   });
 });
 

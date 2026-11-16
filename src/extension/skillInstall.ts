@@ -195,8 +195,16 @@ class SkillInstaller {
       const confirm = vscode.l10n.t('Overwrite');
       overwrite =
         (await vscode.window.showWarningMessage(
-          vscode.l10n.t('Overwrite the Agent Skill in {0}?', unrecorded.map((copy) => displayPath(copy.folder)).join(', ')),
-          { modal: true, detail: vscode.l10n.t('It was not installed by this extension, so whether its files were changed cannot be told. Changes made to them will be lost.') },
+          unrecorded.length === 1
+            ? vscode.l10n.t('Overwrite the Agent Skill in {0}?', displayPath(unrecorded[0].folder))
+            : vscode.l10n.t('Overwrite the Agent Skills in {0}?', unrecorded.map((copy) => displayPath(copy.folder)).join(', ')),
+          {
+            modal: true,
+            detail:
+              unrecorded.length === 1
+                ? vscode.l10n.t('It was not installed by this extension, so whether its files were changed cannot be told. Changes made to them will be lost.')
+                : vscode.l10n.t('They were not installed by this extension, so whether their files were changed cannot be told. Changes made to them will be lost.'),
+          },
           confirm,
         )) === confirm;
     }
@@ -403,8 +411,7 @@ async function readBundle(extensionUri: vscode.Uri): Promise<Bundle> {
   for (const path of await listFiles(root, '')) {
     files.set(path, await vscode.workspace.fs.readFile(vscode.Uri.joinPath(root, path)));
   }
-  const skillMd = files.get('SKILL.md');
-  return { files, hash: hashSkill([...files.keys()], files), revision: skillMd ? skillRevision(new TextDecoder().decode(skillMd)) : 0 };
+  return { files, hash: hashSkill([...files.keys()], files), revision: revisionOf(files.get('SKILL.md')) };
 }
 
 /** The paths of the files under `root`/`dir`, relative to `root`. */
@@ -439,15 +446,18 @@ async function readInstalled(folder: vscode.Uri, bundle: Bundle, install: SkillI
       }
     }
   }
-  const skillMd = files.get('SKILL.md');
-  const revision = skillMd ? skillRevision(new TextDecoder().decode(skillMd)) : 0;
-  return files.size > 0 ? { bundle: hashSkill(bundled, files), recorded: hashSkill(recorded, files), revision } : undefined;
+  return files.size > 0 ? { bundle: hashSkill(bundled, files), recorded: hashSkill(recorded, files), revision: revisionOf(files.get('SKILL.md')) } : undefined;
+}
+
+/** The revision of a skill whose SKILL.md is `skillMd` (`skillRevision`), 0 without it. */
+function revisionOf(skillMd: Uint8Array | undefined): number {
+  return skillMd ? skillRevision(new TextDecoder().decode(skillMd)) : 0;
 }
 
 /** The revision of the copy of the skill in `folder` (`skillRevision`), or undefined without its SKILL.md. Throws on other errors. */
 async function readRevision(folder: vscode.Uri): Promise<number | undefined> {
   try {
-    return skillRevision(new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(folder, 'SKILL.md'))));
+    return revisionOf(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(folder, 'SKILL.md')));
   } catch (error) {
     if (isFileNotFound(error)) {
       return undefined;
