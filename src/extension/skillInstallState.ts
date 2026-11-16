@@ -23,7 +23,8 @@ export interface SkillInstall {
  * - `outdated`: it is as installed, and the extension has another (offer to update it),
  * - `modified`: its files were changed since it was installed (leave it to the user, who can install it again),
  * - `offered`: outdated, but its update to the extension's skill was already offered,
- * - `newer`: as installed by a newer version of the extension (which was then downgraded).
+ * - `newer`: of a later revision (replaced since with a newer skill), or as installed by a newer version of the extension
+ *   (which was then downgraded).
  */
 export type SkillInstallStatus = 'missing' | 'current' | 'outdated' | 'modified' | 'offered' | 'newer';
 
@@ -45,22 +46,50 @@ export function hashSkill(paths: readonly string[], files: ReadonlyMap<string, U
   return hash.digest('hex');
 }
 
-/** The hashes of the files of an installed copy: of those of the extension's skill, and of those written there (`SkillInstall.files`). */
+/**
+ * The hashes of the files of an installed copy: of those of the extension's skill, and of those written there
+ * (`SkillInstall.files`); and the revision of its SKILL.md (`skillRevision`).
+ */
 export interface InstalledHashes {
   bundle: string;
   recorded: string;
+  revision: number;
+}
+
+/** The extension's skill: the hash of its files, and its revision. */
+export interface BundledSkill {
+  hash: string;
+  revision: number;
+}
+
+/**
+ * The revision of a skill in the front matter of its SKILL.md (`metadata.revision`, raised each time its files change,
+ * by scripts/skill-files.mjs), or 0 without one (a copy made before skills had a revision).
+ */
+export function skillRevision(skillMd: string): number {
+  const frontMatter = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---[ \t]*(\r?\n|$)/.exec(skillMd)?.[1];
+  // Its indented lines, and the blank lines between them.
+  const metadata = frontMatter && /^metadata:[ \t]*\r?\n((?:[ \t]*\r?\n|[ \t]+.*(?:\r?\n|$))*)/m.exec(frontMatter)?.[1];
+  // A key of the metadata itself, indented as its first one, not of a map in it.
+  const indent = metadata && /^([ \t]+)\S/m.exec(metadata)?.[1];
+  const revision = indent && new RegExp(`^${indent}revision:[ \\t]*(["']?)(\\d+)\\1[ \\t]*\\r?$`, 'm').exec(metadata)?.[2];
+  return revision ? Number(revision) : 0;
 }
 
 /**
  * The status of `install`, whose files hash to `installed` (undefined without any of them), when the skill of the
- * extension (of version `version`) hashes to `bundled`.
+ * extension (of version `version`) is `bundled`.
  */
-export function skillInstallStatus(install: SkillInstall, installed: InstalledHashes | undefined, bundled: string, version: string): SkillInstallStatus {
+export function skillInstallStatus(install: SkillInstall, installed: InstalledHashes | undefined, bundled: BundledSkill, version: string): SkillInstallStatus {
   if (installed === undefined) {
     return 'missing';
   }
-  if (installed.bundle === bundled) {
+  if (installed.bundle === bundled.hash) {
     return 'current';
+  }
+  // Replaced since with a newer skill, as from the zip of a later release.
+  if (installed.revision > bundled.revision) {
+    return 'newer';
   }
   if (installed.recorded !== install.hash) {
     return 'modified';
@@ -68,7 +97,25 @@ export function skillInstallStatus(install: SkillInstall, installed: InstalledHa
   if (install.version !== undefined && compareVersions(install.version, version) > 0) {
     return 'newer';
   }
-  return install.offered === bundled ? 'offered' : 'outdated';
+  return install.offered === bundled.hash ? 'offered' : 'outdated';
+}
+
+/**
+ * What to do with a copy of the skill that the extension did not install (unzipped from a release, or written by
+ * another tool) found in a skills folder, by its revision (`installed`):
+ * - `current`: the revision of the extension's skill (`bundled`),
+ * - `newer`: a later one,
+ * - `outdated`: an earlier one (offer to update it),
+ * - `offered`: an earlier one, whose update to the extension's skill was already offered (`offered`, the revision then offered).
+ */
+export function unrecordedSkillStatus(installed: number, bundled: number, offered: number | undefined): 'current' | 'newer' | 'outdated' | 'offered' {
+  if (installed === bundled) {
+    return 'current';
+  }
+  if (installed > bundled) {
+    return 'newer';
+  }
+  return offered === bundled ? 'offered' : 'outdated';
 }
 
 /** Compares the versions `a` and `b` (`1.4.0`, `1.5.0-rc.1`) by their numbers: negative if `a` is older, positive if newer. */

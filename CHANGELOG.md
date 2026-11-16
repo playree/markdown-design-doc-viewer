@@ -2,6 +2,12 @@
 
 This changelog covers the extension, the command line and the embeddable viewer (npm package `markdown-design-doc-viewer-embed`). The desktop app has its own version and [changelog](desktop/CHANGELOG.md).
 
+## Unreleased
+
+- The Agent Skill has a revision, raised each time it changes, in the front matter of its SKILL.md (`metadata.revision`), so that a copy installed in any way (by the extension, from the zip of a release, or by another tool) can be told older or newer.
+- The extension also offers to update the older copies of the Agent Skill in `~/.claude/skills` and the `.claude/skills` of the workspace folders that it did not install (unzipped from a release, for example), once for each revision, and overwrites them after asking. It no longer offers to update a copy newer than its skill, and **Install Agent Skill for AI...** asks before replacing one.
+- Embeddable viewer: the package has the Agent Skill (`markdown-design-doc-viewer-embed/skill`: its name, revision and files), for an app that installs it without a network, such as an MCP server. See [Agent Skill](docs/embed.md#agent-skill).
+
 ## 1.5.5
 
 - Embeddable viewer: `createDesignDocList` and the React component `DesignDocList` show a list of design documents given by the app, the same as the list of the design docs of the extension and the desktop app: a table for each folder with the version, product, status and updated date of their front matter, a search box and sortable columns. The header of the file names, the texts and the order can be changed, and a click on a title goes to `onOpenLink`. See [Listing design documents](docs/embed.md#listing-design-documents).

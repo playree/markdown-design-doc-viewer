@@ -362,6 +362,7 @@
     "npm:package": "node esbuild.mjs --production && node scripts/npm-package.mjs",
     "npm:embed-package": "node esbuild.mjs --embed --production && node scripts/npm-embed-package.mjs",
     "skill:package": "node scripts/skill-package.mjs",
+    "skill:bump": "node scripts/skill-bump.mjs",
     "pages": "node scripts/pages.mjs",
     "desktop:build": "node esbuild.mjs --desktop --production",
     "desktop:dev": "tauri dev",

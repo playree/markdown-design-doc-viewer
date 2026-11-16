@@ -1,6 +1,14 @@
 import { homedir } from 'node:os';
 import * as vscode from 'vscode';
-import { hashSkill, type InstalledHashes, type SkillInstall, skillInstallStatus, staleSkillFiles } from './skillInstallState';
+import {
+  hashSkill,
+  type InstalledHashes,
+  type SkillInstall,
+  skillInstallStatus,
+  skillRevision,
+  staleSkillFiles,
+  unrecordedSkillStatus,
+} from './skillInstallState';
 
 /** The name of the Agent Skill, which is also the name of its folder (scripts/skill-files.mjs). */
 const SKILL_NAME = 'markdown-design-doc';
@@ -12,10 +20,30 @@ const SKILL_NAME = 'markdown-design-doc';
  */
 const STATE_PREFIX = 'agentSkillInstall:';
 
-/** The extension's skill: its files, relative to its folder, and their hash. */
+/**
+ * The prefix of the keys of the global state where the revision of the extension's skill whose update was offered is
+ * remembered, for each copy in a skills folder that the command did not install (unzipped from a release, or written by
+ * another tool): its update is offered once for each revision.
+ */
+const OFFER_PREFIX = 'agentSkillOffer:';
+
+/** The extension's skill: its files, relative to its folder, their hash, and its revision. */
 interface Bundle {
   files: Map<string, Uint8Array>;
   hash: string;
+  revision: number;
+}
+
+/** A skills folder of Claude Code where a copy of the skill may be (`skillFolders`). */
+interface SkillFolder {
+  folder: vscode.Uri;
+  /** The workspace folder of the copy in its `.claude/skills`; undefined for the copy for all projects. */
+  workspaceFolder?: string;
+}
+
+/** A copy of the skill that the command did not install, older than the extension's: of `revision` when found. */
+interface UnrecordedCopy extends SkillFolder {
+  revision: number;
 }
 
 /**
@@ -59,8 +87,19 @@ class SkillInstaller {
         void vscode.window.showInformationMessage(vscode.l10n.t('The Agent Skill in {0} is up to date.', where));
         return;
       }
-      // A copy installed by the command and not changed since is updated without asking.
-      if (installed !== undefined && installed.recorded !== install?.hash) {
+      if (installed !== undefined && installed.revision > bundle.revision) {
+        // Installed from a later release (its zip, or by another tool): not replaced with an older skill without asking.
+        const overwrite = vscode.l10n.t('Overwrite');
+        const answer = await vscode.window.showWarningMessage(
+          vscode.l10n.t('The Agent Skill in {0} is newer than the one of this version of the extension. Overwrite it with the older one?', where),
+          { modal: true, detail: vscode.l10n.t('Its revision is {0}, and that of the extension is {1}.', installed.revision, bundle.revision) },
+          overwrite,
+        );
+        if (answer !== overwrite) {
+          return;
+        }
+      } else if (installed !== undefined && installed.recorded !== install?.hash) {
+        // A copy installed by the command and not changed since is updated without asking.
         const overwrite = vscode.l10n.t('Overwrite');
         const answer = await vscode.window.showWarningMessage(
           vscode.l10n.t('Overwrite the Agent Skill in {0}?', where),
@@ -86,14 +125,13 @@ class SkillInstaller {
   /**
    * Offers to update the copies installed by the command that are older than the extension's skill and were not changed
    * since: once for each version of the skill (also when the notification is closed, and in the other windows), and the
-   * copies in a project only in a window with that project.
+   * copies in a project only in a window with that project. Also the copies of an earlier revision that the command did
+   * not install, in the skills folders it offers (`~/.claude/skills` and those of the workspace folders): once for each
+   * revision, and overwritten only after asking, as their changes cannot be told.
    */
   async offerUpdates(): Promise<void> {
     const open = new Set((vscode.workspace.workspaceFolders ?? []).map((workspaceFolder) => workspaceFolder.uri.toString()));
     const installs = this.installs().filter((install) => install.workspaceFolder === undefined || open.has(install.workspaceFolder));
-    if (installs.length === 0) {
-      return;
-    }
     let bundle: Bundle;
     try {
       bundle = await readBundle(this.context.extensionUri);
@@ -104,7 +142,7 @@ class SkillInstaller {
     for (const install of installs) {
       const folder = vscode.Uri.parse(install.folder);
       try {
-        const status = skillInstallStatus(install, await readInstalled(folder, bundle, install), bundle.hash, this.version);
+        const status = skillInstallStatus(install, await readInstalled(folder, bundle, install), bundle, this.version);
         // Applied only if the command (or another window) did not change what is remembered meanwhile.
         if (this.recall(install.folder)?.hash !== install.hash) {
           continue;
@@ -122,14 +160,32 @@ class SkillInstaller {
         // Unreadable for now (a file system that is not available here): checked again on the next activation.
       }
     }
-    if (outdated.length === 0) {
+    const unrecorded: UnrecordedCopy[] = [];
+    for (const copy of skillFolders()) {
+      if (this.recall(copy.folder.toString()) !== undefined) {
+        continue;
+      }
+      try {
+        const revision = await readRevision(copy.folder);
+        const offerKey = this.offerKey(copy.folder.toString());
+        const offered = this.context.globalState.get<unknown>(offerKey);
+        if (revision !== undefined && unrecordedSkillStatus(revision, bundle.revision, typeof offered === 'number' ? offered : undefined) === 'outdated') {
+          unrecorded.push({ ...copy, revision });
+          await this.context.globalState.update(offerKey, bundle.revision);
+        }
+      } catch {
+        // Unreadable for now: checked again on the next activation.
+      }
+    }
+    if (outdated.length === 0 && unrecorded.length === 0) {
       return;
     }
-    const where = outdated.map((install) => displayPath(vscode.Uri.parse(install.folder))).join(', ');
+    const folders = [...outdated.map((install) => vscode.Uri.parse(install.folder)), ...unrecorded.map((copy) => copy.folder)];
+    const where = folders.map(displayPath).join(', ');
     const update = vscode.l10n.t('Update');
     const later = vscode.l10n.t('Later');
     const answer = await vscode.window.showInformationMessage(
-      outdated.length === 1
+      folders.length === 1
         ? vscode.l10n.t('The Agent Skill for writing design docs installed in {0} is older than the one of this version of the extension. Update it?', where)
         : vscode.l10n.t('The Agent Skills for writing design docs installed in {0} are older than the one of this version of the extension. Update them?', where),
       update,
@@ -138,6 +194,24 @@ class SkillInstaller {
     if (answer !== update) {
       // Not asked again until the extension has another skill; the command still updates it.
       return;
+    }
+    let overwrite = unrecorded.length === 0;
+    if (!overwrite) {
+      const confirm = vscode.l10n.t('Overwrite');
+      overwrite =
+        (await vscode.window.showWarningMessage(
+          unrecorded.length === 1
+            ? vscode.l10n.t('Overwrite the Agent Skill in {0}?', displayPath(unrecorded[0].folder))
+            : vscode.l10n.t('Overwrite the Agent Skills in {0}?', unrecorded.map((copy) => displayPath(copy.folder)).join(', ')),
+          {
+            modal: true,
+            detail:
+              unrecorded.length === 1
+                ? vscode.l10n.t('It was not installed by this extension, so whether its files were changed cannot be told. Changes made to them will be lost.')
+                : vscode.l10n.t('They were not installed by this extension, so whether their files were changed cannot be told. Changes made to them will be lost.'),
+          },
+          confirm,
+        )) === confirm;
     }
     const updated: string[] = [];
     const failed: string[] = [];
@@ -152,6 +226,17 @@ class SkillInstaller {
         }
       } catch (error) {
         failed.push(`${displayPath(folder)} (${errorMessage(error)})`);
+      }
+    }
+    for (const copy of overwrite ? unrecorded : []) {
+      try {
+        // Installed by the command (from another window), or replaced with another revision, since: left as it is.
+        if (this.recall(copy.folder.toString()) === undefined && (await readRevision(copy.folder)) === copy.revision) {
+          await this.write(copy.folder, undefined, bundle, copy.workspaceFolder);
+          updated.push(displayPath(copy.folder));
+        }
+      } catch (error) {
+        failed.push(`${displayPath(copy.folder)} (${errorMessage(error)})`);
       }
     }
     if (failed.length > 0) {
@@ -188,7 +273,12 @@ class SkillInstaller {
 
   /** The key of the copy in `folder` (a URI): the same for the same folder written with other cases on Windows. */
   private key(folder: string): string {
-    return STATE_PREFIX + (process.platform === 'win32' ? folder.toLowerCase() : folder);
+    return STATE_PREFIX + normalizeFolder(folder);
+  }
+
+  /** The key of the revision whose update was offered for the copy in `folder` (a URI) that the command did not install. */
+  private offerKey(folder: string): string {
+    return OFFER_PREFIX + normalizeFolder(folder);
   }
 
   private installs(): SkillInstall[] {
@@ -205,7 +295,7 @@ class SkillInstaller {
   }
 
   /** Remembers that `folder` has the extension's skill, and the workspace folder whose windows offer its updates. */
-  private remember(folder: vscode.Uri, bundle: Bundle, workspaceFolder: string | undefined): Thenable<void> {
+  private async remember(folder: vscode.Uri, bundle: Bundle, workspaceFolder: string | undefined): Promise<void> {
     const install: SkillInstall = {
       folder: folder.toString(),
       hash: bundle.hash,
@@ -213,12 +303,41 @@ class SkillInstaller {
       version: this.version,
       ...(workspaceFolder && { workspaceFolder }),
     };
-    return this.context.globalState.update(this.key(install.folder), install);
+    // Remembered as installed by the command: its offers are those of `install.offered` from now on.
+    await this.context.globalState.update(this.offerKey(install.folder), undefined);
+    await this.context.globalState.update(this.key(install.folder), install);
   }
 
   private forget(folder: string): Thenable<void> {
     return this.context.globalState.update(this.key(folder), undefined);
   }
+}
+
+/** `folder` (a URI) as the keys of the global state have it: the same for the same folder written with other cases on Windows. */
+function normalizeFolder(folder: string): string {
+  return process.platform === 'win32' ? folder.toLowerCase() : folder;
+}
+
+/** The skills folders of Claude Code (`chooseFolder`): the copies of the skill there, whether the command installed them or not. */
+function skillFolders(): SkillFolder[] {
+  const copies: SkillFolder[] = [
+    { folder: vscode.Uri.joinPath(userSkillsFolder(), SKILL_NAME) },
+    ...(vscode.workspace.workspaceFolders ?? []).map((workspaceFolder) => ({
+      folder: vscode.Uri.joinPath(workspaceFolder.uri, '.claude', 'skills', SKILL_NAME),
+      workspaceFolder: workspaceFolder.uri.toString(),
+    })),
+  ];
+  // The home folder open as a workspace folder has the copy for all projects.
+  const seen = new Set<string>();
+  return copies.filter((copy) => {
+    const key = normalizeFolder(copy.folder.toString());
+    return !seen.has(key) && seen.add(key);
+  });
+}
+
+/** Claude Code's skills folder for all projects. */
+function userSkillsFolder(): vscode.Uri {
+  return vscode.Uri.joinPath(vscode.Uri.file(homedir()), '.claude', 'skills');
 }
 
 function isSkillInstall(value: unknown): value is SkillInstall {
@@ -250,7 +369,7 @@ async function chooseFolder(): Promise<{ parent: vscode.Uri; user: boolean } | u
     {
       label: '~/.claude/skills',
       description: vscode.l10n.t('Claude Code: all projects'),
-      folder: vscode.Uri.joinPath(vscode.Uri.file(homedir()), '.claude', 'skills'),
+      folder: userSkillsFolder(),
       user: true,
     },
     ...(vscode.workspace.workspaceFolders ?? []).map((workspaceFolder): FolderItem => {
@@ -296,7 +415,7 @@ async function readBundle(extensionUri: vscode.Uri): Promise<Bundle> {
   for (const path of await listFiles(root, '')) {
     files.set(path, await vscode.workspace.fs.readFile(vscode.Uri.joinPath(root, path)));
   }
-  return { files, hash: hashSkill([...files.keys()], files) };
+  return { files, hash: hashSkill([...files.keys()], files), revision: revisionOf(files.get('SKILL.md')) };
 }
 
 /** The paths of the files under `root`/`dir`, relative to `root`. */
@@ -331,7 +450,24 @@ async function readInstalled(folder: vscode.Uri, bundle: Bundle, install: SkillI
       }
     }
   }
-  return files.size > 0 ? { bundle: hashSkill(bundled, files), recorded: hashSkill(recorded, files) } : undefined;
+  return files.size > 0 ? { bundle: hashSkill(bundled, files), recorded: hashSkill(recorded, files), revision: revisionOf(files.get('SKILL.md')) } : undefined;
+}
+
+/** The revision of a skill whose SKILL.md is `skillMd` (`skillRevision`), 0 without it. */
+function revisionOf(skillMd: Uint8Array | undefined): number {
+  return skillMd ? skillRevision(new TextDecoder().decode(skillMd)) : 0;
+}
+
+/** The revision of the copy of the skill in `folder` (`skillRevision`), or undefined without its SKILL.md. Throws on other errors. */
+async function readRevision(folder: vscode.Uri): Promise<number | undefined> {
+  try {
+    return revisionOf(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(folder, 'SKILL.md')));
+  } catch (error) {
+    if (isFileNotFound(error)) {
+      return undefined;
+    }
+    throw error;
+  }
 }
 
 async function exists(uri: vscode.Uri): Promise<boolean> {

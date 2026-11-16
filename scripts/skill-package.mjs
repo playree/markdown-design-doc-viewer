@@ -11,7 +11,7 @@ import { dirname, join, resolve } from 'node:path';
 import { finished } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 import yazl from 'yazl';
-import { SKILL_NAME, writeSkill } from './skill-files.mjs';
+import { checkSkillRevision, SKILL_NAME, writeSkill } from './skill-files.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, '.work/skill');
@@ -20,6 +20,8 @@ const ZIP = 'markdown-design-doc-skill.zip';
 /** The date of the files in the zip, fixed (and written only as a DOS date, without a time zone) so that the same files make the same zip. */
 const MTIME = new Date(2000, 0, 1);
 
+// The zip attached to a release has the revision of its files.
+checkSkillRevision();
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 const files = writeSkill(OUT);
