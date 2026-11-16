@@ -97,6 +97,12 @@ describe('skillRevision', () => {
     expect(skillRevision(skillMd("metadata:\n    revision: '4'\nlicense: MIT\n"))).toBe(4);
   });
 
+  it('reads it after blank lines in the metadata', () => {
+    expect(skillRevision(skillMd('metadata:\n  author: me\n\n  revision: "4"\n'))).toBe(4);
+    expect(skillRevision(skillMd('metadata:\n\n  revision: "4"\n'))).toBe(4);
+    expect(skillRevision(skillMd('metadata:\r\n  author: me\r\n  \r\n  revision: "4"\r\n'))).toBe(4);
+  });
+
   it('reads it with CRLF line endings', () => {
     expect(skillRevision(skillMd('metadata:\n  revision: "5"\n').replace(/\n/g, '\r\n'))).toBe(5);
   });

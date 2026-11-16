@@ -34,11 +34,16 @@ interface Bundle {
   revision: number;
 }
 
-/** A copy of the skill that the command did not install, older than the extension's. */
-interface UnrecordedCopy {
+/** A skills folder of Claude Code where a copy of the skill may be (`skillFolders`). */
+interface SkillFolder {
   folder: vscode.Uri;
   /** The workspace folder of the copy in its `.claude/skills`; undefined for the copy for all projects. */
   workspaceFolder?: string;
+}
+
+/** A copy of the skill that the command did not install, older than the extension's: of `revision` when found. */
+interface UnrecordedCopy extends SkillFolder {
+  revision: number;
 }
 
 /**
@@ -165,7 +170,7 @@ class SkillInstaller {
         const offerKey = this.offerKey(copy.folder.toString());
         const offered = this.context.globalState.get<unknown>(offerKey);
         if (revision !== undefined && unrecordedSkillStatus(revision, bundle.revision, typeof offered === 'number' ? offered : undefined) === 'outdated') {
-          unrecorded.push(copy);
+          unrecorded.push({ ...copy, revision });
           await this.context.globalState.update(offerKey, bundle.revision);
         }
       } catch {
@@ -226,8 +231,7 @@ class SkillInstaller {
     for (const copy of overwrite ? unrecorded : []) {
       try {
         // Installed by the command (from another window), or replaced with another revision, since: left as it is.
-        const revision = await readRevision(copy.folder);
-        if (this.recall(copy.folder.toString()) === undefined && revision !== undefined && revision < bundle.revision) {
+        if (this.recall(copy.folder.toString()) === undefined && (await readRevision(copy.folder)) === copy.revision) {
           await this.write(copy.folder, undefined, bundle, copy.workspaceFolder);
           updated.push(displayPath(copy.folder));
         }
@@ -315,8 +319,8 @@ function normalizeFolder(folder: string): string {
 }
 
 /** The skills folders of Claude Code (`chooseFolder`): the copies of the skill there, whether the command installed them or not. */
-function skillFolders(): UnrecordedCopy[] {
-  const copies: UnrecordedCopy[] = [
+function skillFolders(): SkillFolder[] {
+  const copies: SkillFolder[] = [
     { folder: vscode.Uri.joinPath(userSkillsFolder(), SKILL_NAME) },
     ...(vscode.workspace.workspaceFolders ?? []).map((workspaceFolder) => ({
       folder: vscode.Uri.joinPath(workspaceFolder.uri, '.claude', 'skills', SKILL_NAME),

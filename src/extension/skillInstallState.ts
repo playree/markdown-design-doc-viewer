@@ -68,9 +68,10 @@ export interface BundledSkill {
  */
 export function skillRevision(skillMd: string): number {
   const frontMatter = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---[ \t]*(\r?\n|$)/.exec(skillMd)?.[1];
-  const metadata = frontMatter && /^metadata:[ \t]*\r?\n((?:[ \t]+.*(?:\r?\n|$))*)/m.exec(frontMatter)?.[1];
+  // Its indented lines, and the blank lines between them.
+  const metadata = frontMatter && /^metadata:[ \t]*\r?\n((?:[ \t]*\r?\n|[ \t]+.*(?:\r?\n|$))*)/m.exec(frontMatter)?.[1];
   // A key of the metadata itself, indented as its first one, not of a map in it.
-  const indent = metadata && /^[ \t]+/.exec(metadata)?.[0];
+  const indent = metadata && /^([ \t]+)\S/m.exec(metadata)?.[1];
   const revision = indent && new RegExp(`^${indent}revision:[ \\t]*(["']?)(\\d+)\\1[ \\t]*\\r?$`, 'm').exec(metadata)?.[2];
   return revision ? Number(revision) : 0;
 }
