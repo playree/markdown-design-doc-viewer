@@ -2,7 +2,7 @@
 
 This changelog covers the extension, the command line and the embeddable viewer (npm package `markdown-design-doc-viewer-embed`). The desktop app has its own version and [changelog](desktop/CHANGELOG.md).
 
-## Unreleased
+## 1.5.6
 
 - The Agent Skill has a revision, raised each time it changes, in the front matter of its SKILL.md (`metadata.revision`), so that a copy installed in any way (by the extension, from the zip of a release, or by another tool) can be told older or newer.
 - The extension also offers to update the older copies of the Agent Skill in `~/.claude/skills` and the `.claude/skills` of the workspace folders that it did not install (unzipped from a release, for example), once for each revision, and overwrites them after asking. It no longer offers to update a copy newer than its skill, and **Install Agent Skill for AI...** asks before replacing one.
