@@ -1,7 +1,7 @@
 import { copyFileSync, mkdirSync } from 'node:fs';
 import * as esbuild from 'esbuild';
 import { buildOptions } from './scripts/build-options.mjs';
-import { writeSkill } from './scripts/skill-files.mjs';
+import { skillRevisionProblem, writeSkill } from './scripts/skill-files.mjs';
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
@@ -21,6 +21,11 @@ if (embed) {
   // The Agent Skill for AI assistants, registered for Copilot (`chatSkills` in package.json) and installed by the
   // extension's command. Not rebuilt on changes while watching: it is made of documents that seldom change.
   writeSkill('dist/skill');
+  // Only told, not to stop the build while the documents are being written: the tests and `pnpm skill:package` fail on it.
+  const problem = skillRevisionProblem();
+  if (problem) {
+    console.warn(`Warning: ${problem}`);
+  }
 }
 
 if (watch) {

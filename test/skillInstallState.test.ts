@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { compareVersions, hashSkill, type InstalledHashes, type SkillInstall, skillInstallStatus, staleSkillFiles } from '../src/extension/skillInstallState';
+import {
+  compareVersions,
+  hashSkill,
+  type InstalledHashes,
+  type SkillInstall,
+  skillInstallStatus,
+  skillRevision,
+  staleSkillFiles,
+  unrecordedSkillStatus,
+} from '../src/extension/skillInstallState';
 
 const bytes = (text: string): Uint8Array => new TextEncoder().encode(text);
 
@@ -36,38 +45,86 @@ describe('hashSkill', () => {
 describe('skillInstallStatus', () => {
   const install: SkillInstall = { folder: 'file:///home/u/.claude/skills/markdown-design-doc', hash: 'old' };
   /** Installed files hashing to `bundle` over the files of the extension's skill, and to `recorded` over those written there. */
-  const hashes = (bundle: string, recorded = bundle): InstalledHashes => ({ bundle, recorded });
+  const hashes = (bundle: string, recorded = bundle, revision = 1): InstalledHashes => ({ bundle, recorded, revision });
+  /** The extension's skill, of revision 2. */
+  const bundled = (hash: string) => ({ hash, revision: 2 });
 
   it('is missing without the installed files', () => {
-    expect(skillInstallStatus(install, undefined, 'new', '1.5.0')).toBe('missing');
+    expect(skillInstallStatus(install, undefined, bundled('new'), '1.5.0')).toBe('missing');
   });
 
   it('is current when the installed files are the bundled ones, even if changed since', () => {
-    expect(skillInstallStatus(install, hashes('new'), 'new', '1.5.0')).toBe('current');
-    expect(skillInstallStatus({ ...install, hash: 'new' }, hashes('new'), 'new', '1.5.0')).toBe('current');
+    expect(skillInstallStatus(install, hashes('new'), bundled('new'), '1.5.0')).toBe('current');
+    expect(skillInstallStatus({ ...install, hash: 'new' }, hashes('new'), bundled('new'), '1.5.0')).toBe('current');
   });
 
   it('is outdated when the installed files are as written and the bundled ones differ', () => {
-    expect(skillInstallStatus(install, hashes('old'), 'new', '1.5.0')).toBe('outdated');
+    expect(skillInstallStatus(install, hashes('old'), bundled('new'), '1.5.0')).toBe('outdated');
   });
 
   it('is outdated when the skill of the extension has a file the installed one does not', () => {
-    expect(skillInstallStatus(install, hashes('old without the new file', 'old'), 'new', '1.5.0')).toBe('outdated');
+    expect(skillInstallStatus(install, hashes('old without the new file', 'old'), bundled('new'), '1.5.0')).toBe('outdated');
   });
 
   it('is modified when the installed files were changed', () => {
-    expect(skillInstallStatus(install, hashes('edited'), 'new', '1.5.0')).toBe('modified');
+    expect(skillInstallStatus(install, hashes('edited'), bundled('new'), '1.5.0')).toBe('modified');
   });
 
   it('is newer when installed by a newer version of the extension, unless changed', () => {
-    expect(skillInstallStatus({ ...install, version: '1.6.0' }, hashes('old'), 'new', '1.5.0')).toBe('newer');
-    expect(skillInstallStatus({ ...install, version: '1.6.0' }, hashes('edited'), 'new', '1.5.0')).toBe('modified');
-    expect(skillInstallStatus({ ...install, version: '1.4.0' }, hashes('old'), 'new', '1.5.0')).toBe('outdated');
+    expect(skillInstallStatus({ ...install, version: '1.6.0' }, hashes('old'), bundled('new'), '1.5.0')).toBe('newer');
+    expect(skillInstallStatus({ ...install, version: '1.6.0' }, hashes('edited'), bundled('new'), '1.5.0')).toBe('modified');
+    expect(skillInstallStatus({ ...install, version: '1.4.0' }, hashes('old'), bundled('new'), '1.5.0')).toBe('outdated');
+  });
+
+  it('is newer when of a later revision, even if changed since it was installed', () => {
+    expect(skillInstallStatus(install, hashes('later', 'later', 3), bundled('new'), '1.5.0')).toBe('newer');
+    expect(skillInstallStatus(install, hashes('old', 'old', 3), bundled('new'), '1.5.0')).toBe('newer');
+    expect(skillInstallStatus(install, hashes('edited', 'edited', 2), bundled('new'), '1.5.0')).toBe('modified');
   });
 
   it('is offered until the bundled files change again', () => {
-    expect(skillInstallStatus({ ...install, offered: 'new' }, hashes('old'), 'new', '1.5.0')).toBe('offered');
-    expect(skillInstallStatus({ ...install, offered: 'new' }, hashes('old'), 'newer', '1.5.0')).toBe('outdated');
+    expect(skillInstallStatus({ ...install, offered: 'new' }, hashes('old'), bundled('new'), '1.5.0')).toBe('offered');
+    expect(skillInstallStatus({ ...install, offered: 'new' }, hashes('old'), bundled('newer'), '1.5.0')).toBe('outdated');
+  });
+});
+
+describe('skillRevision', () => {
+  const skillMd = (frontMatter: string) => `---\nname: markdown-design-doc\ndescription: Write\n${frontMatter}---\n\n# Title\n`;
+
+  it('reads the revision in the metadata of the front matter', () => {
+    expect(skillRevision(skillMd('metadata:\n  revision: "12"\n'))).toBe(12);
+    expect(skillRevision(skillMd('metadata:\n  author: me\n  revision: 3\n'))).toBe(3);
+    expect(skillRevision(skillMd("metadata:\n    revision: '4'\nlicense: MIT\n"))).toBe(4);
+  });
+
+  it('reads it with CRLF line endings', () => {
+    expect(skillRevision(skillMd('metadata:\n  revision: "5"\n').replace(/\n/g, '\r\n'))).toBe(5);
+  });
+
+  it('is 0 without one', () => {
+    expect(skillRevision(skillMd(''))).toBe(0);
+    expect(skillRevision(skillMd('metadata:\n  author: me\n'))).toBe(0);
+    expect(skillRevision(skillMd('revision: "6"\n'))).toBe(0);
+    expect(skillRevision(`# Title\n\nmetadata:\n  revision: "7"\n`)).toBe(0);
+    expect(skillRevision(skillMd('metadata:\n  revision: "x"\n'))).toBe(0);
+  });
+
+  it('does not read a revision after the metadata', () => {
+    expect(skillRevision(skillMd('metadata:\n  author: me\nother:\n  revision: "8"\n'))).toBe(0);
+  });
+});
+
+describe('unrecordedSkillStatus', () => {
+  it('compares the revisions', () => {
+    expect(unrecordedSkillStatus(2, 2, undefined)).toBe('current');
+    expect(unrecordedSkillStatus(3, 2, undefined)).toBe('newer');
+    expect(unrecordedSkillStatus(1, 2, undefined)).toBe('outdated');
+    expect(unrecordedSkillStatus(0, 2, undefined)).toBe('outdated');
+  });
+
+  it('is offered until the revision of the extension changes again', () => {
+    expect(unrecordedSkillStatus(1, 2, 2)).toBe('offered');
+    expect(unrecordedSkillStatus(1, 3, 2)).toBe('outdated');
   });
 });
 

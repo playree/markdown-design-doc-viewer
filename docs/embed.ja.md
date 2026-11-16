@@ -188,6 +188,20 @@ setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 
 図に `%% @link-headings` を書くと、その後ろの見出しに紐付きます。矢印・ノードと見出しは文言、または `%% @ref` で対応付けます。記法は[書き方](https://github.com/playree/markdown-design-doc-viewer/blob/main/README.ja.md#書き方)を、画面は[ワイヤーフレーム](https://github.com/playree/markdown-design-doc-viewer/blob/main/README.ja.md#ワイヤーフレーム)を見てください。
 
+## Agent Skill
+
+パッケージには、AI アシスタントにこの設計書の書き方を教える [Agent Skill](https://agentskills.io/) も入っています（このバージョンのリリースの [markdown-design-doc-skill.zip](https://github.com/playree/markdown-design-doc-viewer/releases/latest/download/markdown-design-doc-skill.zip) と同じもの）。MCP サーバーなど、ネットワークなしで Skill をインストールするアプリのためのものです。Node で import できます。
+
+```ts
+import { agentSkill } from 'markdown-design-doc-viewer-embed/skill';
+
+// agentSkill.name: 'markdown-design-doc'。スキルのフォルダ（~/.claude/skills/ など）の中のフォルダ名
+// agentSkill.files: { 'SKILL.md': '…', 'references/cli.md': '…' }。そのフォルダからのパスごとの内容
+// agentSkill.revision: ファイルが変わるたびに上がる番号
+```
+
+インストールするには、ファイルをスキルのフォルダの中の `markdown-design-doc` フォルダに書きます。revision は SKILL.md の front matter（`metadata.revision`）にもあります。すでにあるコピーの revision が小さければ（またはなければ）古いもの、大きければ新しいものなので、新しいものは置き換えないでください。
+
 ## ライセンス
 
 [MIT](https://github.com/playree/markdown-design-doc-viewer/blob/main/LICENSE)。同梱したライブラリのライセンスは ThirdPartyNotices.txt にあります。

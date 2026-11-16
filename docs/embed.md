@@ -188,6 +188,20 @@ The modules can be imported on a server (Next.js, for instance): they use the do
 
 A diagram is linked to the headings after it with `%% @link-headings` in the diagram; arrows and nodes are matched with the headings by their text, or with `%% @ref`. See [Writing linked documents](https://github.com/playree/markdown-design-doc-viewer#writing-linked-documents) for the syntax, and [Wireframes](https://github.com/playree/markdown-design-doc-viewer#wireframes) for screens.
 
+## Agent Skill
+
+The package also has the [Agent Skill](https://agentskills.io/) that teaches AI assistants to write these documents (the same as [markdown-design-doc-skill.zip](https://github.com/playree/markdown-design-doc-viewer/releases/latest/download/markdown-design-doc-skill.zip) of the release of this version), for an app that installs it without a network, such as an MCP server. It can be imported in Node:
+
+```ts
+import { agentSkill } from 'markdown-design-doc-viewer-embed/skill';
+
+// agentSkill.name: 'markdown-design-doc', the name of its folder in a skills folder (such as ~/.claude/skills/)
+// agentSkill.files: { 'SKILL.md': '…', 'references/cli.md': '…' }, by their paths in that folder
+// agentSkill.revision: raised each time the files change
+```
+
+To install it, write its files into the folder `markdown-design-doc` of the skills folder. The revision is also in the front matter of its SKILL.md (`metadata.revision`): a copy already there with a lower one (or none) is older, and one with a higher one is newer, so do not replace it.
+
 ## License
 
 [MIT](https://github.com/playree/markdown-design-doc-viewer/blob/main/LICENSE). The licenses of the bundled libraries are in ThirdPartyNotices.txt.

@@ -9,6 +9,9 @@
  * bundled but mermaid and React, which the app has (peerDependencies), its styles in one file, and the types of its
  * modules (emitted here by tsc). Its README is docs/embed.md. Its version is the extension's (package.json).
  *
+ * It also has the Agent Skill for AI assistants (scripts/skill-files.mjs) as a module of its own (`./skill`), for an app
+ * that installs it without a network (an MCP server, for example).
+ *
  * At the end, the modules of the package are imported in Node, as an app rendered on a server would: they must not use
  * the document before a viewer is created.
  */
@@ -16,6 +19,7 @@ import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { checkSkillRevision, SKILL_NAME, skillFiles } from './skill-files.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, '.work/npm-embed');
@@ -35,6 +39,8 @@ const MODULES = [
   { file: 'export.js', source: 'embed/export.ts', exportPath: './export' },
 ];
 const STYLES = 'viewer.css';
+/** The module of the Agent Skill, written here (not built by esbuild), and its types. */
+const SKILL = { file: 'skill.js', types: 'types/skill.d.ts', exportPath: './skill' };
 
 /** The other files of the package: [path in the package, path in the repository]. */
 const FILES = [
@@ -122,6 +128,40 @@ for (const module of MODULES) {
 }
 rmSync(TYPES_TEMP, { recursive: true, force: true });
 
+// The Agent Skill: the files of the zip attached to the release, as strings.
+checkSkillRevision();
+const skill = skillFiles();
+writeFileSync(
+  join(OUT, SKILL.file),
+  [
+    '/** The Agent Skill for AI assistants that writes design documents for Markdown Design Doc Viewer. */',
+    'export const agentSkill = Object.freeze({',
+    `  name: ${JSON.stringify(SKILL_NAME)},`,
+    `  revision: ${skill.revision},`,
+    `  files: Object.freeze(${JSON.stringify(skill.files)}),`,
+    '});',
+    '',
+  ].join('\n'),
+);
+writeFileSync(
+  join(OUT, SKILL.types),
+  `/** The Agent Skill for AI assistants that writes design documents for Markdown Design Doc Viewer. */
+export interface AgentSkill {
+  /** The name of the skill, which is also the name of its folder in a skills folder (such as \`~/.claude/skills/\`). */
+  readonly name: string;
+  /**
+   * The revision of the skill, raised each time its files change, as in the front matter of its SKILL.md
+   * (\`metadata.revision\`): a copy with a lower one (or none) is older.
+   */
+  readonly revision: number;
+  /** The files of the skill, by their paths relative to its folder (\`SKILL.md\`, \`references/cli.md\`). */
+  readonly files: Readonly<Record<string, string>>;
+}
+
+export declare const agentSkill: AgentSkill;
+`,
+);
+
 const manifest = {
   name: NAME,
   version: pkg.version,
@@ -136,6 +176,7 @@ const manifest = {
   sideEffects: [`./${STYLES}`],
   exports: {
     ...Object.fromEntries(MODULES.map((module) => [module.exportPath, { types: `./types/${typesOf(module.source)}`, default: `./${module.file}` }])),
+    [SKILL.exportPath]: { types: `./${SKILL.types}`, default: `./${SKILL.file}` },
     [`./${STYLES}`]: `./${STYLES}`,
     './package.json': './package.json',
   },
@@ -157,5 +198,9 @@ for (const [to, from] of FILES.filter(([to]) => to.startsWith('README'))) {
 // As on a server: without a document (mermaid and React come from the node_modules of the repository).
 for (const module of MODULES) {
   await import(pathToFileURL(join(OUT, module.file)).href);
+}
+const { agentSkill } = await import(pathToFileURL(join(OUT, SKILL.file)).href);
+if (agentSkill.revision !== skill.revision || JSON.stringify(agentSkill.files) !== JSON.stringify(skill.files)) {
+  throw new Error(`${SKILL.file}: not the files of the Agent Skill.`);
 }
 console.log(`npm package ${manifest.name}@${manifest.version} prepared in ${OUT}`);

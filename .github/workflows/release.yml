@@ -227,7 +227,7 @@ jobs:
           # peer の範囲はパッケージの package.json（package.json の devDependencies から作る）から読む
           peers=$(node -p 'Object.entries(require(process.argv[1]).peerDependencies).map(([name, range]) => `${name}@${range}`).join(" ")' "$GITHUB_WORKSPACE/.work/npm-embed/package.json")
           npm install --no-audit --no-fund "$tarball" $peers
-          node --input-type=module -e "await import('markdown-design-doc-viewer-embed'); await import('markdown-design-doc-viewer-embed/react')"
+          node --input-type=module -e "await import('markdown-design-doc-viewer-embed'); await import('markdown-design-doc-viewer-embed/react'); const { agentSkill } = await import('markdown-design-doc-viewer-embed/skill'); if (!agentSkill.files['SKILL.md']) throw new Error('No Agent Skill')"
           test -s node_modules/markdown-design-doc-viewer-embed/viewer.css
 
       - if: steps.version.outputs.publish == 'true'
