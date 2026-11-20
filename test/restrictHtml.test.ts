@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allowedControl, RESTRICTED_FORBID_ATTR, RESTRICTED_FORBID_TAGS, restrictClass, restrictId, restrictStyle } from '../webview/restrictHtml';
+import { allowedControl, RESTRICTED_FORBID_ATTR, RESTRICTED_FORBID_TAGS, restrictClass, restrictHrefRef, restrictId, restrictIdList, restrictStyle, restrictUrlRefs } from '../webview/restrictHtml';
 
 describe('restrictStyle', () => {
   it.each([
@@ -88,6 +88,32 @@ describe('restrictId', () => {
     ['fnref1x', 'sn-fnref1x'],
   ])('gives the others the prefix of the headings: %s', (id, expected) => {
     expect(restrictId(id)).toBe(expected);
+  });
+});
+
+describe('references to ids', () => {
+  it('restricts a list of ids as the ids of the elements', () => {
+    expect(restrictIdList('caption  sn-title fn1')).toBe('sn-caption sn-title fn1');
+    expect(restrictIdList('  ')).toBe('');
+  });
+
+  it.each([
+    ['url(#gradient)', 'url(#sn-gradient)'],
+    ['url("#gradient")', 'url("#sn-gradient")'],
+    ["url( '#sn-a' )", "url('#sn-a')"],
+    ['none', 'none'],
+    ['url(https://example.com/a.svg#x)', 'url(https://example.com/a.svg#x)'],
+  ])('restricts the ids of url(#id): %s', (value, expected) => {
+    expect(restrictUrlRefs(value)).toBe(expected);
+  });
+
+  it.each([
+    ['#icon', '#sn-icon'],
+    ['#sn-icon', '#sn-icon'],
+    ['#', '#'],
+    ['icons.svg#icon', 'icons.svg#icon'],
+  ])('restricts the id of an href of SVG: %s', (value, expected) => {
+    expect(restrictHrefRef(value)).toBe(expected);
   });
 });
 

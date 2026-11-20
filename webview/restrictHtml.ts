@@ -74,6 +74,41 @@ export function restrictId(id: string): string {
   return id.startsWith(HEADING_ID_PREFIX) || FOOTNOTE_ID_RE.test(id) ? id : HEADING_ID_PREFIX + id;
 }
 
+/** The attributes that refer to elements by a list of their ids. */
+export const ID_LIST_ATTRS = [
+  'aria-activedescendant',
+  'aria-controls',
+  'aria-describedby',
+  'aria-details',
+  'aria-errormessage',
+  'aria-flowto',
+  'aria-labelledby',
+  'aria-owns',
+  'headers',
+];
+
+/** The attributes of SVG that refer to elements by `url(#id)`. */
+export const URL_REF_ATTRS = ['fill', 'stroke', 'clip-path', 'mask', 'filter', 'marker-start', 'marker-mid', 'marker-end'];
+
+/** A list of ids (`ID_LIST_ATTRS`), with the ids restricted as those of the elements (`restrictId`). */
+export function restrictIdList(value: string): string {
+  return value
+    .split(/\s+/)
+    .filter((id) => id !== '')
+    .map(restrictId)
+    .join(' ');
+}
+
+/** The `url(#id)`s of a value (`URL_REF_ATTRS`), with the ids restricted as those of the elements (`restrictId`). */
+export function restrictUrlRefs(value: string): string {
+  return value.replace(/url\(\s*(['"]?)#([^'")\s]+)\1\s*\)/g, (_match, quote: string, id: string) => `url(${quote}#${restrictId(id)}${quote})`);
+}
+
+/** An `href` of SVG (`<use href="#id">`), with its id restricted as those of the elements (`restrictId`). */
+export function restrictHrefRef(value: string): string {
+  return value.startsWith('#') && value.length > 1 ? `#${restrictId(value.slice(1))}` : value;
+}
+
 /** The attributes of a form control that tell whether it is the renderer's. */
 export interface ControlAttributes {
   type?: string | null;
@@ -119,6 +154,21 @@ export function sanitizeRestricted(html: string): DocumentFragment {
   restrictAttribute(fragment, 'style', restrictStyle);
   restrictAttribute(fragment, 'class', restrictClass);
   restrictAttribute(fragment, 'id', restrictId);
+  // What refers to the ids, which keep referring to the same elements (and not to those of the page). The links (`<a>`,
+  // `<area>`) find them with the prefix (`scrollToFragment`), as those of the headings: their `#fragment` is kept.
+  for (const name of ID_LIST_ATTRS) {
+    restrictAttribute(fragment, name, restrictIdList);
+  }
+  for (const name of URL_REF_ATTRS) {
+    restrictAttribute(fragment, name, restrictUrlRefs);
+  }
+  for (const element of Array.from(fragment.querySelectorAll('svg [href], svg [*|href]'))) {
+    for (const attr of Array.from(element.attributes)) {
+      if (attr.localName === 'href') {
+        attr.value = restrictHrefRef(attr.value);
+      }
+    }
+  }
   return fragment;
 }
 

@@ -114,6 +114,10 @@ const IMPORT_RE = /@import\b(?:[^;"']|"[^"]*"|'[^']*')*;/gi;
  */
 function adoptStyles(shadow: ShadowRoot, page: HTMLElement, restricted: boolean): void {
   if (!constructable) {
+    // Kept as they are, without a way to leave out their rules: none, when `restricted`.
+    if (restricted) {
+      page.querySelectorAll('style').forEach((style) => style.remove());
+    }
     return;
   }
   const styles = Array.from(page.querySelectorAll('style'));
