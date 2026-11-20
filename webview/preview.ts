@@ -850,7 +850,8 @@ export function createPreview(ctx: ViewerContext): Preview {
     const meta = metaOf(block);
     // Kept on updates that do not change it, with what was typed into it and selected: only the links of its parts count,
     // not their lines, which change with an edit above it.
-    const key = JSON.stringify([html, width, block.dataset.seqnotesItems, meta?.messages.map((m) => [m.nodeId, m.target, m.unlinked])]);
+    const restricted = isRestricted();
+    const key = JSON.stringify([html, width, restricted, block.dataset.seqnotesItems, meta?.messages.map((m) => [m.nodeId, m.target, m.unlinked])]);
     const shown = zoomStage.firstElementChild;
     if (shown instanceof HTMLElement && shown.dataset.seqnotesZoomKey === key) {
       return;
@@ -865,7 +866,7 @@ export function createPreview(ctx: ViewerContext): Preview {
     zoomStage.replaceChildren(copy);
     zoomHovered = undefined;
     // Works as in the preview: its text can be selected, its form controls used. The overlay pans on drag around it.
-    mountWireframe(copy, html, meta, { restricted: isRestricted() });
+    mountWireframe(copy, html, meta, { restricted });
     layoutWireframe(copy);
     if (zoom) {
       zoom.width = copy.offsetWidth;

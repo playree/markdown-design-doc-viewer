@@ -58,6 +58,12 @@ export interface WireframeOptions {
   restricted?: boolean;
 }
 
+/**
+ * Marks the block of a wireframe shown `restricted` (`WireframeOptions`), so that an exported page shows it again so
+ * (`remountWireframes`): the HTML kept in its block is that of the wireframe before its styles are restricted.
+ */
+const RESTRICTED_ATTR = 'data-seqnotes-wireframe-restricted';
+
 /** A rule of the shadow host (`:host`, `:host()`, `:host-context()`), which the page of a wireframe does not need. */
 const HOST_RE = /:host(?![\w-])|:host-context\b/;
 
@@ -103,14 +109,15 @@ const IMPORT_RE = /@import\b(?:[^;"']|"[^"]*"|'[^']*')*;/gi;
 
 /**
  * Has the shadow root adopt the styles of the page (its <style> elements, in their order), as sheets that work there as
- * in the document. Their `@import`s are kept in a <style> before them.
+ * in the document. Their `@import`s are kept in a <style> before them, unless `restricted`: the rules they import
+ * cannot be seen before they are loaded (`:host`, `@font-face`).
  */
 function adoptStyles(shadow: ShadowRoot, page: HTMLElement, restricted: boolean): void {
   if (!constructable) {
     return;
   }
   const styles = Array.from(page.querySelectorAll('style'));
-  const imports = styles.flatMap((style) => (style.textContent ?? '').match(IMPORT_RE) ?? []);
+  const imports = restricted ? [] : styles.flatMap((style) => (style.textContent ?? '').match(IMPORT_RE) ?? []);
   if (imports.length > 0) {
     const style = document.createElement('style');
     style.textContent = imports.join('\n');
@@ -201,6 +208,7 @@ export function mountWireframe(block: HTMLElement, html: string, meta: DiagramMe
   const screen = document.createElement('div');
   screen.className = 'seqnotes-wireframe-screen';
   const { shadow, notes } = showPage(block, screen, html, options);
+  block.toggleAttribute(RESTRICTED_ATTR, options.restricted === true);
 
   const parts = document.createElement('div');
   parts.className = 'seqnotes-wireframe-parts';
@@ -338,7 +346,7 @@ export function remountWireframes(root: Element): void {
     const screen = block.querySelector<HTMLElement>(':scope > .seqnotes-wireframe-frame > .seqnotes-wireframe-screen');
     if (typeof source === 'string' && screen && !screen.shadowRoot) {
       // Its notes are in the exported page already.
-      observe(block, showPage(block, screen, source).shadow);
+      observe(block, showPage(block, screen, source, { restricted: block.hasAttribute(RESTRICTED_ATTR) }).shadow);
     }
   }
   layoutWireframes(root);

@@ -52,6 +52,9 @@ window.addEventListener('afterprint', () => {
 
 remountWireframes(root);
 
+// The forms of the document do not leave it, as in the preview.
+root.addEventListener('submit', (e) => e.preventDefault());
+
 // Other links are left to the browser, as in the document.
 setupFootnotePopup(
   root,
