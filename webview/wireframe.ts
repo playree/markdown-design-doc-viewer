@@ -51,27 +51,35 @@ function addDocumentRule(rule: CSSRule): void {
 /** How a wireframe is shown (`mountWireframe`). */
 export interface WireframeOptions {
   /**
-   * Gives the rules that only work in the document (`@font-face`, `@property`) to it (`addDocumentRule`): without it, they
-   * are left out (the `restrictHtml` of an embedded viewer, whose page is the app's). true by default.
+   * Keeps its styles from reaching the page around it (the `restrictHtml` of an embedded viewer, whose page is the
+   * app's): its rules that only work in the document (`@font-face`, `@property`) are left out instead of given to it,
+   * and so are its rules of `:host`, which could take the screen out of its place (`position: fixed !important`).
    */
-  documentRules?: boolean;
+  restricted?: boolean;
 }
+
+/** A rule of the shadow host (`:host`, `:host()`, `:host-context()`), which the page of a wireframe does not need. */
+const HOST_RE = /:host(?![\w-])|:host-context\b/;
 
 /**
  * The style sheet of a <style> of a wireframe, to be adopted by its shadow root: its `:root` matching its <html>,
- * and its rules that only work in the document given to it (`addDocumentRule`), or left out without `documentRules`.
- * Without its `@import`s.
+ * and its rules that only work in the document given to it (`addDocumentRule`), or left out when `restricted` (with
+ * its rules of `:host`). Without its `@import`s.
  */
-function pageSheet(style: HTMLStyleElement, documentRules: boolean): CSSStyleSheet {
+function pageSheet(style: HTMLStyleElement, restricted: boolean): CSSStyleSheet {
   const sheet = new CSSStyleSheet(style.media ? { media: style.media } : {});
   sheet.replaceSync(style.textContent ?? '');
   const visit = (parent: CSSStyleSheet | CSSGroupingRule | CSSStyleRule): void => {
     for (let i = parent.cssRules.length - 1; i >= 0; i--) {
       const rule = parent.cssRules[i];
       if (isDocumentRule(rule)) {
-        if (documentRules) {
+        if (!restricted) {
           addDocumentRule(rule);
         }
+        parent.deleteRule(i);
+        continue;
+      }
+      if (restricted && rule instanceof CSSStyleRule && HOST_RE.test(rule.selectorText)) {
         parent.deleteRule(i);
         continue;
       }
@@ -97,7 +105,7 @@ const IMPORT_RE = /@import\b(?:[^;"']|"[^"]*"|'[^']*')*;/gi;
  * Has the shadow root adopt the styles of the page (its <style> elements, in their order), as sheets that work there as
  * in the document. Their `@import`s are kept in a <style> before them.
  */
-function adoptStyles(shadow: ShadowRoot, page: HTMLElement, documentRules: boolean): void {
+function adoptStyles(shadow: ShadowRoot, page: HTMLElement, restricted: boolean): void {
   if (!constructable) {
     return;
   }
@@ -108,7 +116,7 @@ function adoptStyles(shadow: ShadowRoot, page: HTMLElement, documentRules: boole
     style.textContent = imports.join('\n');
     shadow.append(style);
   }
-  shadow.adoptedStyleSheets = styles.map((style) => pageSheet(style, documentRules));
+  shadow.adoptedStyleSheets = styles.map((style) => pageSheet(style, restricted));
   styles.forEach((style) => style.remove());
 }
 
@@ -154,7 +162,7 @@ function itemsOf(block: HTMLElement): [number, string][] {
  * Shows the (sanitized) HTML of a wireframe of `block` in a shadow root of `screen`, with the parts of its options
  * numbered. Returns the shadow root, and the problems with the selectors of the parts.
  */
-function showPage(block: HTMLElement, screen: HTMLElement, html: string, { documentRules = true }: WireframeOptions = {}): { shadow: ShadowRoot; notes: string[] } {
+function showPage(block: HTMLElement, screen: HTMLElement, html: string, { restricted = false }: WireframeOptions = {}): { shadow: ShadowRoot; notes: string[] } {
   const shadow = screen.attachShadow({ mode: 'open' });
   // A mock-up: its links and forms do not leave the document.
   for (const type of ['click', 'auxclick']) {
@@ -178,7 +186,7 @@ function showPage(block: HTMLElement, screen: HTMLElement, html: string, { docum
   // Parsed as a document, so that it keeps its <html> and <body>, which its styles may select.
   const page = new DOMParser().parseFromString(html, 'text/html').documentElement;
   shadow.append(style);
-  adoptStyles(shadow, page, documentRules);
+  adoptStyles(shadow, page, restricted);
   shadow.append(document.importNode(page, true));
   return { shadow, notes: numberParts(shadow, itemsOf(block), block) };
 }

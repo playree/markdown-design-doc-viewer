@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allowedControl, RESTRICTED_FORBID_TAGS, restrictClass, restrictStyle } from '../webview/restrictHtml';
+import { allowedControl, RESTRICTED_FORBID_ATTR, RESTRICTED_FORBID_TAGS, restrictClass, restrictId, restrictStyle } from '../webview/restrictHtml';
 
 describe('restrictStyle', () => {
   it.each([
@@ -76,6 +76,21 @@ describe('restrictClass', () => {
   });
 });
 
+describe('restrictId', () => {
+  it.each(['sn-login', 'sn-1-sign-in', 'fn1', 'fnref12', 'fnref1:2'])('keeps the ids of the renderer: %s', (id) => {
+    expect(restrictId(id)).toBe(id);
+  });
+
+  it.each([
+    ['modal-root', 'sn-modal-root'],
+    ['app', 'sn-app'],
+    ['fn', 'sn-fn'],
+    ['fnref1x', 'sn-fnref1x'],
+  ])('gives the others the prefix of the headings: %s', (id, expected) => {
+    expect(restrictId(id)).toBe(expected);
+  });
+});
+
 describe('allowedControl', () => {
   it('keeps the checkbox of a task list (src/markdown/markdownExtras.ts)', () => {
     expect(allowedControl('input', { type: 'checkbox', className: 'task-list-item-checkbox', disabled: true })).toBe(true);
@@ -114,5 +129,11 @@ describe('allowedControl', () => {
 describe('RESTRICTED_FORBID_TAGS', () => {
   it('has the elements that style or navigate the page', () => {
     expect(RESTRICTED_FORBID_TAGS).toEqual(expect.arrayContaining(['style', 'link', 'meta', 'base', 'form', 'textarea', 'select', 'map', 'area', 'dialog']));
+  });
+});
+
+describe('RESTRICTED_FORBID_ATTR', () => {
+  it('has the attributes that reach the elements or the focus of the page', () => {
+    expect(RESTRICTED_FORBID_ATTR).toEqual(expect.arrayContaining(['popover', 'popovertarget', 'autofocus', 'tabindex', 'for', 'usemap', 'form', 'name']));
   });
 });

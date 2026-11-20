@@ -4,7 +4,7 @@ The desktop app has its own version, apart from the extension and the command li
 
 ## Unreleased
 
-- The links of image maps (`<area href>`) in a document open as its other links do, and the forms in a document are no longer submitted.
+- The links of image maps (`<area href>`) in a document open as its other links do, a link clicked with the middle button opens as with the left one, and the forms in a document are no longer submitted.
 
 ## 0.4.3
 

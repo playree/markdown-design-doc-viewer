@@ -213,8 +213,8 @@ export function createPreview(ctx: ViewerContext): Preview {
   }
 
   /**
-   * Shows the wireframes of `container` with their HTML sanitized like the document's (webview/wireframe.ts). Their rules
-   * that only work in the document are left out when the raw HTML is `restricted`.
+   * Shows the wireframes of `container` with their HTML sanitized like the document's (webview/wireframe.ts), and their
+   * styles kept from the page around them when the raw HTML is `restricted`.
    */
   function renderWireframes(container: HTMLElement, restricted: boolean): void {
     for (const block of Array.from(container.querySelectorAll<HTMLElement>('.seqnotes-wireframe'))) {
@@ -226,7 +226,7 @@ export function createPreview(ctx: ViewerContext): Preview {
       // Without `autofocus`, which would take the focus (and scroll to it) at each update.
       const html = DOMPurify.sanitize(pre.textContent ?? '', { WHOLE_DOCUMENT: true, FORBID_ATTR: ['autofocus'] });
       pre.textContent = html;
-      diagramSources.set(mountWireframe(block, html, metaOf(block), { documentRules: !restricted }), html);
+      diagramSources.set(mountWireframe(block, html, metaOf(block), { restricted }), html);
     }
   }
 
@@ -549,6 +549,19 @@ export function createPreview(ctx: ViewerContext): Preview {
     { signal },
   );
 
+  // The middle button opens a link as a click does, not in a new tab of the browser.
+  root.addEventListener(
+    'auxclick',
+    (e) => {
+      const link = (e.target as Element).closest('a[href], area[href]');
+      if (link && e.button === 1) {
+        e.preventDefault();
+        openLink(link.getAttribute('href')!);
+      }
+    },
+    { signal },
+  );
+
   // The forms of the raw HTML do not leave the document, as those of the wireframes.
   root.addEventListener('submit', (e) => e.preventDefault(), { signal });
 
@@ -852,7 +865,7 @@ export function createPreview(ctx: ViewerContext): Preview {
     zoomStage.replaceChildren(copy);
     zoomHovered = undefined;
     // Works as in the preview: its text can be selected, its form controls used. The overlay pans on drag around it.
-    mountWireframe(copy, html, meta, { documentRules: !isRestricted() });
+    mountWireframe(copy, html, meta, { restricted: isRestricted() });
     layoutWireframe(copy);
     if (zoom) {
       zoom.width = copy.offsetWidth;

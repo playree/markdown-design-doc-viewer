@@ -1,20 +1,25 @@
 /**
  * The raw HTML of a document restricted to what does not reach the page around the viewer (`restrictHtml` of the
  * embedded viewer, embed/viewer.ts): without the elements that style or navigate the page (<style>, <link>, <form>,
- * <area>…), the form controls other than those of the renderer, and the styles and classes other than those of the
- * renderer. The light DOM of an embedded viewer is part of the page of the app: the global styles of the app (e.g. a
- * `fixed inset-0` of Tailwind CSS) apply to its classes.
+ * <area>…), the form controls other than those of the renderer, the styles and classes other than those of the
+ * renderer, and the attributes that point to the elements of the page (`for`, `usemap`…). The light DOM of an embedded
+ * viewer is part of the page of the app: the global styles of the app (e.g. a `fixed inset-0` of Tailwind CSS) apply to
+ * its classes and ids, and its ids are among those of the app (`getElementById`).
  *
  * The checks are pure functions of the attributes, tested by test/restrictHtml.test.ts. Nothing here touches the DOM
  * before it is called (the module may be imported on a server).
  */
 import DOMPurify from 'dompurify';
+import { HEADING_ID_PREFIX } from '../src/shared/slug';
 
 /** The elements removed, besides those DOMPurify removes by default. */
 export const RESTRICTED_FORBID_TAGS = ['style', 'link', 'meta', 'base', 'form', 'textarea', 'select', 'option', 'optgroup', 'datalist', 'map', 'area', 'dialog'];
 
-/** The attributes removed: what shows an element over the page (`popover`) or takes the focus of the page. */
-export const RESTRICTED_FORBID_ATTR = ['popover', 'popovertarget', 'popovertargetaction', 'autofocus'];
+/**
+ * The attributes removed: what shows an element over the page (`popover`), takes the focus of the page (`autofocus`,
+ * `tabindex`), or points to an element of the page by its id or name (`for` of a <label> clicks it).
+ */
+export const RESTRICTED_FORBID_ATTR = ['popover', 'popovertarget', 'popovertargetaction', 'autofocus', 'tabindex', 'for', 'usemap', 'form', 'name'];
 
 /** A declaration of a `style` kept: the alignment of a table cell, and the depth of a row of a table tree (src/markdown/tables.ts). */
 const TEXT_ALIGN_RE = /^text-align\s*:\s*(left|center|right)$/i;
@@ -55,6 +60,18 @@ export function restrictClass(value: string): string {
     .split(/\s+/)
     .filter((name) => ALLOWED_CLASS_RE.test(name) && !OVERLAY_CLASS_RE.test(name))
     .join(' ');
+}
+
+/** The ids of the footnotes of markdown-it-footnote (`fn1`, `fnref1`, `fnref1:2`). */
+const FOOTNOTE_ID_RE = /^(?:fn\d+|fnref\d+(?::\d+)?)$/;
+
+/**
+ * The id of an element of the document: those of the renderer (headings, footnotes) as they are, the others with the
+ * prefix of the headings (`HEADING_ID_PREFIX`), so that they are not those of the page. A `#fragment` link still finds
+ * them (`scrollToFragment` tries the prefix).
+ */
+export function restrictId(id: string): string {
+  return id.startsWith(HEADING_ID_PREFIX) || FOOTNOTE_ID_RE.test(id) ? id : HEADING_ID_PREFIX + id;
 }
 
 /** The attributes of a form control that tell whether it is the renderer's. */
@@ -101,6 +118,7 @@ export function sanitizeRestricted(html: string): DocumentFragment {
   }
   restrictAttribute(fragment, 'style', restrictStyle);
   restrictAttribute(fragment, 'class', restrictClass);
+  restrictAttribute(fragment, 'id', restrictId);
   return fragment;
 }
 
