@@ -143,6 +143,12 @@ export interface ViewerContext {
    * other viewers in the page.
    */
   idPrefix: string;
+  /**
+   * true to restrict the raw HTML of the documents to what does not reach the page around the viewer (webview/restrictHtml.ts),
+   * and not to give the rules of the wireframes to the document (`@font-face`). Read at each render. Not restricted
+   * without it.
+   */
+  restrictHtml?(): boolean;
   /** Sends a message to the host. */
   post(message: FromWebview): void;
   getState(): WebviewState | undefined;

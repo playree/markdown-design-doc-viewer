@@ -48,18 +48,30 @@ function addDocumentRule(rule: CSSRule): void {
   }
 }
 
+/** How a wireframe is shown (`mountWireframe`). */
+export interface WireframeOptions {
+  /**
+   * Gives the rules that only work in the document (`@font-face`, `@property`) to it (`addDocumentRule`): without it, they
+   * are left out (the `restrictHtml` of an embedded viewer, whose page is the app's). true by default.
+   */
+  documentRules?: boolean;
+}
+
 /**
  * The style sheet of a <style> of a wireframe, to be adopted by its shadow root: its `:root` matching its <html>,
- * and its rules that only work in the document given to it (`addDocumentRule`). Without its `@import`s.
+ * and its rules that only work in the document given to it (`addDocumentRule`), or left out without `documentRules`.
+ * Without its `@import`s.
  */
-function pageSheet(style: HTMLStyleElement): CSSStyleSheet {
+function pageSheet(style: HTMLStyleElement, documentRules: boolean): CSSStyleSheet {
   const sheet = new CSSStyleSheet(style.media ? { media: style.media } : {});
   sheet.replaceSync(style.textContent ?? '');
   const visit = (parent: CSSStyleSheet | CSSGroupingRule | CSSStyleRule): void => {
     for (let i = parent.cssRules.length - 1; i >= 0; i--) {
       const rule = parent.cssRules[i];
       if (isDocumentRule(rule)) {
-        addDocumentRule(rule);
+        if (documentRules) {
+          addDocumentRule(rule);
+        }
         parent.deleteRule(i);
         continue;
       }
@@ -85,7 +97,7 @@ const IMPORT_RE = /@import\b(?:[^;"']|"[^"]*"|'[^']*')*;/gi;
  * Has the shadow root adopt the styles of the page (its <style> elements, in their order), as sheets that work there as
  * in the document. Their `@import`s are kept in a <style> before them.
  */
-function adoptStyles(shadow: ShadowRoot, page: HTMLElement): void {
+function adoptStyles(shadow: ShadowRoot, page: HTMLElement, documentRules: boolean): void {
   if (!constructable) {
     return;
   }
@@ -96,7 +108,7 @@ function adoptStyles(shadow: ShadowRoot, page: HTMLElement): void {
     style.textContent = imports.join('\n');
     shadow.append(style);
   }
-  shadow.adoptedStyleSheets = styles.map(pageSheet);
+  shadow.adoptedStyleSheets = styles.map((style) => pageSheet(style, documentRules));
   styles.forEach((style) => style.remove());
 }
 
@@ -142,7 +154,7 @@ function itemsOf(block: HTMLElement): [number, string][] {
  * Shows the (sanitized) HTML of a wireframe of `block` in a shadow root of `screen`, with the parts of its options
  * numbered. Returns the shadow root, and the problems with the selectors of the parts.
  */
-function showPage(block: HTMLElement, screen: HTMLElement, html: string): { shadow: ShadowRoot; notes: string[] } {
+function showPage(block: HTMLElement, screen: HTMLElement, html: string, { documentRules = true }: WireframeOptions = {}): { shadow: ShadowRoot; notes: string[] } {
   const shadow = screen.attachShadow({ mode: 'open' });
   // A mock-up: its links and forms do not leave the document.
   for (const type of ['click', 'auxclick']) {
@@ -166,7 +178,7 @@ function showPage(block: HTMLElement, screen: HTMLElement, html: string): { shad
   // Parsed as a document, so that it keeps its <html> and <body>, which its styles may select.
   const page = new DOMParser().parseFromString(html, 'text/html').documentElement;
   shadow.append(style);
-  adoptStyles(shadow, page);
+  adoptStyles(shadow, page, documentRules);
   shadow.append(document.importNode(page, true));
   return { shadow, notes: numberParts(shadow, itemsOf(block), block) };
 }
@@ -175,12 +187,12 @@ function showPage(block: HTMLElement, screen: HTMLElement, html: string): { shad
  * The HTML of a wireframe in a shadow root, and a box over each of its parts; observed, so that they stay over them.
  * Returns the frame of the two.
  */
-export function mountWireframe(block: HTMLElement, html: string, meta: DiagramMeta | undefined): HTMLElement {
+export function mountWireframe(block: HTMLElement, html: string, meta: DiagramMeta | undefined, options: WireframeOptions = {}): HTMLElement {
   const frame = document.createElement('div');
   frame.className = 'seqnotes-wireframe-frame';
   const screen = document.createElement('div');
   screen.className = 'seqnotes-wireframe-screen';
-  const { shadow, notes } = showPage(block, screen, html);
+  const { shadow, notes } = showPage(block, screen, html, options);
 
   const parts = document.createElement('div');
   parts.className = 'seqnotes-wireframe-parts';

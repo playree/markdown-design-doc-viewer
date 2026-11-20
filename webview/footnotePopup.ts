@@ -169,7 +169,7 @@ export function setupFootnotePopup(root: HTMLElement, handleLink: (href: string)
   popup.addEventListener(
     'click',
     (e) => {
-      const link = (e.target as Element).closest('a[href]');
+      const link = (e.target as Element).closest('a[href], area[href]');
       if (link && handleLink(link.getAttribute('href')!)) {
         e.preventDefault();
         hide();
@@ -177,6 +177,8 @@ export function setupFootnotePopup(root: HTMLElement, handleLink: (href: string)
     },
     { signal },
   );
+  // A copy of the note: its forms do not leave the document, as those of the preview.
+  popup.addEventListener('submit', (e) => e.preventDefault(), { signal });
 
   // Captured, and not passed on: Escape closes only the popup, and keeps the pinned step of the preview.
   const onKeyDown = (e: KeyboardEvent): void => {
