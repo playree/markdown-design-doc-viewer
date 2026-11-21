@@ -101,7 +101,8 @@ export function restrictIdList(value: string): string {
 
 /** The `url(#id)`s of a value (`URL_REF_ATTRS`), with the ids restricted as those of the elements (`restrictId`). */
 export function restrictUrlRefs(value: string): string {
-  return value.replace(/url\(\s*(['"]?)#([^'")\s]+)\1\s*\)/g, (_match, quote: string, id: string) => `url(${quote}#${restrictId(id)}${quote})`);
+  // The name of a function of CSS is in any case (`URL(#id)`).
+  return value.replace(/url\(\s*(['"]?)#([^'")\s]+)\1\s*\)/gi, (_match, quote: string, id: string) => `url(${quote}#${restrictId(id)}${quote})`);
 }
 
 /** An `href` of SVG (`<use href="#id">`), with its id restricted as those of the elements (`restrictId`). */

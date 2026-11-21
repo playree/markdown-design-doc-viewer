@@ -103,6 +103,8 @@ describe('references to ids', () => {
     ["url( '#sn-a' )", "url('#sn-a')"],
     ['none', 'none'],
     ['url(https://example.com/a.svg#x)', 'url(https://example.com/a.svg#x)'],
+    ['URL(#Gradient)', 'url(#sn-Gradient)'],
+    ['Url("#gradient")', 'url("#sn-gradient")'],
   ])('restricts the ids of url(#id): %s', (value, expected) => {
     expect(restrictUrlRefs(value)).toBe(expected);
   });

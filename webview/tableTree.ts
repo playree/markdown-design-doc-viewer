@@ -140,12 +140,15 @@ const tablesOf = (root: HTMLElement, selector: string): Element[] =>
  */
 function keyedRows(root: HTMLElement): { table: Element; row: HTMLTableRowElement; key: string }[] {
   return tablesOf(root, '.seqnotes-tree-table').flatMap((table, index) => {
-    const path: string[] = [];
+    // The ancestors of the row, with their depths: those not above it are left out, even when the depths skip some.
+    const path: { depth: number; name: string }[] = [];
     return rowsOf(table).map((row) => {
-      // Not longer than the path of the row above, whatever its depth (a row of raw HTML may skip depths).
-      path.length = Math.min(depthOf(row), path.length);
-      path.push(nameOf(row));
-      return { table, row, key: [index, ...path].join('\n') };
+      const depth = depthOf(row);
+      while (path.length > 0 && path[path.length - 1].depth >= depth) {
+        path.pop();
+      }
+      path.push({ depth, name: nameOf(row) });
+      return { table, row, key: [index, ...path.map((p) => p.name)].join('\n') };
     });
   });
 }
