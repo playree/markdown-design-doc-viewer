@@ -68,27 +68,38 @@ export function addSplitter(pair: Element, title: string, onSplit: (percent: num
         percent = r.width > 0 ? ((ev.clientX - r.left) / r.width) * 100 : undefined;
         frame ??= requestAnimationFrame(() => {
           frame = undefined;
-          if (percent !== undefined && !signal?.aborted) {
+          if (percent !== undefined) {
             onSplit(percent, false);
             // As it is written (`applySplit`), without measuring the columns.
             splitter.setAttribute('aria-valuenow', String(Math.round(Math.min(MAX_SPLIT, Math.max(MIN_SPLIT, percent)))));
           }
         });
       };
-      // After the pointer is released, or the drag is cancelled (by a gesture of a touch screen, for instance).
-      const end = () => {
+      // After the pointer is released, or the drag is cancelled (by a gesture of a touch screen, for instance), or the
+      // boundary removed meanwhile (by an update of the document): the width is kept then.
+      const types = ['lostpointercapture', 'pointerup', 'pointercancel'] as const;
+      const stop = (): void => {
         splitter.removeEventListener('pointermove', move);
-        splitter.removeEventListener('lostpointercapture', end);
+        types.forEach((type) => document.removeEventListener(type, end, true));
+        signal?.removeEventListener('abort', stop);
         if (frame !== undefined) {
           cancelAnimationFrame(frame);
           frame = undefined;
         }
+      };
+      const end = (ev: PointerEvent): void => {
+        if (ev.pointerId !== e.pointerId) {
+          return;
+        }
+        stop();
         if (percent !== undefined) {
           split(percent);
         }
       };
-      splitter.addEventListener('pointermove', move, { signal });
-      splitter.addEventListener('lostpointercapture', end, { signal });
+      splitter.addEventListener('pointermove', move);
+      // On the document: that of a boundary removed is fired there.
+      types.forEach((type) => document.addEventListener(type, end, true));
+      signal?.addEventListener('abort', stop);
     },
     { signal },
   );

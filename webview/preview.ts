@@ -126,7 +126,7 @@ export function createPreview(ctx: ViewerContext): Preview {
    * What the content on screen was rendered from, once it is shown: an update of the same content changes only the
    * options of the view. Not set by a render that failed or was replaced, so that the same update renders it again.
    */
-  let shownContent: { seq: number; html: string; diff: string; uri: string | undefined; look: DiagramLook; restricted: boolean; dark: boolean } | undefined;
+  let shownContent: { seq: number; html: string; diff: string; uri: string | undefined; look: DiagramLook; restricted: boolean; dark: boolean; font: string } | undefined;
 
   /** SVGs of the previous render keyed by theme + source, so unchanged diagrams are not re-rendered on every edit. */
   let svgCache = new Map<string, string>();
@@ -488,7 +488,8 @@ export function createPreview(ctx: ViewerContext): Preview {
     const seq = ++renderSeq;
     // Set before rendering, so that other class changes of the body do not start another update meanwhile.
     const dark = (renderedDark = isDarkTheme());
-    const content = { seq, html, diff: JSON.stringify(diff), uri: currentUri, look: diagramLook, restricted: isRestricted(), dark };
+    // The font of the diagrams (`renderDiagrams`), which a host may change.
+    const content = { seq, html, diff: JSON.stringify(diff), uri: currentUri, look: diagramLook, restricted: isRestricted(), dark, font: getComputedStyle(el).fontFamily };
     const isCurrent = (): boolean => seq === renderSeq;
     const { content: next, cache } = await buildContent(html, `${ctx.idPrefix}-svg-${seq}`, dark, diagramLook, diff, isCurrent);
     if (!isCurrent()) {
@@ -1353,7 +1354,7 @@ export function createPreview(ctx: ViewerContext): Preview {
         }
         currentUri = message.uri;
         applyLayout();
-        if (sameContent && isDarkTheme() === shown.dark) {
+        if (sameContent && isDarkTheme() === shown.dark && getComputedStyle(el).fontFamily === shown.font) {
           // The classes and the layout set above: the diagrams and wireframes are not rendered again.
           toc.build(tocEnabled);
           break;

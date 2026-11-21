@@ -225,7 +225,8 @@ function diffView({ old, stats }: Pick<DiffView, 'old' | 'stats'>, compareLabel:
 }
 
 /** The options that change the HTML of the document: it is rendered again when one of them changes. */
-const CONTENT_OPTIONS = ['markdown', 'baseUrl', 'readFile', 'resolveResource', 'frontMatter', 'headingNumbers', 'messageWrapWidth', 'compareWith', 'restrictHtml'] as const;
+/** `documentId` too: the files of the wireframes of another document are read again (`files`), even if their paths are the same. */
+const CONTENT_OPTIONS = ['markdown', 'documentId', 'baseUrl', 'readFile', 'resolveResource', 'frontMatter', 'headingNumbers', 'messageWrapWidth', 'compareWith', 'restrictHtml'] as const;
 /** The options of the preview, sent with the HTML rendered last when only they change. */
 const VIEW_OPTIONS = ['documentId', 'splitMinWidth', 'toc', 'diagramLook', 'limitContentWidth', 'stickyTableHeader', 'tableTreeHighlight'] as const;
 
