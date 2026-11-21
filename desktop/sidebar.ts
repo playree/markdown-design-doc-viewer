@@ -232,6 +232,9 @@ export function createSidebar({
   let expanded = new Set<string>();
   /** Opens the folders of the current file once it is listed. */
   let revealCurrent = false;
+  /** The items of the list shown: the button of each file, and what opens each folder, by path. */
+  let fileButtons = new Map<string, HTMLButtonElement[]>();
+  let folderOpeners = new Map<string, (open: boolean) => void>();
   /** The document whose history is shown, and its history (see `setHistory`). */
   let historyName: string | undefined;
   let revisions: Revision[] | string = '';
@@ -329,6 +332,8 @@ export function createSidebar({
     if (file.path === current) {
       button.setAttribute('aria-current', 'page');
     }
+    // A file may be listed twice: also by a symbolic link to it.
+    fileButtons.set(file.path, [...(fileButtons.get(file.path) ?? []), button]);
     button.addEventListener('click', () => onOpenFile(file.link ?? file.path));
     item.append(button);
     return item;
@@ -343,11 +348,20 @@ export function createSidebar({
     button.style.setProperty('--desktop-tree-depth', String(depth));
     button.textContent = folder.name;
     button.title = folder.path;
-    const children = list(folder, depth + 1);
+    item.append(button);
+    // Made when the folder is opened first: a closed folder may have many files below it.
+    let children: HTMLUListElement | undefined;
     const setOpen = (open: boolean) => {
       button.setAttribute('aria-expanded', String(open));
-      children.hidden = !open;
+      if (open && !children) {
+        children = list(folder, depth + 1);
+        item.append(children);
+      }
+      if (children) {
+        children.hidden = !open;
+      }
     };
+    folderOpeners.set(folder.path, setOpen);
     setOpen(expanded.has(folder.path));
     button.addEventListener('click', () => {
       const open = !expanded.has(folder.path);
@@ -358,7 +372,6 @@ export function createSidebar({
       }
       setOpen(open);
     });
-    item.append(button, children);
     return item;
   }
 
@@ -369,16 +382,36 @@ export function createSidebar({
     return ul;
   }
 
+  /**
+   * Opens the folders of the current file, in the list shown when they are in it (`folderOpeners`), or for the next one.
+   * Returns false when the file is not in the folder listed.
+   */
+  function openCurrentFolders(): boolean {
+    if (!tree || !current) {
+      return false;
+    }
+    const folders = foldersOf(tree.root, current);
+    if (folders.length === 0 && !tree.root.files.some((file) => file.path === current)) {
+      return false;
+    }
+    // From the top: opening a folder makes the items of its subfolders.
+    for (const path of folders) {
+      expanded.add(path);
+      folderOpeners.get(path)?.(true);
+    }
+    revealCurrent = false;
+    return true;
+  }
+
   /** Shows the folder: its list, or why there is none. Keeps the scroll position of the list. */
   function render(): void {
     title.textContent = tree?.root.name ?? (error ? baseName(error.folder) : t('No Folder'));
     title.title = tree?.root.path ?? error?.folder ?? '';
-    if (tree && current && revealCurrent) {
-      const folders = foldersOf(tree.root, current);
-      if (folders.length > 0 || tree.root.files.some((file) => file.path === current)) {
-        folders.forEach((path) => expanded.add(path));
-        revealCurrent = false;
-      }
+    // The items of the list made again below: its folders opened as they are made.
+    fileButtons = new Map();
+    folderOpeners = new Map();
+    if (revealCurrent) {
+      openCurrentFolders();
     }
     const scrollTop = content.scrollTop;
     content.replaceChildren();
@@ -566,8 +599,15 @@ export function createSidebar({
       }
       current = path;
       revealCurrent = true;
-      render();
-      scrollToCurrent();
+      if (!tree || error) {
+        return;
+      }
+      // In the list shown, not made again: the file marked, and its folders opened.
+      content.querySelectorAll('[aria-current]').forEach((button) => button.removeAttribute('aria-current'));
+      if (path !== undefined && openCurrentFolders()) {
+        fileButtons.get(path)?.forEach((button) => button.setAttribute('aria-current', 'page'));
+        scrollToCurrent();
+      }
     },
   };
 }

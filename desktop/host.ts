@@ -17,8 +17,8 @@ import { documentInfo, indexBody, NO_DESIGN_DOCS, type IndexEntry } from '../src
 import { documentTitle, exportDiff, exportFileName, exportPage, imageType, renderDiffForExport, renderForExport, stripSourceMap } from '../src/export/exportPage';
 import { formatRevisionDate, parseGitLog, type Revision } from '../src/git/gitLog';
 import { WEBVIEW_TITLES, type DiffView, type FromWebview, type PreviewTheme, type ToWebview } from '../src/shared/protocol';
-import { createMarkdown, escapeHtml, renderDocument, type RenderEnv } from '../src/markdown/render';
-import { loadWireframes, wireframeSources, type WireframeFiles } from '../src/markdown/wireframe';
+import { createMarkdown, escapeHtml, renderTokens, type RenderEnv } from '../src/markdown/render';
+import { attachWireframes, loadWireframes, wireframeSources, type WireframeFiles } from '../src/markdown/wireframe';
 import type { FolderTree } from './folderTree';
 import { lang, t } from './l10n';
 import { isInside, isMarkdownPath, linkTarget, relativeLink, resolveDocumentPath, resourcePath, splitPath } from './paths';
@@ -63,6 +63,8 @@ let current: OpenedDocument | undefined;
 let pendingFragment: { path: string; fragment: string } | undefined;
 /** Renders one at a time, so that the updates reach the webview in order. */
 let rendering: Promise<void> = Promise.resolve();
+/** A render is waiting for the one under way: it takes the state of then, so that the others asked meanwhile are not needed. */
+let renderWaiting = false;
 /** The commit of the document it is compared with (chosen in the History tab), whose differences are shown. */
 let comparison: { path: string; hash: string; label: string; exportLabel: string; source: string } | undefined;
 /** Whether the window shows the list of the design documents of the folder (View > Design Docs) in place of a document. */
@@ -137,17 +139,24 @@ function post(message: ToWebview): void {
 }
 
 function render(): void {
-  rendering = rendering.then(renderNow).catch((error: unknown) => console.error(error));
+  if (renderWaiting) {
+    return;
+  }
+  renderWaiting = true;
+  rendering = rendering
+    .then(() => {
+      renderWaiting = false;
+      return renderNow();
+    })
+    .catch((error: unknown) => console.error(error));
 }
 
 /**
- * The files of the wireframes of a document, read again at each render: from the folder of the window's document only
- * (`read_wireframe`).
+ * The files of the wireframes `srcs` (`wireframeSources`) of a document, read again at each render: from the folder of
+ * the window's document only (`read_wireframe`).
  */
-function readWireframes(doc: OpenedDocument): Promise<WireframeFiles> {
-  return loadWireframes(md, wireframeSources(md.parse(doc.text, {})), (path) =>
-    invoke<string>('read_wireframe', { path: resolveDocumentPath(doc.dir, path) }).catch(() => undefined),
-  );
+function readWireframes(doc: OpenedDocument, srcs: string[]): Promise<WireframeFiles> {
+  return loadWireframes(md, srcs, (path) => invoke<string>('read_wireframe', { path: resolveDocumentPath(doc.dir, path) }).catch(() => undefined));
 }
 
 async function renderNow(): Promise<void> {
@@ -167,10 +176,9 @@ async function renderNow(): Promise<void> {
   const fragment = pendingFragment?.path === doc.path ? pendingFragment.fragment : undefined;
   pendingFragment = undefined;
   const images: string[] = [];
-  const env: RenderEnv = {
+  const base: RenderEnv = {
     t,
     ...renderSettings(),
-    wireframes: await readWireframes(doc),
     resolveResource: (src) => {
       const path = resourcePath(doc.dir, src);
       if (path === undefined) {
@@ -180,16 +188,22 @@ async function renderNow(): Promise<void> {
       return convertFileSrc(path);
     },
   };
+  // Parsed once: for its wireframes, and rendered with their files when it is shown alone.
+  const env: RenderEnv = { ...base };
+  const tokens = md.parse(doc.text, env);
+  const wireframes = await readWireframes(doc, wireframeSources(tokens));
   // Also the changes of the file made meanwhile.
   const compared = comparison?.path === doc.path ? comparison : undefined;
   let html: string;
   let diff: DiffView | undefined;
   if (compared) {
-    const result = renderDiff(md, compared.source, doc.text, env);
+    // Parsed again with the revision, with an env of its own (the footnotes of a parse are kept in it).
+    const result = renderDiff(md, compared.source, doc.text, { ...base, wireframes });
     html = result.html;
     diff = { label: compared.label, old: result.old, stats: result.stats };
   } else {
-    html = renderDocument(md, doc.text, env);
+    attachWireframes(md, tokens, wireframes);
+    html = renderTokens(md, tokens, { ...env, wireframes });
   }
   if (images.length > 0) {
     // The asset protocol serves only the files allowed by the app.
@@ -350,8 +364,13 @@ async function reload(report: boolean): Promise<void> {
     // Unless another document was opened, or the file read again, meanwhile.
     if (current?.path === path && seq > shownSeq) {
       shownSeq = seq;
+      // Not rendered again when it did not change (e.g. touched, or read again after git and its watch both),
+      // unless asked (File > Reload): its wireframes and images may have.
+      const changed = report || doc.text !== current.text;
       current = doc;
-      render();
+      if (changed) {
+        render();
+      }
     }
   } catch (error) {
     if (error === FILE_NOT_FOUND) {
@@ -407,6 +426,8 @@ let folder: string | undefined;
 let listedFolder: string | undefined;
 /** Lists one folder at a time, so that the Rust side watches the last one listed. */
 let listing: Promise<void> = Promise.resolve();
+/** A listing is waiting for the one under way (`listFolder`). */
+let listWaiting = false;
 /** The list shown, to keep it as it is when the folder changes without changing it. */
 let shownList: string | undefined;
 
@@ -475,13 +496,26 @@ function setFolder(path: string, show = false): void {
   }
 }
 
-/** Lists the folder in the sidebar while it is shown: again when `force` (it changed), else unless it was listed. */
-function listFolder(force = false): void {
+/**
+ * Lists the folder in the sidebar while it is shown: again when `force` (it changed), else unless it was listed. A
+ * listing waiting for the one under way lists the folder of then: the others asked meanwhile are not needed. Resolves
+ * once the folder is listed.
+ */
+function listFolder(force = false): Promise<void> {
   if (!sidebarShown || !folder || (!force && listedFolder === folder)) {
-    return;
+    return listing;
   }
   listedFolder = folder;
-  listing = listing.then(listNow).catch((error: unknown) => console.error(error));
+  if (!listWaiting) {
+    listWaiting = true;
+    listing = listing
+      .then(() => {
+        listWaiting = false;
+        return listNow();
+      })
+      .catch((error: unknown) => console.error(error));
+  }
+  return listing;
 }
 
 /** `listFolder`, once the folders listed before are: shows the list, or why the folder cannot be listed. */
@@ -811,7 +845,7 @@ async function pull(): Promise<void> {
 /** Shows the document again after git changed the files (`reopen`), then its folder, history and branches. */
 async function reopenAfterGit(path: string): Promise<void> {
   await reopen(path);
-  listFolder(true);
+  void listFolder(true);
   await loadHistory(true);
 }
 
@@ -978,7 +1012,7 @@ async function writeExport(doc: OpenedDocument): Promise<string | undefined> {
   if (!target) {
     return undefined;
   }
-  const env = { t, ...renderSettings(), wireframes: await readWireframes(doc) };
+  const env = { t, ...renderSettings(), wireframes: await readWireframes(doc, wireframeSources(md.parse(doc.text, {}))) };
   const image = (src: string): Promise<string> => exportedImage(doc.dir, src, target);
   // With the differences from the commit it is compared with, if any, as the window shows it.
   const compared = comparison?.path === doc.path ? comparison : undefined;
@@ -1286,9 +1320,12 @@ async function setUpMenu(): Promise<void> {
         action: () => {
           void reload(true);
           void loadHistory(true);
-          if (listShown) {
-            render();
-          }
+          // The folder too, whose changes may not all have been followed; the list of the design documents from it.
+          void listFolder(true).then(() => {
+            if (listShown) {
+              render();
+            }
+          });
         },
       }),
       await separator(),
@@ -1365,11 +1402,20 @@ void appWindow.listen<string>('document-changed', (event) => {
   }
 });
 
-void appWindow.listen<string>('folder-changed', () => {
-  listFolder(true);
+// A document of the folder changed: its entry of the list of the design documents may have.
+void appWindow.listen<string>('folder-file-changed', () => {
   if (listShown) {
     render();
   }
+});
+
+void appWindow.listen<string>('folder-changed', () => {
+  // The list of the design documents after the folder is listed again, from that scan (`read_design_docs`).
+  void listFolder(true).then(() => {
+    if (listShown) {
+      render();
+    }
+  });
 });
 
 void getCurrentWebview().onDragDropEvent((event) => {
