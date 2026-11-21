@@ -4,7 +4,7 @@
  * then only the files that changed; the workspace is looked through again when files are added, deleted or renamed.
  */
 import * as vscode from 'vscode';
-import { documentInfo, mayHaveFrontMatter, type DocumentInfo } from '../export/exportIndex';
+import { documentInfo, isDesignDocSource, type DocumentInfo } from '../export/exportIndex';
 import { createMarkdown } from '../markdown/render';
 
 const MARKDOWN_GLOB = '**/*.{md,markdown}';
@@ -168,7 +168,8 @@ export class DesignDocIndex implements vscode.Disposable {
       // Deleted meanwhile, or not readable.
       return undefined;
     }
-    if (!mayHaveFrontMatter(source)) {
+    // Without parsing the whole of the other documents, which may be many.
+    if (!isDesignDocSource(this.md, source)) {
       return undefined;
     }
     const folder = vscode.workspace.getWorkspaceFolder(uri);

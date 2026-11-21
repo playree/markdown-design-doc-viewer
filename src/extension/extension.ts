@@ -4,6 +4,7 @@ import { DesignDocIndex } from './designDocs';
 import { DesignDocsPanel } from './designDocsPanel';
 import { DesignDocsView, nodeUri } from './designDocsView';
 import { DiagnosticsManager } from './diagnostics';
+import { DocumentAnalyzer } from './documentFiles';
 import { exportHtml } from './exportHtml';
 import { compareWithRevision } from './history';
 import { PreviewManager, readSettings } from './previewPanel';
@@ -21,7 +22,9 @@ function targetUri(arg: unknown): vscode.Uri | undefined {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  const manager = new PreviewManager(context.extensionUri);
+  // Shared by the previews and the diagnostics, which parse each document and read its wireframes once.
+  const analyzer = new DocumentAnalyzer();
+  const manager = new PreviewManager(context.extensionUri, analyzer);
 
   const open = (column: vscode.ViewColumn) => (arg: unknown) => {
     const uri = targetUri(arg);
@@ -40,7 +43,7 @@ export function activate(context: vscode.ExtensionContext): void {
     designDocs,
     designDocsPanel,
     new DesignDocsView(designDocs),
-    new DiagnosticsManager(),
+    new DiagnosticsManager(analyzer),
     registerAuthoringProviders(),
     registerSkillInstaller(context),
     vscode.commands.registerCommand('mdDesignDoc.openPreview', open(vscode.ViewColumn.Active)),
@@ -72,6 +75,8 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('mdDesignDoc.useFullContentWidth', () => updateSetting('limitContentWidth', false)),
     vscode.commands.registerCommand('mdDesignDoc.limitContentWidth', () => updateSetting('limitContentWidth', true)),
     vscode.commands.registerCommand('mdDesignDoc.toggleTheme', () => (themeUpdate = themeUpdate.then(toggleTheme, toggleTheme))),
+    // After the previews and the diagnostics, which release its files when they are disposed.
+    analyzer,
   );
 }
 

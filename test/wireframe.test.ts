@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { quickFixes } from '../src/authoring/authoring';
 import { renderDiff } from '../src/diff/diffRender';
-import { collectIssues } from '../src/authoring/issues';
+import { collectIssues, issuesOf } from '../src/authoring/issues';
 import { linkDiagrams } from '../src/markdown/linker';
 import { createMarkdown, HEADING_ID_PREFIX, renderDocument, slugify } from '../src/markdown/render';
 import {
+  attachWireframes,
   composeWireframe,
   loadWireframes,
   partNumber,
@@ -335,5 +336,22 @@ describe('wireframes in a document', () => {
     const { html, old } = renderDiff(md, SAMPLE.replace('Login screen', 'Login'), SAMPLE, { wireframes: FILES });
     expect(html).toMatch(/<div class="seqnotes-wireframe" data-line="3" data-seqnotes-diff="changed" data-seqnotes-diff-old="0" data-seqnotes-meta=/);
     expect(old[0]).toMatch(/^<div class="seqnotes-wireframe" data-seqnotes-width="375" role="figure" aria-label="Login"><pre class="seqnotes-wireframe-src">/);
+  });
+});
+
+describe('attachWireframes', () => {
+  it('gives the tokens parsed without the files what parsing with them gives', () => {
+    const source = doc(SAMPLE, '', '![Missing](screens/missing.html)');
+    const files: WireframeFiles = { ...FILES, 'screens/missing.html': null };
+    const tokens = md.parse(source, {});
+    attachWireframes(md, tokens, files);
+    expect(tokens).toEqual(md.parse(source, { wireframes: files }));
+    expect(issuesOf(tokens)).toEqual(collectIssues(md, source, undefined, files));
+  });
+
+  it('replaces the files attached before', () => {
+    const tokens = md.parse(SAMPLE, { wireframes: FILES });
+    attachWireframes(md, tokens, { 'screens/login.html': null });
+    expect(tokens).toEqual(md.parse(SAMPLE, { wireframes: { 'screens/login.html': null } }));
   });
 });

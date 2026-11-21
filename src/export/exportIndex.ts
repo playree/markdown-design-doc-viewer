@@ -42,6 +42,20 @@ export function mayHaveFrontMatter(source: string): boolean {
   return /^\uFEFF?---[ \t]*\r?\n/.test(source);
 }
 
+/**
+ * Whether the document is a design document (`type: design_doc`), as `documentInfo` tells: by parsing its front
+ * matter alone (its lines up to the end of the block), not the rest of a document that is not one.
+ */
+export function isDesignDocSource(md: MarkdownIt, source: string): boolean {
+  if (!mayHaveFrontMatter(source)) {
+    return false;
+  }
+  // As markdown-it breaks the lines.
+  const lines = source.split(/\r\n?|\n/);
+  const end = lines.findIndex((line, n) => n > 0 && (line.trimEnd() === '---' || line.trimEnd() === '...'));
+  return end > 0 && isDesignDoc(frontMatterEntries(md.parse(lines.slice(0, end + 1).join('\n'), {})));
+}
+
 /** Compares folder paths (with `/`) folder by folder, so that a folder is followed by its subfolders. */
 function compareFolders(a: string, b: string): number {
   const as = a === '' ? [] : a.split('/');
