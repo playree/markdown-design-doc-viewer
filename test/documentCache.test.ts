@@ -85,7 +85,7 @@ describe('FreshComputations', () => {
       }
       return result(n, 'login.html');
     }, (r) => r.dependencies);
-    expect(value.n).toBe(2);
+    expect(value).toEqual({ value: result(2, 'login.html'), stale: [] });
   });
 
   it('does not compute again for the other files, nor after the computation', async () => {
@@ -95,18 +95,19 @@ describe('FreshComputations', () => {
       computations.changed('other.html');
       return result(++n, 'login.html');
     }, (r) => r.dependencies);
-    expect(value.n).toBe(1);
+    expect(value).toEqual({ value: result(1, 'login.html'), stale: [] });
     computations.changed('login.html');
     expect(n).toBe(1);
   });
 
-  it('gives up after the attempts', async () => {
+  it('gives up after the attempts, with the files that changed', async () => {
     const computations = new FreshComputations();
     let n = 0;
     const value = await computations.run(async () => {
       computations.changed('login.html');
+      computations.changed('other.html');
       return result(++n, 'login.html');
     }, (r) => r.dependencies, 2);
-    expect(value.n).toBe(2);
+    expect(value).toEqual({ value: result(2, 'login.html'), stale: ['login.html'] });
   });
 });

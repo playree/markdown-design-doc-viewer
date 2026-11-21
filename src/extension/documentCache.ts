@@ -79,10 +79,11 @@ export class FreshComputations {
   }
 
   /**
-   * `compute()`, done again while one of the files it used (`dependencies` of its result) changed meanwhile: at most
-   * `attempts` times, after which the last result is returned.
+   * `compute()`, done again while one of the files it used (`dependencies` of its result) changed meanwhile, at most
+   * `attempts` times. The last result is then returned with those files (`stale`), whose changes it may miss: to be
+   * computed again.
    */
-  async run<T>(compute: () => Promise<T>, dependencies: (value: T) => ReadonlySet<string>, attempts = 3): Promise<T> {
+  async run<T>(compute: () => Promise<T>, dependencies: (value: T) => ReadonlySet<string>, attempts = 3): Promise<{ value: T; stale: string[] }> {
     for (let attempt = 1; ; attempt++) {
       const changed = new Set<string>();
       this.underWay.add(changed);
@@ -93,8 +94,9 @@ export class FreshComputations {
         this.underWay.delete(changed);
       }
       const used = dependencies(value);
-      if (attempt >= attempts || ![...changed].some((file) => used.has(file))) {
-        return value;
+      const stale = [...changed].filter((file) => used.has(file));
+      if (stale.length === 0 || attempt >= attempts) {
+        return { value, stale };
       }
     }
   }

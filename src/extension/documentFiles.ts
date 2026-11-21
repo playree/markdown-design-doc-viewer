@@ -172,7 +172,17 @@ export class DocumentAnalyzer implements vscode.Disposable {
       return kept;
     }
     const source = document.getText();
-    const analysis = this.computations.run(() => this.read(document.uri, source), (result) => result.dependencies);
+    const analysis: Promise<DocumentAnalysis> = this.computations
+      .run(() => this.read(document.uri, source), (result) => result.dependencies)
+      .then(({ value, stale }) => {
+        if (stale.length > 0) {
+          // Its files kept changing: not kept, and its callers told once they follow the files of the result (after
+          // their `await`), so that they analyze it again.
+          this.analyses.delete(key, analysis);
+          setTimeout(() => stale.forEach((file) => this.fileChanged.fire(file)));
+        }
+        return value;
+      });
     this.analyses.set(key, version, analysis);
     analysis.then(
       ({ dependencies }) => this.analyses.setDependencies(key, analysis, dependencies),
