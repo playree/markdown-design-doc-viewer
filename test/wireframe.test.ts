@@ -3,7 +3,7 @@ import { quickFixes } from '../src/authoring/authoring';
 import { renderDiff } from '../src/diff/diffRender';
 import { collectIssues, issuesOf } from '../src/authoring/issues';
 import { linkDiagrams } from '../src/markdown/linker';
-import { createMarkdown, HEADING_ID_PREFIX, renderDocument, slugify } from '../src/markdown/render';
+import { createMarkdown, HEADING_ID_PREFIX, renderDocument, renderTokens, slugify } from '../src/markdown/render';
 import {
   attachWireframes,
   composeWireframe,
@@ -347,6 +347,13 @@ describe('attachWireframes', () => {
     attachWireframes(md, tokens, files);
     expect(tokens).toEqual(md.parse(source, { wireframes: files }));
     expect(issuesOf(tokens)).toEqual(collectIssues(md, source, undefined, files));
+  });
+
+  it('renders the tokens with the files attached as the document parsed with them', () => {
+    const env = { resolveResource: (src: string) => `R(${src})` };
+    const tokens = md.parse(SAMPLE, env);
+    attachWireframes(md, tokens, FILES);
+    expect(renderTokens(md, tokens, { ...env, wireframes: FILES })).toBe(renderDocument(md, SAMPLE, { ...env, wireframes: FILES }));
   });
 
   it('replaces the files attached before', () => {

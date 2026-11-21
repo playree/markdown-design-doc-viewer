@@ -7,6 +7,7 @@ The desktop app has its own version, apart from the extension and the command li
 - The links of image maps (`<area href>`) in a document open as its other links do, a link clicked with the middle button opens as with the left one, and the forms in a document are no longer submitted.
 - The page of a window reads only Markdown files (and the file given to the app), and a window closed while it was opening a document or a folder no longer keeps following its changes, which kept a folder from being renamed on Windows.
 - The page no longer goes on rendering the diagrams of a version of the document replaced by a newer one.
+- The page is lighter: a wireframe that did not change is not parsed and styled again at each update, moving the pointer over the same arrow or step no longer highlights it again, dragging the boundary of the columns updates them once a frame, and a change of the settings of the view only (the table of contents, the width of the content…) no longer renders the diagrams again.
 
 ## 0.4.3
 

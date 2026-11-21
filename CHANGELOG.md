@@ -9,6 +9,8 @@ This changelog covers the extension, the command line and the embeddable viewer 
 - **Export Design Doc as HTML** no longer embeds an image that is a symbolic link to a file outside the folder of the document and the workspace (it is linked instead), as the command line does.
 - The preview (and the embeddable viewer) no longer goes on rendering the diagrams of a version of the document replaced by a newer one while typing, so that the newer one shows sooner.
 - While typing, the preview and the diagnostics share their work on the document: it is parsed twice instead of four times, and the files of its wireframes are read again only when they change. A hidden preview is updated when it is shown, and saving a document without a change no longer renders its preview again. The list of the design docs no longer parses the whole of the Markdown files that are not design docs.
+- The preview (and the embeddable viewer) is lighter: a wireframe that did not change is not parsed and styled again at each update, moving the pointer over the same arrow or step no longer highlights it again, dragging the boundary of the columns updates them once a frame, and a change of the options of the view only (the table of contents, the width of the content…) no longer renders the diagrams again. The SVGs of the diagrams are also kept by the font of the page.
+- Embeddable viewer: the files of the wireframes are read once, and not again when the Markdown changes, while `readFile`, `baseUrl` and `documentId` stay the same; give another `readFile` to read them again. The document is parsed once for each render. See [Options](docs/embed.md#options).
 
 ## 1.5.6
 
