@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { documentTitle, exportDiff, exportFileName, exportPage, imagePath, imageType, renderDiffForExport, renderForExport, stripSourceMap } from '../export/exportPage';
-import { embeddableFolders, isIn, readWireframes, resolveDocumentPath } from './documentFiles';
+import { embeddableFile, readWireframes, realEmbeddableFolders, resolveDocumentPath } from './documentFiles';
 import { readSettings, type Comparison, type PreviewManager, type Settings } from './previewPanel';
 import { WEBVIEW_TITLES, type DiffView } from '../shared/protocol';
 import { createMarkdown } from '../markdown/render';
@@ -26,15 +26,17 @@ async function renderWithImages(
   settings: Settings,
   comparison: Comparison | undefined,
 ): Promise<{ html: string; diff?: DiffView }> {
-  const folders = embeddableFolders(uri);
+  const folders = await realEmbeddableFolders(uri);
   const { files: wireframes } = await readWireframes(md, uri, source);
   const env = { t: vscode.l10n.t, frontMatter: settings.frontMatter, headingNumbers: settings.headingNumbers, messageWrapWidth: settings.messageWrapWidth, wireframes };
   const resolveImage = async (src: string): Promise<string> => {
     const image = resolveDocumentPath(uri, imagePath(src));
-    const type = imageType(image.path);
     try {
-      if (type && folders.some((folder) => isIn(image, folder))) {
-        return `data:${type};base64,${Buffer.from(await vscode.workspace.fs.readFile(image)).toString('base64')}`;
+      // Compared by their real paths, so that a symbolic link in the folders does not embed a file outside them.
+      const type = imageType(image.path);
+      const real = type && (await embeddableFile(image, folders));
+      if (real) {
+        return `data:${type};base64,${Buffer.from(await vscode.workspace.fs.readFile(real)).toString('base64')}`;
       }
     } catch {
       // Linked instead, see below.

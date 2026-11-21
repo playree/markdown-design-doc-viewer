@@ -7,7 +7,7 @@
  */
 import { formatRevisionDate, type Revision } from '../src/git/gitLog';
 import type { Translate } from '../src/shared/l10n';
-import { foldersOf, sortFolder, type FolderNode, type FolderTree } from './folderTree';
+import { foldersOf, sortFolder, type FileNode, type FolderNode, type FolderTree } from './folderTree';
 
 export type SidebarTab = 'files' | 'history';
 
@@ -318,7 +318,7 @@ export function createSidebar({
   }
 
   /** A file of the list, `depth` folders below the one listed: opens it when chosen. */
-  function fileItem(file: { path: string; name: string }, depth: number): HTMLLIElement {
+  function fileItem(file: FileNode, depth: number): HTMLLIElement {
     const item = document.createElement('li');
     const button = document.createElement('button');
     button.type = 'button';
@@ -329,7 +329,7 @@ export function createSidebar({
     if (file.path === current) {
       button.setAttribute('aria-current', 'page');
     }
-    button.addEventListener('click', () => onOpenFile(file.path));
+    button.addEventListener('click', () => onOpenFile(file.link ?? file.path));
     item.append(button);
     return item;
   }

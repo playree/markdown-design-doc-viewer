@@ -79,6 +79,8 @@ struct WindowsState {
     pending: HashMap<String, String>,
     /// The file a window shows.
     shown: HashMap<String, String>,
+    /// The windows closed: a command that ends after that must not keep anything for them (`insert_for`).
+    closed: HashSet<String>,
     /// The number of the last window opened by `open_paths`.
     last: u32,
 }
@@ -142,6 +144,10 @@ struct Folder {
 struct FileEntry {
     path: String,
     name: String,
+    /// The symbolic link itself, when the file is one (`path` is then its target): the path the sidebar opens, since
+    /// `open_document` reads only Markdown files and the files given to the window (`read`), whatever the target.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    link: Option<String>,
 }
 
 /// What `open_folder` returns.
@@ -247,6 +253,25 @@ fn new_window(app: &AppHandle, label: &str) -> tauri::Result<WebviewWindow> {
     WebviewWindowBuilder::from_config(app, &config)?.build()
 }
 
+/// Keeps `value` for the window in `map` (the state of a command), unless the window was closed meanwhile: a command
+/// that ends after the window was closed would otherwise keep it (e.g. a watch) until the app exits. Returns the value
+/// replaced, to be dropped once the lock is released.
+fn insert_for<T>(window: &Window, map: &Mutex<HashMap<String, T>>, value: T) -> Option<T> {
+    let label = window.label();
+    let previous = map.lock().unwrap_or_else(PoisonError::into_inner).insert(label.to_string(), value);
+    // Checked after inserting: the window is marked closed before its state is removed (`run`), so either that
+    // removes the value, or this sees the window closed.
+    if is_closed(window) {
+        let _removed = map.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
+    }
+    previous
+}
+
+/// Whether the window was closed.
+fn is_closed(window: &Window) -> bool {
+    window.state::<Windows>().0.lock().unwrap_or_else(PoisonError::into_inner).closed.contains(window.label())
+}
+
 /// The file the window opens first (given to the launch, or by `open_paths`), if any.
 #[tauri::command]
 fn initial_path(window: Window, windows: State<'_, Windows>) -> Option<String> {
@@ -264,30 +289,35 @@ async fn open_document(
     windows: State<'_, Windows>,
     path: String,
 ) -> Result<Document, String> {
-    let result = read(&path);
+    let given: Vec<String> = {
+        let state = windows.0.lock().unwrap_or_else(PoisonError::into_inner);
+        let label = window.label();
+        state.pending.get(label).into_iter().chain(state.shown.get(label)).cloned().collect()
+    };
+    let result = read(&path, &given);
     {
         let mut state = windows.0.lock().unwrap_or_else(PoisonError::into_inner);
         let label = window.label();
         if state.pending.get(label) == Some(&path) {
             state.pending.remove(label);
         }
-        // Unless it is not read: the window still shows the previous one.
-        if let Ok(document) = &result {
+        // Unless it is not read: the window still shows the previous one. Nor once the window is closed.
+        if let (Ok(document), false) = (&result, state.closed.contains(label)) {
             state.shown.insert(label.to_string(), document.path.clone());
         }
     }
     let document = result?;
     let path = PathBuf::from(&document.path);
-    let mut watches = watches.0.lock().unwrap_or_else(PoisonError::into_inner);
-    // The changes of the previous file are no longer followed, even if the new watch fails.
-    watches.remove(window.label());
-    match watch(&window, &path) {
-        Ok(watcher) => {
-            watches.insert(window.label().to_string(), watcher);
-        }
+    // Before taking the lock, which the other windows (and their closing, on the main thread) wait for. The changes of
+    // the previous file are no longer followed, even if the new watch fails; its watcher stops once the lock is released.
+    let _previous = match watch(&window, &path) {
+        Ok(watcher) => insert_for(&window, &watches.0, watcher),
         // Shown without following its changes (e.g. no more inotify watches, or a share that cannot be watched).
-        Err(error) => eprintln!("Could not watch {}: {error}", path.display()),
-    }
+        Err(error) => {
+            eprintln!("Could not watch {}: {error}", path.display());
+            watches.0.lock().unwrap_or_else(PoisonError::into_inner).remove(window.label())
+        }
+    };
     Ok(document)
 }
 
@@ -299,24 +329,31 @@ fn exit(app: AppHandle) {
 
 /// Reads the file of the window again after a change, without changing what is watched.
 #[tauri::command]
-async fn read_document(path: String) -> Result<Document, String> {
-    read(&path)
+async fn read_document(window: Window, windows: State<'_, Windows>, path: String) -> Result<Document, String> {
+    read(&path, shown_document(&window, &windows).as_slice())
 }
 
 /// The error of `read` when the file is not there (`FILE_NOT_FOUND` in desktop/host.ts).
 const FILE_NOT_FOUND: &str = "The file was not found.";
 
-fn read(path: &str) -> Result<Document, String> {
+/// Reads a document for the webview: a Markdown file, or one of `given` (the file given to the window by the system,
+/// e.g. on the command line, or the one it shows), so that the webview cannot read the other files.
+fn read(requested: &str, given: &[String]) -> Result<Document, String> {
     // dunce: without the \\?\ prefix std::fs::canonicalize adds on Windows.
     // A text the webview tells apart (a document not in the branch switched to) and translates, unlike the error of
     // the system.
-    let path = dunce::canonicalize(path).map_err(|e| {
+    let path = dunce::canonicalize(requested).map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
             FILE_NOT_FOUND.to_string()
         } else {
             e.to_string()
         }
     })?;
+    // Also a link named like a Markdown file (listed by the sidebar), whatever its target.
+    let markdown = has_extension(Path::new(requested), MARKDOWN_EXTENSIONS) || has_extension(&path, MARKDOWN_EXTENSIONS);
+    if !markdown && !given.iter().any(|file| Path::new(file) == path) {
+        return Err("Not a Markdown file.".to_string());
+    }
     let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
     let mut text = String::from_utf8(bytes).map_err(|_| "The file is not UTF-8 text.".to_string())?;
     if text.starts_with('\u{feff}') {
@@ -378,12 +415,9 @@ async fn open_folder(window: Window, watches: State<'_, FolderWatches>, path: St
     };
     // The changes of the previous list are no longer followed, even if the new watch failed. The previous watcher
     // stops once the lock is released.
-    let _previous = {
-        let mut watches = watches.0.lock().unwrap_or_else(PoisonError::into_inner);
-        match watcher {
-            Ok(watcher) => watches.insert(window.label().to_string(), watcher),
-            Err(_) => watches.remove(window.label()),
-        }
+    let _previous = match watcher {
+        Ok(watcher) => insert_for(&window, &watches.0, watcher),
+        Err(_) => watches.0.lock().unwrap_or_else(PoisonError::into_inner).remove(window.label()),
     };
     Ok(FolderTree { root: tree, truncated: scan.truncated, watching })
 }
@@ -532,8 +566,9 @@ fn scan_folder(dir: &Path, depth: usize, scan: &mut Scan) -> Folder {
         } else if has_extension(&path, MARKDOWN_EXTENSIONS) && (file_type.is_file() || path.is_file()) {
             folder.files.push(FileEntry {
                 // A symbolic link to a file as `open_document` gives it, so that the sidebar finds the document shown.
-                path: if file_type.is_symlink() { canonical(path) } else { to_string(&path) },
+                path: if file_type.is_symlink() { canonical(path.clone()) } else { to_string(&path) },
                 name: name.to_string_lossy().into_owned(),
+                link: file_type.is_symlink().then(|| to_string(&path)),
             });
         }
     }
@@ -685,7 +720,7 @@ async fn choose_export_target(
         path.set_file_name(name);
     }
     let result = to_string(&path);
-    targets.0.lock().unwrap_or_else(PoisonError::into_inner).insert(window.label().to_string(), path);
+    insert_for(&window, &targets.0, path);
     Ok(Some(result))
 }
 
@@ -922,7 +957,7 @@ async fn git_log(window: Window, windows: State<'_, Windows>, histories: State<'
     let history = History { file: file.clone(), revisions: logged_revisions(&output) };
     // Unless the window opened another document meanwhile, whose history may have been read already.
     if shown_document(&window, &windows).as_ref() == Some(&file) {
-        histories.0.lock().unwrap_or_else(PoisonError::into_inner).insert(window.label().to_string(), history);
+        insert_for(&window, &histories.0, history);
     }
     Ok(output)
 }
@@ -1082,7 +1117,7 @@ async fn git_branches(
             local: list.local.iter().cloned().collect(),
             remote: list.remote.iter().cloned().collect(),
         };
-        lists.0.lock().unwrap_or_else(PoisonError::into_inner).insert(window.label().to_string(), listed);
+        insert_for(&window, &lists.0, listed);
     }
     Ok(list)
 }
@@ -1193,6 +1228,8 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let WindowEvent::Destroyed = event {
                 let label = window.label();
+                // First, so that a command that ends meanwhile does not keep its state (`insert_for`).
+                window.state::<Windows>().0.lock().unwrap_or_else(PoisonError::into_inner).closed.insert(label.to_string());
                 window.state::<Watches>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
                 window.state::<FolderWatches>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
                 window.state::<ExportTargets>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);

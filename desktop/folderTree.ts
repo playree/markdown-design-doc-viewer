@@ -5,8 +5,11 @@
 
 /** A Markdown file of a folder. */
 export interface FileNode {
+  /** Its path, as `open_document` gives it: the target of a symbolic link. */
   path: string;
   name: string;
+  /** The symbolic link itself, when the file is one: the path to open (`open_document` reads Markdown files only). */
+  link?: string;
 }
 
 /** A folder and the Markdown files below it: only the subfolders that have some. */

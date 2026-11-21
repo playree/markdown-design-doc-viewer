@@ -32,10 +32,10 @@ export class DesignDocsPanel implements vscode.Disposable {
       vscode.window.registerWebviewPanelSerializer(VIEW_TYPE, {
         deserializeWebviewPanel: async (panel) => this.attach(panel),
       }),
-      index.onDidChange(() => void this.update()),
+      index.onDidChange(() => this.refresh()),
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration('mdDesignDoc')) {
-          void this.update();
+          this.refresh();
         }
       }),
     );
@@ -65,13 +65,20 @@ export class DesignDocsPanel implements vscode.Disposable {
     panel.iconPath = vscode.Uri.joinPath(this.extensionUri, 'images', 'design-docs.svg');
     panel.webview.options = { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'dist')] };
     panel.webview.html = webviewShell(panel.webview, this.extensionUri, readSettings().theme);
-    const listener = panel.webview.onDidReceiveMessage((message: FromWebview) => this.onMessage(message));
+    const listener = panel.webview.onDidReceiveMessage((message: FromWebview) => {
+      this.onMessage(message).catch((error: unknown) => console.error('Could not handle a message of the design docs', error));
+    });
     panel.onDidDispose(() => {
       listener.dispose();
       if (this.panel === panel) {
         this.panel = undefined;
       }
     });
+  }
+
+  /** `update`, for the updates nothing waits for: a failure is logged instead of left unhandled. */
+  private refresh(): void {
+    this.update().catch((error: unknown) => console.error('Could not update the design docs', error));
   }
 
   private async onMessage(message: FromWebview): Promise<void> {

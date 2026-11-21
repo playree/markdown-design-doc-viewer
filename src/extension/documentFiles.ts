@@ -45,6 +45,20 @@ async function realUri(uri: vscode.Uri): Promise<vscode.Uri | undefined> {
   }
 }
 
+/** The folders of `embeddableFolders`, with their symbolic links resolved (those that cannot be are left out). */
+export async function realEmbeddableFolders(document: vscode.Uri): Promise<vscode.Uri[]> {
+  return (await Promise.all(embeddableFolders(document).map(realUri))).filter((folder) => folder !== undefined);
+}
+
+/**
+ * `uri` with its symbolic links resolved when it is in one of `folders` (from `realEmbeddableFolders`), else undefined:
+ * compared by their real paths, so that a link in the folders does not let a file out of them be read.
+ */
+export async function embeddableFile(uri: vscode.Uri, folders: vscode.Uri[]): Promise<vscode.Uri | undefined> {
+  const real = await realUri(uri);
+  return real && folders.some((folder) => isIn(real, folder)) ? real : undefined;
+}
+
 /** The text of a file: that of its editor when it is open (with the changes not saved yet), or else read. */
 async function readText(uri: vscode.Uri): Promise<string | undefined> {
   const open = vscode.workspace.textDocuments.find((d) => d.uri.toString() === uri.toString());
@@ -66,12 +80,11 @@ export interface DocumentWireframes {
 
 /** Reads the wireframes of `document` (`source`) and their style sheets, from the folders of `embeddableFolders`. */
 export async function readWireframes(md: MarkdownIt, document: vscode.Uri, source: string): Promise<DocumentWireframes> {
-  const folders = (await Promise.all(embeddableFolders(document).map(realUri))).filter((folder) => folder !== undefined);
+  const folders = await realEmbeddableFolders(document);
   const srcs = wireframeSources(md.parse(source, {}));
   const files = await loadWireframes(md, srcs, async (path) => {
     const uri = resolveDocumentPath(document, path);
-    const real = await realUri(uri);
-    return real && folders.some((folder) => isIn(real, folder)) ? readText(uri) : undefined;
+    return (await embeddableFile(uri, folders)) ? readText(uri) : undefined;
   });
   const dependencies = new Set(
     srcs.flatMap((src) => wireframeDependencies(md, src, files[src]).map((path) => resolveDocumentPath(document, path).toString())),

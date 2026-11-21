@@ -249,7 +249,8 @@ async function openNow(path: string, { fragment, keepFolder = false, remember = 
     await showError(t('Could not open {0}.', path), error, forgotten ? t('It was removed from the recent files.') : undefined);
     return;
   }
-  if (remember) {
+  // Not another file given to the app (e.g. on the command line), which only the window it was given to can read.
+  if (remember && isMarkdownPath(doc.path)) {
     rememberFile(doc.path);
   }
   // Unless the same file was read again meanwhile (it changed while it was being opened again).
