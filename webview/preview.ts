@@ -251,7 +251,7 @@ export function createPreview(ctx: ViewerContext): Preview {
 
   /**
    * Sanitizes the HTML from the extension host and renders its diagrams into a new element. The diagrams are not all
-   * rendered once `isCurrent` is false (`renderDiagrams`).
+   * rendered once `isCurrent` is false (`renderDiagrams`): by default, once the preview is destroyed.
    */
   async function buildContent(
     html: string,
@@ -259,7 +259,7 @@ export function createPreview(ctx: ViewerContext): Preview {
     dark: boolean,
     look: DiagramLook,
     diff: DiffView | undefined,
-    isCurrent: () => boolean = () => true,
+    isCurrent: () => boolean = () => !destroyed,
   ): Promise<{ content: HTMLElement; cache: Map<string, string> }> {
     const restricted = isRestricted();
     const sanitizeContent = restricted ? sanitizeRestricted : sanitize;

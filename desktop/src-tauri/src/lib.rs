@@ -144,6 +144,10 @@ struct Folder {
 struct FileEntry {
     path: String,
     name: String,
+    /// The symbolic link itself, when the file is one (`path` is then its target): the path the sidebar opens, since
+    /// `open_document` reads only Markdown files and the files given to the window (`read`), whatever the target.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    link: Option<String>,
 }
 
 /// What `open_folder` returns.
@@ -562,8 +566,9 @@ fn scan_folder(dir: &Path, depth: usize, scan: &mut Scan) -> Folder {
         } else if has_extension(&path, MARKDOWN_EXTENSIONS) && (file_type.is_file() || path.is_file()) {
             folder.files.push(FileEntry {
                 // A symbolic link to a file as `open_document` gives it, so that the sidebar finds the document shown.
-                path: if file_type.is_symlink() { canonical(path) } else { to_string(&path) },
+                path: if file_type.is_symlink() { canonical(path.clone()) } else { to_string(&path) },
                 name: name.to_string_lossy().into_owned(),
+                link: file_type.is_symlink().then(|| to_string(&path)),
             });
         }
     }
