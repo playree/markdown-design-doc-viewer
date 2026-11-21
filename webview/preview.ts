@@ -13,6 +13,7 @@ import { addSplitter, applySplit } from './splitter';
 import { setupToc } from './toc';
 import type { ViewerContext } from './viewerContext';
 import { annotateNotes, setupNoteJumps } from './noteJumps';
+import { sanitizeRestricted } from './restrictHtml';
 import { layoutWireframe, layoutWireframes, linkTarget, mountWireframe } from './wireframe';
 
 const CURRENT = 'seqnotes-current';
@@ -199,8 +200,11 @@ export function createPreview(ctx: ViewerContext): Preview {
     }
   }
 
-  /** Raw HTML in Markdown is allowed, so sanitize like the built-in preview does. */
+  /** Raw HTML in Markdown is allowed, so sanitize like the built-in preview does (restricted further by `sanitizeRestricted`). */
   const sanitize = (html: string): DocumentFragment => DOMPurify.sanitize(html, { RETURN_DOM_FRAGMENT: true });
+
+  /** Whether the raw HTML is restricted now (`ctx.restrictHtml`). */
+  const isRestricted = (): boolean => ctx.restrictHtml?.() === true;
 
   /** The data of a diagram's block for the webview, if any. */
   function metaOf(block: Element): DiagramMeta | undefined {
@@ -208,8 +212,11 @@ export function createPreview(ctx: ViewerContext): Preview {
     return json ? (JSON.parse(json) as DiagramMeta) : undefined;
   }
 
-  /** Shows the wireframes of `container` with their HTML sanitized like the document's (webview/wireframe.ts). */
-  function renderWireframes(container: HTMLElement): void {
+  /**
+   * Shows the wireframes of `container` with their HTML sanitized like the document's (webview/wireframe.ts), and their
+   * styles kept from the page around them when the raw HTML is `restricted`.
+   */
+  function renderWireframes(container: HTMLElement, restricted: boolean): void {
     for (const block of Array.from(container.querySelectorAll<HTMLElement>('.seqnotes-wireframe'))) {
       const pre = block.querySelector(':scope > .seqnotes-wireframe-src');
       if (!pre) {
@@ -219,18 +226,20 @@ export function createPreview(ctx: ViewerContext): Preview {
       // Without `autofocus`, which would take the focus (and scroll to it) at each update.
       const html = DOMPurify.sanitize(pre.textContent ?? '', { WHOLE_DOCUMENT: true, FORBID_ATTR: ['autofocus'] });
       pre.textContent = html;
-      diagramSources.set(mountWireframe(block, html, metaOf(block)), html);
+      diagramSources.set(mountWireframe(block, html, metaOf(block), { restricted }), html);
     }
   }
 
   /** Sanitizes the HTML from the extension host and renders its diagrams into a new element. */
   async function buildContent(html: string, idPrefix: string, dark: boolean, look: DiagramLook, diff?: DiffView): Promise<{ content: HTMLElement; cache: Map<string, string> }> {
+    const restricted = isRestricted();
+    const sanitizeContent = restricted ? sanitizeRestricted : sanitize;
     const content = document.createElement('div');
-    content.append(sanitize(html));
+    content.append(sanitizeContent(html));
     if (diff) {
-      markChanges(content, diff, sanitize, titles.seqnotesDiffOldDiagram ?? '');
+      markChanges(content, diff, sanitizeContent, titles.seqnotesDiffOldDiagram ?? '');
     }
-    renderWireframes(content);
+    renderWireframes(content, restricted);
     const cache = await queueRender(() => renderDiagrams(content, idPrefix, dark, look));
     return { content, cache };
   }
@@ -523,7 +532,7 @@ export function createPreview(ctx: ViewerContext): Preview {
     'click',
     (e) => {
       const target = e.target as Element;
-      const link = target.closest('a[href]');
+      const link = target.closest('a[href], area[href]');
       if (link) {
         e.preventDefault();
         openLink(link.getAttribute('href')!);
@@ -539,6 +548,22 @@ export function createPreview(ctx: ViewerContext): Preview {
     },
     { signal },
   );
+
+  // The middle button opens a link as a click does, not in a new tab of the browser.
+  root.addEventListener(
+    'auxclick',
+    (e) => {
+      const link = (e.target as Element).closest('a[href], area[href]');
+      if (link && e.button === 1) {
+        e.preventDefault();
+        openLink(link.getAttribute('href')!);
+      }
+    },
+    { signal },
+  );
+
+  // The forms of the raw HTML do not leave the document, as those of the wireframes.
+  root.addEventListener('submit', (e) => e.preventDefault(), { signal });
 
   // Images are focusable (`markZoomableImages`): open them with the keys of a button too.
   root.addEventListener(
@@ -825,7 +850,8 @@ export function createPreview(ctx: ViewerContext): Preview {
     const meta = metaOf(block);
     // Kept on updates that do not change it, with what was typed into it and selected: only the links of its parts count,
     // not their lines, which change with an edit above it.
-    const key = JSON.stringify([html, width, block.dataset.seqnotesItems, meta?.messages.map((m) => [m.nodeId, m.target, m.unlinked])]);
+    const restricted = isRestricted();
+    const key = JSON.stringify([html, width, restricted, block.dataset.seqnotesItems, meta?.messages.map((m) => [m.nodeId, m.target, m.unlinked])]);
     const shown = zoomStage.firstElementChild;
     if (shown instanceof HTMLElement && shown.dataset.seqnotesZoomKey === key) {
       return;
@@ -840,7 +866,7 @@ export function createPreview(ctx: ViewerContext): Preview {
     zoomStage.replaceChildren(copy);
     zoomHovered = undefined;
     // Works as in the preview: its text can be selected, its form controls used. The overlay pans on drag around it.
-    mountWireframe(copy, html, meta);
+    mountWireframe(copy, html, meta, { restricted });
     layoutWireframe(copy);
     if (zoom) {
       zoom.width = copy.offsetWidth;

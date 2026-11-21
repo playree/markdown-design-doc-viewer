@@ -2,6 +2,11 @@
 
 This changelog covers the extension, the command line and the embeddable viewer (npm package `markdown-design-doc-viewer-embed`). The desktop app has its own version and [changelog](desktop/CHANGELOG.md).
 
+## Unreleased
+
+- Embeddable viewer: `restrictHtml` restricts the raw HTML of the document to what does not reach the page of the app, for documents written by others than the user of the app: without `<style>`, `<link>`, `<meta>`, `<base>`, forms, image maps and `<dialog>`, with only the alignment of the table cells left of the `style` attributes and only the classes of the viewer left of the `class` attributes, with the other ids prefixed, and without adding the `@font-face` rules of the wireframes to the page. `exportHtml` takes it too. See [Options](docs/embed.md#options).
+- The links of image maps (`<area href>`) in a document open as its other links do, a link clicked with the middle button opens as with the left one, and the forms in a document are no longer submitted.
+
 ## 1.5.6
 
 - The Agent Skill has a revision, raised each time it changes, in the front matter of its SKILL.md (`metadata.revision`), so that a copy installed in any way (by the extension, from the zip of a release, or by another tool) can be told older or newer.

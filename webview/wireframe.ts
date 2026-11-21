@@ -48,18 +48,44 @@ function addDocumentRule(rule: CSSRule): void {
   }
 }
 
+/** How a wireframe is shown (`mountWireframe`). */
+export interface WireframeOptions {
+  /**
+   * Keeps its styles from reaching the page around it (the `restrictHtml` of an embedded viewer, whose page is the
+   * app's): its rules that only work in the document (`@font-face`, `@property`) are left out instead of given to it,
+   * and so are its rules of `:host`, which could take the screen out of its place (`position: fixed !important`).
+   */
+  restricted?: boolean;
+}
+
+/**
+ * Marks the block of a wireframe shown `restricted` (`WireframeOptions`), so that an exported page shows it again so
+ * (`remountWireframes`): the HTML kept in its block is that of the wireframe before its styles are restricted.
+ */
+const RESTRICTED_ATTR = 'data-seqnotes-wireframe-restricted';
+
+/** A rule of the shadow host (`:host`, `:host()`, `:host-context()`), which the page of a wireframe does not need. */
+const HOST_RE = /:host(?![\w-])|:host-context\b/;
+
 /**
  * The style sheet of a <style> of a wireframe, to be adopted by its shadow root: its `:root` matching its <html>,
- * and its rules that only work in the document given to it (`addDocumentRule`). Without its `@import`s.
+ * and its rules that only work in the document given to it (`addDocumentRule`), or left out when `restricted` (with
+ * its rules of `:host`). Without its `@import`s.
  */
-function pageSheet(style: HTMLStyleElement): CSSStyleSheet {
+function pageSheet(style: HTMLStyleElement, restricted: boolean): CSSStyleSheet {
   const sheet = new CSSStyleSheet(style.media ? { media: style.media } : {});
   sheet.replaceSync(style.textContent ?? '');
   const visit = (parent: CSSStyleSheet | CSSGroupingRule | CSSStyleRule): void => {
     for (let i = parent.cssRules.length - 1; i >= 0; i--) {
       const rule = parent.cssRules[i];
       if (isDocumentRule(rule)) {
-        addDocumentRule(rule);
+        if (!restricted) {
+          addDocumentRule(rule);
+        }
+        parent.deleteRule(i);
+        continue;
+      }
+      if (restricted && rule instanceof CSSStyleRule && HOST_RE.test(rule.selectorText)) {
         parent.deleteRule(i);
         continue;
       }
@@ -83,20 +109,25 @@ const IMPORT_RE = /@import\b(?:[^;"']|"[^"]*"|'[^']*')*;/gi;
 
 /**
  * Has the shadow root adopt the styles of the page (its <style> elements, in their order), as sheets that work there as
- * in the document. Their `@import`s are kept in a <style> before them.
+ * in the document. Their `@import`s are kept in a <style> before them, unless `restricted`: the rules they import
+ * cannot be seen before they are loaded (`:host`, `@font-face`).
  */
-function adoptStyles(shadow: ShadowRoot, page: HTMLElement): void {
+function adoptStyles(shadow: ShadowRoot, page: HTMLElement, restricted: boolean): void {
   if (!constructable) {
+    // Kept as they are, without a way to leave out their rules: none, when `restricted`.
+    if (restricted) {
+      page.querySelectorAll('style').forEach((style) => style.remove());
+    }
     return;
   }
   const styles = Array.from(page.querySelectorAll('style'));
-  const imports = styles.flatMap((style) => (style.textContent ?? '').match(IMPORT_RE) ?? []);
+  const imports = restricted ? [] : styles.flatMap((style) => (style.textContent ?? '').match(IMPORT_RE) ?? []);
   if (imports.length > 0) {
     const style = document.createElement('style');
     style.textContent = imports.join('\n');
     shadow.append(style);
   }
-  shadow.adoptedStyleSheets = styles.map(pageSheet);
+  shadow.adoptedStyleSheets = styles.map((style) => pageSheet(style, restricted));
   styles.forEach((style) => style.remove());
 }
 
@@ -142,7 +173,7 @@ function itemsOf(block: HTMLElement): [number, string][] {
  * Shows the (sanitized) HTML of a wireframe of `block` in a shadow root of `screen`, with the parts of its options
  * numbered. Returns the shadow root, and the problems with the selectors of the parts.
  */
-function showPage(block: HTMLElement, screen: HTMLElement, html: string): { shadow: ShadowRoot; notes: string[] } {
+function showPage(block: HTMLElement, screen: HTMLElement, html: string, { restricted = false }: WireframeOptions = {}): { shadow: ShadowRoot; notes: string[] } {
   const shadow = screen.attachShadow({ mode: 'open' });
   // A mock-up: its links and forms do not leave the document.
   for (const type of ['click', 'auxclick']) {
@@ -166,7 +197,7 @@ function showPage(block: HTMLElement, screen: HTMLElement, html: string): { shad
   // Parsed as a document, so that it keeps its <html> and <body>, which its styles may select.
   const page = new DOMParser().parseFromString(html, 'text/html').documentElement;
   shadow.append(style);
-  adoptStyles(shadow, page);
+  adoptStyles(shadow, page, restricted);
   shadow.append(document.importNode(page, true));
   return { shadow, notes: numberParts(shadow, itemsOf(block), block) };
 }
@@ -175,12 +206,13 @@ function showPage(block: HTMLElement, screen: HTMLElement, html: string): { shad
  * The HTML of a wireframe in a shadow root, and a box over each of its parts; observed, so that they stay over them.
  * Returns the frame of the two.
  */
-export function mountWireframe(block: HTMLElement, html: string, meta: DiagramMeta | undefined): HTMLElement {
+export function mountWireframe(block: HTMLElement, html: string, meta: DiagramMeta | undefined, options: WireframeOptions = {}): HTMLElement {
   const frame = document.createElement('div');
   frame.className = 'seqnotes-wireframe-frame';
   const screen = document.createElement('div');
   screen.className = 'seqnotes-wireframe-screen';
-  const { shadow, notes } = showPage(block, screen, html);
+  const { shadow, notes } = showPage(block, screen, html, options);
+  block.toggleAttribute(RESTRICTED_ATTR, options.restricted === true);
 
   const parts = document.createElement('div');
   parts.className = 'seqnotes-wireframe-parts';
@@ -318,7 +350,7 @@ export function remountWireframes(root: Element): void {
     const screen = block.querySelector<HTMLElement>(':scope > .seqnotes-wireframe-frame > .seqnotes-wireframe-screen');
     if (typeof source === 'string' && screen && !screen.shadowRoot) {
       // Its notes are in the exported page already.
-      observe(block, showPage(block, screen, source).shadow);
+      observe(block, showPage(block, screen, source, { restricted: block.hasAttribute(RESTRICTED_ATTR) }).shadow);
     }
   }
   layoutWireframes(root);

@@ -14,7 +14,11 @@ const PLAIN = 'seqnotes-table-plain';
 const CURRENT = 'seqnotes-tree-current';
 const RELATED = 'seqnotes-tree-related';
 
-const depthOf = (row: Element): number => Number(row.getAttribute('data-seqnotes-depth'));
+/** The depth of a row: 0 for a value that is not one (of raw HTML, e.g. `-1`), which would break the tree. */
+const depthOf = (row: Element): number => {
+  const depth = Number(row.getAttribute('data-seqnotes-depth'));
+  return Number.isInteger(depth) && depth >= 0 ? depth : 0;
+};
 
 /** The rows of the tree in a table (the body rows; also the deleted ones shown by the comparison with a revision). */
 const rowsOf = (table: Element): HTMLTableRowElement[] => Array.from(table.querySelectorAll<HTMLTableRowElement>(':scope > tbody > tr[data-seqnotes-depth]'));
@@ -136,12 +140,15 @@ const tablesOf = (root: HTMLElement, selector: string): Element[] =>
  */
 function keyedRows(root: HTMLElement): { table: Element; row: HTMLTableRowElement; key: string }[] {
   return tablesOf(root, '.seqnotes-tree-table').flatMap((table, index) => {
-    const path: string[] = [];
+    // The ancestors of the row, with their depths: those not above it are left out, even when the depths skip some.
+    const path: { depth: number; name: string }[] = [];
     return rowsOf(table).map((row) => {
       const depth = depthOf(row);
-      path.length = depth;
-      path.push(nameOf(row));
-      return { table, row, key: [index, ...path].join('\n') };
+      while (path.length > 0 && path[path.length - 1].depth >= depth) {
+        path.pop();
+      }
+      path.push({ depth, name: nameOf(row) });
+      return { table, row, key: [index, ...path.map((p) => p.name)].join('\n') };
     });
   });
 }

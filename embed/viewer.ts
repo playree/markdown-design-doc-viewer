@@ -75,6 +75,15 @@ export interface ViewerOptions {
    */
   messageWrapWidth?: number;
   /**
+   * Restricts the raw HTML of the document to what does not reach the page around the viewer, for a document written by
+   * someone else than the user of the app: without <style>, <link>, <meta>, <base>, forms (<form>, <textarea>,
+   * <select>, <input> and <button> other than the checkboxes of the task lists and the buttons of the tables), image maps
+   * (<map>, <area>) and <dialog>, with only the alignment of the table cells left of the `style` attributes, and only the
+   * classes of the viewer left of the `class` attributes (the styles of the page apply to them). The `@font-face` and
+   * `@property` rules of the wireframes are not added to the page either. false by default.
+   */
+  restrictHtml?: boolean;
+  /**
    * Opens a link of the document (other than `#heading`, which the viewer scrolls to). By default, http(s) and mailto
    * links open in a new tab, and the others do nothing.
    */
@@ -189,12 +198,12 @@ function diffView({ old, stats }: Pick<DiffView, 'old' | 'stats'>, compareLabel:
 }
 
 /** The options that change the HTML of the document: it is rendered again when one of them changes. */
-const CONTENT_OPTIONS = ['markdown', 'baseUrl', 'readFile', 'resolveResource', 'frontMatter', 'headingNumbers', 'messageWrapWidth', 'compareWith'] as const;
+const CONTENT_OPTIONS = ['markdown', 'baseUrl', 'readFile', 'resolveResource', 'frontMatter', 'headingNumbers', 'messageWrapWidth', 'compareWith', 'restrictHtml'] as const;
 /** The options of the preview, sent with the HTML rendered last when only they change. */
 const VIEW_OPTIONS = ['documentId', 'splitMinWidth', 'toc', 'diagramLook', 'limitContentWidth', 'stickyTableHeader', 'tableTreeHighlight'] as const;
 
 /** What the element of a viewer (`mountViewer`) reads from its options each time. */
-type MountOptions = Pick<ViewerOptions, 'theme' | 'onOpenLink' | 'onRevealLine' | 'onCloseDiff'>;
+type MountOptions = Pick<ViewerOptions, 'theme' | 'onOpenLink' | 'onRevealLine' | 'onCloseDiff' | 'restrictHtml'>;
 
 /** The element of a viewer in `container`, with its preview and colors. */
 interface MountedViewer {
@@ -245,6 +254,7 @@ function mountViewer(container: HTMLElement, lang: 'en' | 'ja', t: Translate, op
     root,
     scroll,
     idPrefix: `seqnotes-viewer-${++viewers}`,
+    restrictHtml: () => options().restrictHtml === true,
     post,
     getState: () => state,
     setState: (next) => (state = next),
@@ -551,6 +561,7 @@ export interface ExportOptions
     | 'messageWrapWidth'
     | 'compareWith'
     | 'compareLabel'
+    | 'restrictHtml'
   > {
   /** The language of the texts of the exported file: `en`, or `ja`. That of the browser by default. */
   lang?: 'en' | 'ja';
@@ -582,7 +593,7 @@ let exportCount = 0;
  * command: in a viewer out of sight, removed once it is done (or failed). A diagram that fails is in the body, with
  * its error, as in an exported file.
  */
-async function renderExportBody(html: string, t: Translate, diagramLook: DiagramLook, diff: DiffView | undefined): Promise<string> {
+async function renderExportBody(html: string, t: Translate, diagramLook: DiagramLook, diff: DiffView | undefined, restrictHtml: boolean): Promise<string> {
   const el = document.createElement('div');
   el.className = 'seqnotes-viewer seqnotes-embedded vscode-light';
   el.dataset.seqnotesTheme = 'light';
@@ -603,6 +614,7 @@ async function renderExportBody(html: string, t: Translate, diagramLook: Diagram
         root,
         scroll: elementScrollHost(root),
         idPrefix: `seqnotes-export-${++exportCount}`,
+        restrictHtml: () => restrictHtml,
         post: (message) => message.type === 'exported' && resolve(message),
         getState: () => state,
         setState: (next) => (state = next),
@@ -651,7 +663,7 @@ export async function exportDocument(options: ExportOptions, assets: ExportAsset
   } else {
     html = await renderForExport(md, markdown, env, image);
   }
-  const body = await renderExportBody(html, t, options.diagramLook ?? 'neo', diff);
+  const body = await renderExportBody(html, t, options.diagramLook ?? 'neo', diff, options.restrictHtml === true);
   return exportPage({
     lang,
     title: documentTitle(md, markdown, options.title ?? ''),

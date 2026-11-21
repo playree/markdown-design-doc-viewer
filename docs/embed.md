@@ -79,6 +79,7 @@ viewer.destroy();
 | `frontMatter` | `true` | Shows the front matter (as the header of a design document, or as a table). |
 | `headingNumbers` | `true` | Shows the `autonumber` numbers on the linked headings. |
 | `messageWrapWidth` | `40` | Breaks the labels of the arrows of the sequence diagrams into lines at this many characters (a full-width one counts as 2). `0` does not break them. |
+| `restrictHtml` | `false` | Restricts the raw HTML of the document to what does not reach the page around the viewer, for documents written by others than the user of the app. It leaves out `<style>`, `<link>`, `<meta>` and `<base>`; forms (`<form>`, `<textarea>`, `<select>`, and the `<input>` and `<button>` other than the checkboxes of the task lists and the buttons of the tables); image maps (`<map>`, `<area>`); `<dialog>`; and the attributes `popover`, `autofocus`, `tabindex`, `for`, `usemap`, `form` and `name`. Of the `style` attributes, only the alignment of the table cells is kept, and of the `class` attributes, only the classes of the viewer (the styles of the page apply to the classes in the viewer, such as `fixed` of Tailwind CSS). The other `id`s start with `sn-`, as those of the headings, so that they are less likely to be those of the page (an `sn-` id of the page may still be one; a `#id` link still finds them), and so do the references to them (`aria-labelledby`, `url(#id)` of SVG…). The `@font-face` and `@property` rules of the wireframes are not added to the page (their fonts are not loaded), and their `:host` rules and `@import`s are left out. |
 | `onOpenLink` | `openLinkInNewTab` | `(href) => void`: opens a link of the document (other than `#heading`, which the viewer scrolls to). By default, http(s) and mailto links open in a new tab, and the others do nothing. |
 | `onRevealLine` | | `(line) => void`: called with the line (0-based) of the Markdown double-clicked in the viewer, e.g. to show it in an editor. Without it, a double-click does nothing. |
 | `compareWith` | | The Markdown of another version of the document (an older one, for instance): the viewer shows `markdown` with its differences from it ([Showing the differences from a version](#showing-the-differences-from-a-version)). Without it, the document alone. |
@@ -166,6 +167,7 @@ setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 | `resolveImage` | resolved from `baseUrl` | `(path) => string \| Promise<string>`: what an image of the document (a path, not a URL) becomes in the file: a data URI that embeds it, or a URL that links it. It is given the `src` of the image without its query and fragment (`icons.svg` of `icons.svg#save`), which are added back to a URL. When it fails, the `src` is kept. |
 | `baseUrl`, `readFile` | | As for the viewer: the files of the wireframes, and the images without `resolveImage`. |
 | `lang` | that of the browser | `'en'` or `'ja'`: the language of the texts of the file. |
+| `restrictHtml` | `false` | As for the viewer: the raw HTML of the document is restricted in the exported file too. |
 | `compareWith`, `compareLabel` | | As for the viewer: the exported file shows the differences from `compareWith`, with a bar that hides and shows them. |
 | `diagramLook`, `splitMinWidth`, `toc`, `limitContentWidth`, `stickyTableHeader`, `tableTreeHighlight`, `frontMatter`, `headingNumbers`, `messageWrapWidth` | as for the viewer | As for the viewer (see [Options](#options)), for the exported file. |
 
@@ -180,7 +182,9 @@ The modules can be imported on a server (Next.js, for instance): they use the do
 ## Limitations
 
 - The configuration of mermaid is global: the viewers of a page render their diagrams one after another, and the viewer initializes mermaid with its own settings. mermaid adds hooks to its DOMPurify.
-- The `@font-face` rules of wireframes are added to the page (`document.adoptedStyleSheets`), since fonts are not loaded in a shadow root otherwise.
+- The `@font-face` rules of wireframes are added to the page (`document.adoptedStyleSheets`), since fonts are not loaded in a shadow root otherwise. They stay there after the viewer is removed. A viewer with `restrictHtml` does not add them, but does not remove those added before (by another viewer, or before `restrictHtml` was set).
+- The raw HTML of the document is part of the page (without a shadow root): the global styles of the page (on elements such as `h1`, or on classes and ids) apply to it, and its `id`s are among those of the page. `restrictHtml` keeps it from styling the page and from reaching its elements, not from being styled by the page.
+- The links of the document (`<a href>` and `<area href>`, clicked with the left or middle button) go to `onOpenLink`, except those to a heading (`#heading`), which the viewer scrolls to. Its forms are not submitted. Both with or without `restrictHtml`.
 - The zoomed diagrams and the popups of the footnotes are over the whole page (`position: fixed`).
 - Images are resolved synchronously (`resolveResource`): read them from URLs.
 

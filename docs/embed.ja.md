@@ -79,6 +79,7 @@ viewer.destroy();
 | `frontMatter` | `true` | front matter を（設計書のヘッダ、または表として）表示します。 |
 | `headingNumbers` | `true` | 紐付いた見出しに `autonumber` の番号を表示します。 |
 | `messageWrapWidth` | `40` | シーケンス図の矢印のラベルをこの文字数（全角は 2 文字と数える）で改行します。`0` にすると改行しません。 |
+| `restrictHtml` | `false` | 設計書の生 HTML を、ビューアの外（埋め込み先のページ）に影響しないものに制限します。アプリの利用者以外が書いた設計書を表示するときに使います。`<style>`・`<link>`・`<meta>`・`<base>`、フォーム（`<form>`・`<textarea>`・`<select>` と、タスクリストのチェックボックスと表のボタン以外の `<input>`・`<button>`）、イメージマップ（`<map>`・`<area>`）、`<dialog>` と、属性 `popover`・`autofocus`・`tabindex`・`for`・`usemap`・`form`・`name` を除きます。`style` 属性は表のセルの揃えだけを、`class` 属性はビューアのクラスだけを残します（ビューアの中のクラスには、Tailwind CSS の `fixed` など、ページのスタイルが効くため）。ほかの `id` は、ページの id と重なりにくいよう、見出しと同じく `sn-` で始めます（ページに `sn-` で始まる id があれば重なることがあります。`#id` のリンクはそのまま使えます）。その id を参照する属性（`aria-labelledby` や SVG の `url(#id)` など）も合わせて書き換えます。ワイヤーフレームの `@font-face`・`@property` はページに追加せず（そのフォントは読み込まれません）、`:host` の規則と `@import` も除きます。 |
 | `onOpenLink` | `openLinkInNewTab` | `(href) => void`: 設計書のリンク（ビューアがスクロールする `#見出し` 以外）を開きます。既定では http(s) と mailto のリンクを新しいタブで開き、ほかは何もしません。 |
 | `onRevealLine` | | `(line) => void`: ビューアでダブルクリックした Markdown の行（0 始まり）で呼ばれます（エディタでその行を表示するなど）。ないときはダブルクリックしても何もしません。 |
 | `compareWith` | | 設計書の別の版（古い版など）の Markdown。指定すると、`markdown` をその版からの差分付きで表示します（[版との差分を表示する](#版との差分を表示する)）。ないときは設計書だけを表示します。 |
@@ -166,6 +167,7 @@ setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 | `resolveImage` | `baseUrl` から解決 | `(path) => string \| Promise<string>`: 設計書の画像（URL ではなくパス）を、ファイルの中で何にするか。埋め込むなら data URI、リンクにするなら URL を返します。画像の `src` からクエリとフラグメントを除いたもの（`icons.svg#save` なら `icons.svg`）を受け取り、返した URL にはそれを付け直します。失敗したときは `src` のままにします。 |
 | `baseUrl`, `readFile` | | ビューアと同じです。ワイヤーフレームのファイルと、`resolveImage` がないときの画像に使います。 |
 | `lang` | ブラウザの言語 | `'en'` または `'ja'`: ファイルの文言の言語。 |
+| `restrictHtml` | `false` | ビューアと同じです。書き出したファイルでも設計書の生 HTML を制限します。 |
 | `compareWith`, `compareLabel` | | ビューアと同じです。書き出したファイルは `compareWith` からの差分を表示し、差分バーで隠したり表示したりできます。 |
 | `diagramLook`, `splitMinWidth`, `toc`, `limitContentWidth`, `stickyTableHeader`, `tableTreeHighlight`, `frontMatter`, `headingNumbers`, `messageWrapWidth` | ビューアと同じ | 書き出すファイルについての、ビューアと同じオプション（[オプション](#オプション)）。 |
 
@@ -180,7 +182,9 @@ setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 ## 制約
 
 - mermaid の設定はグローバルです。ページの複数のビューアは図を順番に描き、ビューアが自分の設定で mermaid を初期化します。mermaid は自分の DOMPurify にフックを足します。
-- ワイヤーフレームの `@font-face` は、Shadow DOM の中ではフォントを読み込まないので、ページに追加します（`document.adoptedStyleSheets`）。
+- ワイヤーフレームの `@font-face` は、Shadow DOM の中ではフォントを読み込まないので、ページに追加します（`document.adoptedStyleSheets`）。ビューアを削除しても残ります。`restrictHtml` を指定したビューアは追加しませんが、それより前に（ほかのビューアや、`restrictHtml` を指定する前に）追加されたものは削除しません。
+- 設計書の生 HTML は（Shadow DOM ではなく）ページの一部です。ページのグローバルなスタイル（`h1` などの要素や、クラス・id のセレクタ）が効き、その `id` もページの id に加わります。`restrictHtml` は、生 HTML がページのスタイルを変えたりページの要素を操作したりすることを防ぎますが、ページのスタイルが効くことは防ぎません。
+- 設計書のリンク（`<a href>` と `<area href>`。左ボタンと中ボタンのクリック）は `onOpenLink` に回します。ただし見出しへのリンク（`#見出し`）は、ビューアがスクロールし、`onOpenLink` には渡しません。フォームは送信しません。どちらも `restrictHtml` の有無によりません。
 - 拡大した図と脚注のポップアップは、ページ全体の上に表示します（`position: fixed`）。
 - 画像は同期で解決します（`resolveResource`）。URL から読むようにしてください。
 

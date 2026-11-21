@@ -166,17 +166,18 @@ export function setupFootnotePopup(root: HTMLElement, handleLink: (href: string)
     { signal },
   );
 
-  popup.addEventListener(
-    'click',
-    (e) => {
-      const link = (e.target as Element).closest('a[href]');
-      if (link && handleLink(link.getAttribute('href')!)) {
-        e.preventDefault();
-        hide();
-      }
-    },
-    { signal },
-  );
+  // Also with the middle button (`auxclick`), which would open the link in a new tab of the browser.
+  const onLinkClick = (e: MouseEvent): void => {
+    const link = (e.target as Element).closest('a[href], area[href]');
+    if (link && (e.type === 'click' || e.button === 1) && handleLink(link.getAttribute('href')!)) {
+      e.preventDefault();
+      hide();
+    }
+  };
+  popup.addEventListener('click', onLinkClick, { signal });
+  popup.addEventListener('auxclick', onLinkClick, { signal });
+  // A copy of the note: its forms do not leave the document, as those of the preview.
+  popup.addEventListener('submit', (e) => e.preventDefault(), { signal });
 
   // Captured, and not passed on: Escape closes only the popup, and keeps the pinned step of the preview.
   const onKeyDown = (e: KeyboardEvent): void => {
