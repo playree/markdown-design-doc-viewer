@@ -6,6 +6,8 @@ This changelog covers the extension, the command line and the embeddable viewer 
 
 - Embeddable viewer: `restrictHtml` restricts the raw HTML of the document to what does not reach the page of the app, for documents written by others than the user of the app: without `<style>`, `<link>`, `<meta>`, `<base>`, forms, image maps and `<dialog>`, with only the alignment of the table cells left of the `style` attributes and only the classes of the viewer left of the `class` attributes, with the other ids prefixed, and without adding the `@font-face` rules of the wireframes to the page. `exportHtml` takes it too. See [Options](docs/embed.md#options).
 - The links of image maps (`<area href>`) in a document open as its other links do, a link clicked with the middle button opens as with the left one, and the forms in a document are no longer submitted.
+- **Export Design Doc as HTML** no longer embeds an image that is a symbolic link to a file outside the folder of the document and the workspace (it is linked instead), as the command line does.
+- The preview (and the embeddable viewer) no longer goes on rendering the diagrams of a version of the document replaced by a newer one while typing, so that the newer one shows sooner.
 
 ## 1.5.6
 

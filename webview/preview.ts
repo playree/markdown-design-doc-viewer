@@ -14,7 +14,7 @@ import { setupToc } from './toc';
 import type { ViewerContext } from './viewerContext';
 import { annotateNotes, setupNoteJumps } from './noteJumps';
 import { sanitizeRestricted } from './restrictHtml';
-import { layoutWireframe, layoutWireframes, linkTarget, mountWireframe } from './wireframe';
+import { linkTarget, mountWireframe, unwatchWireframes, watchWireframe, watchWireframes } from './wireframe';
 
 const CURRENT = 'seqnotes-current';
 const HEADING_RE = /^H([1-6])$/;
@@ -125,6 +125,8 @@ export function createPreview(ctx: ViewerContext): Preview {
 
   /** SVGs of the previous render keyed by theme + source, so unchanged diagrams are not re-rendered on every edit. */
   let svgCache = new Map<string, string>();
+  /** SVGs of the last render replaced before it was shown (keyed like `svgCache`), which the render after it can reuse. */
+  let spareSvgs = new Map<string, string>();
 
   /** mermaid source of each rendered diagram (or HTML of a wireframe), so that the zoom overlay can follow its diagram across updates. */
   const diagramSources = new WeakMap<Element, string>();
@@ -137,9 +139,15 @@ export function createPreview(ctx: ViewerContext): Preview {
     return look === 'neo' ? {} : { look };
   }
 
-  /** Renders the mermaid blocks of `container` and returns the SVGs it used, keyed like `svgCache`. */
-  async function renderDiagrams(container: HTMLElement, idPrefix: string, dark: boolean, look: DiagramLook): Promise<Map<string, string>> {
+  /**
+   * Renders the mermaid blocks of `container` and returns the SVGs it used, keyed like `svgCache`. Stops (leaving the
+   * remaining blocks as they are) once `isCurrent` is false: the render was replaced by a newer one, or the preview destroyed.
+   */
+  async function renderDiagrams(container: HTMLElement, idPrefix: string, dark: boolean, look: DiagramLook, isCurrent: () => boolean): Promise<Map<string, string>> {
     const cache = new Map<string, string>();
+    if (!isCurrent()) {
+      return cache;
+    }
     // Resets the settings of the previous render, as mermaid.initialize starts from its defaults.
     mermaid.initialize({
       startOnLoad: false,
@@ -155,7 +163,7 @@ export function createPreview(ctx: ViewerContext): Preview {
     scratch.className = 'seqnotes-mermaid-scratch';
     el.append(scratch);
     try {
-      await renderBlocks(container, idPrefix, dark, look, scratch, cache);
+      await renderBlocks(container, idPrefix, dark, look, scratch, cache, isCurrent);
     } finally {
       scratch.remove();
     }
@@ -163,9 +171,20 @@ export function createPreview(ctx: ViewerContext): Preview {
   }
 
   /** Renders the mermaid blocks of `container` with `scratch` for mermaid's work, and puts the SVGs it used in `cache`. */
-  async function renderBlocks(container: HTMLElement, idPrefix: string, dark: boolean, look: DiagramLook, scratch: HTMLElement, cache: Map<string, string>): Promise<void> {
+  async function renderBlocks(
+    container: HTMLElement,
+    idPrefix: string,
+    dark: boolean,
+    look: DiagramLook,
+    scratch: HTMLElement,
+    cache: Map<string, string>,
+    isCurrent: () => boolean,
+  ): Promise<void> {
     const blocks = Array.from(container.querySelectorAll<HTMLElement>('.seqnotes-mermaid'));
     for (const [i, block] of blocks.entries()) {
+      if (!isCurrent()) {
+        return;
+      }
       const pre = block.querySelector('.seqnotes-mermaid-src');
       const meta = metaOf(block);
       const id = `${idPrefix}-${i}`;
@@ -173,7 +192,7 @@ export function createPreview(ctx: ViewerContext): Preview {
       const key = `${dark}\n${look}\n${source}`;
       try {
         // A cached SVG carries the element ids of its first render, so reuse it only once per document.
-        const cached = cache.has(key) ? undefined : svgCache.get(key);
+        const cached = cache.has(key) ? undefined : (svgCache.get(key) ?? spareSvgs.get(key));
         const svg = cached ?? (await mermaid.render(id, source, scratch)).svg;
         cache.set(key, svg);
         const holder = document.createElement('div');
@@ -230,8 +249,18 @@ export function createPreview(ctx: ViewerContext): Preview {
     }
   }
 
-  /** Sanitizes the HTML from the extension host and renders its diagrams into a new element. */
-  async function buildContent(html: string, idPrefix: string, dark: boolean, look: DiagramLook, diff?: DiffView): Promise<{ content: HTMLElement; cache: Map<string, string> }> {
+  /**
+   * Sanitizes the HTML from the extension host and renders its diagrams into a new element. The diagrams are not all
+   * rendered once `isCurrent` is false (`renderDiagrams`).
+   */
+  async function buildContent(
+    html: string,
+    idPrefix: string,
+    dark: boolean,
+    look: DiagramLook,
+    diff: DiffView | undefined,
+    isCurrent: () => boolean = () => true,
+  ): Promise<{ content: HTMLElement; cache: Map<string, string> }> {
     const restricted = isRestricted();
     const sanitizeContent = restricted ? sanitizeRestricted : sanitize;
     const content = document.createElement('div');
@@ -240,7 +269,7 @@ export function createPreview(ctx: ViewerContext): Preview {
       markChanges(content, diff, sanitizeContent, titles.seqnotesDiffOldDiagram ?? '');
     }
     renderWireframes(content, restricted);
-    const cache = await queueRender(() => renderDiagrams(content, idPrefix, dark, look));
+    const cache = await queueRender(() => renderDiagrams(content, idPrefix, dark, look, isCurrent));
     return { content, cache };
   }
 
@@ -438,12 +467,16 @@ export function createPreview(ctx: ViewerContext): Preview {
     const seq = ++renderSeq;
     // Set before rendering, so that other class changes of the body do not start another update meanwhile.
     const dark = (renderedDark = isDarkTheme());
-    const { content: next, cache } = await buildContent(html, `${ctx.idPrefix}-svg-${seq}`, dark, diagramLook, diff);
-    // Kept even when a newer update is waiting: it renders next and can reuse these.
-    svgCache = cache;
-    if (seq !== renderSeq) {
+    const isCurrent = (): boolean => seq === renderSeq;
+    const { content: next, cache } = await buildContent(html, `${ctx.idPrefix}-svg-${seq}`, dark, diagramLook, diff, isCurrent);
+    if (!isCurrent()) {
+      // Not shown: the newer update can reuse the SVGs rendered before it stopped. Only those of the last one, so that
+      // they do not pile up while typing goes faster than the renders.
+      spareSvgs = cache;
       return;
     }
+    svgCache = cache;
+    spareSvgs = new Map();
 
     const pending = pendingScroll;
     pendingScroll = undefined;
@@ -463,6 +496,8 @@ export function createPreview(ctx: ViewerContext): Preview {
 
     // Its reference is replaced.
     footnotePopup.hide();
+    // So is the label the button that goes back is next to, which the button would keep (with the whole document).
+    noteJumps.clear();
     if (!keep) {
       // The warnings of another document are shown even if they read the same, and its diagrams are not zoomed.
       dismissedWarnings = undefined;
@@ -470,6 +505,7 @@ export function createPreview(ctx: ViewerContext): Preview {
         closeZoom();
       }
     }
+    unwatchWireframes(root);
     root.replaceChildren(...Array.from(next.childNodes));
     const metadata = root.querySelector<HTMLDetailsElement>('.seqnotes-doc-more');
     if (metadata) {
@@ -494,7 +530,7 @@ export function createPreview(ctx: ViewerContext): Preview {
     setUpWarnings();
     // With the label it was given meanwhile (relabelDiff), if any.
     diffBar.show(lastDiff);
-    layoutWireframes(root);
+    watchWireframes(root);
     addZoomButtons();
     markZoomableImages();
     if (zoom) {
@@ -790,6 +826,7 @@ export function createPreview(ctx: ViewerContext): Preview {
     const opener = target?.matches('img') ? target : target?.querySelector(':scope > .seqnotes-zoom-button');
     zoom = undefined;
     zoomOverlay.hidden = true;
+    unwatchWireframes(zoomStage);
     zoomStage.replaceChildren();
     zoomHovered = undefined;
     holdSpace(false);
@@ -837,6 +874,7 @@ export function createPreview(ctx: ViewerContext): Preview {
     copy.removeAttribute('style');
     copy.setAttribute('width', String(zoom.width));
     copy.setAttribute('height', String(zoom.height));
+    unwatchWireframes(zoomStage);
     zoomStage.replaceChildren(copy);
     applyZoom();
     return true;
@@ -863,11 +901,12 @@ export function createPreview(ctx: ViewerContext): Preview {
     copy.style.margin = '0';
     copy.style.padding = '0';
     copy.style.width = width;
+    unwatchWireframes(zoomStage);
     zoomStage.replaceChildren(copy);
     zoomHovered = undefined;
     // Works as in the preview: its text can be selected, its form controls used. The overlay pans on drag around it.
     mountWireframe(copy, html, meta, { restricted });
-    layoutWireframe(copy);
+    watchWireframe(copy);
     if (zoom) {
       zoom.width = copy.offsetWidth;
       zoom.height = copy.offsetHeight;
@@ -920,6 +959,7 @@ export function createPreview(ctx: ViewerContext): Preview {
         }
       });
     }
+    unwatchWireframes(zoomStage);
     zoomStage.replaceChildren(copy);
     applyZoom();
   }
@@ -1323,6 +1363,8 @@ export function createPreview(ctx: ViewerContext): Preview {
     insetObserver.disconnect();
     toc.dispose();
     footnotePopup.dispose();
+    noteJumps.clear();
+    unwatchWireframes(root);
     diffBar.dispose();
     zoomOverlay.remove();
     // What it wrote on the viewer's element.

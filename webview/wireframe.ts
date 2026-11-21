@@ -203,8 +203,8 @@ function showPage(block: HTMLElement, screen: HTMLElement, html: string, { restr
 }
 
 /**
- * The HTML of a wireframe in a shadow root, and a box over each of its parts; observed, so that they stay over them.
- * Returns the frame of the two.
+ * The HTML of a wireframe in a shadow root, and a box over each of its parts, which `watchWireframes` keeps over them
+ * once it is in the page. Returns the frame of the two.
  */
 export function mountWireframe(block: HTMLElement, html: string, meta: DiagramMeta | undefined, options: WireframeOptions = {}): HTMLElement {
   const frame = document.createElement('div');
@@ -254,7 +254,6 @@ export function mountWireframe(block: HTMLElement, html: string, meta: DiagramMe
     p.textContent = note;
     block.append(p);
   }
-  observe(block, shadow);
   return frame;
 }
 
@@ -343,6 +342,47 @@ export function layoutWireframes(root: Element): void {
   root.querySelectorAll<HTMLElement>('.seqnotes-wireframe').forEach(layoutWireframe);
 }
 
+/** The shadow root of the page of the wireframe of `block`, once mounted. */
+function shadowOf(block: HTMLElement): ShadowRoot | null | undefined {
+  return block.querySelector(':scope > .seqnotes-wireframe-frame > .seqnotes-wireframe-screen')?.shadowRoot;
+}
+
+/**
+ * Lays out the wireframe of `block` (in the page), and again whenever it or its page is resized, until
+ * `unwatchWireframes`. Not done when it is mounted, so that a wireframe never put in the page (e.g. that of an export)
+ * is not kept by the observer.
+ */
+export function watchWireframe(block: HTMLElement): void {
+  const shadow = shadowOf(block);
+  if (shadow) {
+    observe(block, shadow);
+  }
+  layoutWireframe(block);
+}
+
+/** `watchWireframe` for the wireframes of `root`. */
+export function watchWireframes(root: Element): void {
+  root.querySelectorAll<HTMLElement>('.seqnotes-wireframe').forEach(watchWireframe);
+}
+
+/**
+ * Stops following the wireframes of `root` (`watchWireframe`): before they are removed, as the observer only lets go of
+ * one removed when it reports it resized, which it does not for one hidden then (e.g. in a closed <details>).
+ */
+export function unwatchWireframes(root: Element): void {
+  if (!resizes) {
+    return;
+  }
+  const blocks = root instanceof HTMLElement && root.matches('.seqnotes-wireframe') ? [root] : [];
+  for (const block of [...blocks, ...Array.from(root.querySelectorAll<HTMLElement>('.seqnotes-wireframe'))]) {
+    resizes.unobserve(block);
+    const page = shadowOf(block)?.querySelector('html');
+    if (page) {
+      resizes.unobserve(page);
+    }
+  }
+}
+
 /** Shows the wireframes of an exported page again from the HTML kept in their block, with the boxes of the export. */
 export function remountWireframes(root: Element): void {
   for (const block of Array.from(root.querySelectorAll<HTMLElement>('.seqnotes-wireframe'))) {
@@ -350,10 +390,10 @@ export function remountWireframes(root: Element): void {
     const screen = block.querySelector<HTMLElement>(':scope > .seqnotes-wireframe-frame > .seqnotes-wireframe-screen');
     if (typeof source === 'string' && screen && !screen.shadowRoot) {
       // Its notes are in the exported page already.
-      observe(block, showPage(block, screen, source, { restricted: block.hasAttribute(RESTRICTED_ATTR) }).shadow);
+      showPage(block, screen, source, { restricted: block.hasAttribute(RESTRICTED_ATTR) });
     }
   }
-  layoutWireframes(root);
+  watchWireframes(root);
 }
 
 /**

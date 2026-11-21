@@ -112,6 +112,7 @@
   "Open File...": "ファイルを開く...",
   "The file is not UTF-8 text.": "ファイルが UTF-8 のテキストではありません。",
   "The file has no folder.": "ファイルのフォルダがありません。",
+  "Not a Markdown file.": "Markdown ファイルではありません。",
   "Not a web or mail link.": "Web やメールのリンクではありません。",
   "No file was chosen to export to.": "エクスポート先のファイルが選ばれていません。",
   "Open &Folder...": "フォルダを開く(&F)...",

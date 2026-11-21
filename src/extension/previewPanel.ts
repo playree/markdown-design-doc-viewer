@@ -131,7 +131,7 @@ export class PreviewManager implements vscode.Disposable {
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration('mdDesignDoc')) {
           this.settings = readSettings();
-          this.previews.forEach((set) => set.forEach((p) => p.update()));
+          this.previews.forEach((set) => set.forEach((p) => p.refresh()));
         }
       }),
       vscode.window.onDidChangeTextEditorSelection((e) => {
@@ -299,7 +299,9 @@ export class Preview {
       ],
     };
     panel.webview.html = this.shell();
-    this.messageListener = panel.webview.onDidReceiveMessage((message: FromWebview) => this.onMessage(message));
+    this.messageListener = panel.webview.onDidReceiveMessage((message: FromWebview) => {
+      this.onMessage(message).catch((error: unknown) => console.error('Could not handle a message of the preview', error));
+    });
     // Only awaited by an export.
     this.whenReady.catch(() => undefined);
   }
@@ -364,7 +366,12 @@ export class Preview {
 
   scheduleUpdate(): void {
     clearTimeout(this.timer);
-    this.timer = setTimeout(() => this.update(), UPDATE_DELAY_MS);
+    this.timer = setTimeout(() => this.refresh(), UPDATE_DELAY_MS);
+  }
+
+  /** `update`, for the updates nothing waits for: a failure (e.g. the document deleted) is logged instead of left unhandled. */
+  refresh(): void {
+    this.update().catch((error: unknown) => console.error('Could not update the preview', error));
   }
 
   async update(): Promise<void> {
@@ -391,8 +398,12 @@ export class Preview {
     switch (message.type) {
       case 'ready': {
         this.ready = true;
-        await this.update();
-        this.setReady();
+        try {
+          await this.update();
+        } finally {
+          // Also when the document could not be shown: an export does not wait for it.
+          this.setReady();
+        }
         const editor = vscode.window.visibleTextEditors.find((e) => e.document.uri.toString() === this.uri.toString());
         if (editor && this.host.settings().syncEditor) {
           this.post({ type: 'markLine', line: editor.selection.active.line });
