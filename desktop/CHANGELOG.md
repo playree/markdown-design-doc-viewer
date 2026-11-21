@@ -2,7 +2,7 @@
 
 The desktop app has its own version, apart from the extension and the command line (their changes are in [CHANGELOG.md](../CHANGELOG.md)). Its installers are attached to the [releases of the desktop app](https://github.com/playree/markdown-design-doc-viewer/releases?q=desktop&expanded=true) (tagged `desktop-vX.Y.Z`).
 
-## Unreleased
+## 0.4.4
 
 - The links of image maps (`<area href>`) in a document open as its other links do, a link clicked with the middle button opens as with the left one, and the forms in a document are no longer submitted.
 - The page of a window reads only Markdown files (and the file given to the app), and a window closed while it was opening a document or a folder no longer keeps following its changes, which kept a folder from being renamed on Windows.
