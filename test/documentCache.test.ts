@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DocumentCache, RetainedFiles } from '../src/extension/documentCache';
+import { DocumentCache, FreshComputations, RetainedFiles } from '../src/extension/documentCache';
 
 describe('DocumentCache', () => {
   it('keeps a value for the version of the document it was computed from', () => {
@@ -24,19 +24,14 @@ describe('DocumentCache', () => {
     expect(cache.get('b.md', 1)).toBe('b');
   });
 
-  it('drops a value whose files are known after one of them changed', () => {
+  it('keeps a value whose files are not known yet', () => {
     const cache = new DocumentCache<string>();
     cache.set('a.md', 1, 'a');
-    cache.set('b.md', 1, 'b');
     cache.invalidate('login.html');
     expect(cache.get('a.md', 1)).toBe('a');
     cache.setDependencies('a.md', 'a', new Set(['login.html']));
-    cache.setDependencies('b.md', 'b', new Set(['other.html']));
-    expect(cache.get('a.md', 1)).toBeUndefined();
-    expect(cache.get('b.md', 1)).toBe('b');
-    // The changes before are forgotten once the files are known.
     cache.invalidate('login.html');
-    expect(cache.get('b.md', 1)).toBe('b');
+    expect(cache.get('a.md', 1)).toBeUndefined();
   });
 
   it('does not change a value kept in place of the one given', () => {
@@ -74,5 +69,44 @@ describe('RetainedFiles', () => {
     expect(files.get('a.html')).toBeUndefined();
     // Not held: nothing to stop following.
     expect(files.release(['a.html'])).toEqual([]);
+  });
+});
+
+describe('FreshComputations', () => {
+  const result = (n: number, ...files: string[]) => ({ n, dependencies: new Set(files) });
+
+  it('computes again when a file it used changed meanwhile', async () => {
+    const computations = new FreshComputations();
+    let n = 0;
+    const value = await computations.run(async () => {
+      n++;
+      if (n === 1) {
+        computations.changed('login.html');
+      }
+      return result(n, 'login.html');
+    }, (r) => r.dependencies);
+    expect(value.n).toBe(2);
+  });
+
+  it('does not compute again for the other files, nor after the computation', async () => {
+    const computations = new FreshComputations();
+    let n = 0;
+    const value = await computations.run(async () => {
+      computations.changed('other.html');
+      return result(++n, 'login.html');
+    }, (r) => r.dependencies);
+    expect(value.n).toBe(1);
+    computations.changed('login.html');
+    expect(n).toBe(1);
+  });
+
+  it('gives up after the attempts', async () => {
+    const computations = new FreshComputations();
+    let n = 0;
+    const value = await computations.run(async () => {
+      computations.changed('login.html');
+      return result(++n, 'login.html');
+    }, (r) => r.dependencies, 2);
+    expect(value.n).toBe(2);
   });
 });

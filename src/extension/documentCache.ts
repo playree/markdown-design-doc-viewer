@@ -8,13 +8,12 @@ interface Entry<T> {
   value: T;
   /** The files it was computed from, by their URI: undefined until they are known (`setDependencies`). */
   dependencies?: ReadonlySet<string>;
-  /** The files that changed before its files were known. */
-  changed?: Set<string>;
 }
 
 /**
  * Values computed from documents, by their key (URI) and version, until the document changes or one of the files they
- * were computed from does (`invalidate`).
+ * were computed from does (`invalidate`). A value whose files are not known yet (a computation under way) is kept: it is
+ * to be computed from the files as they are once it is known (`FreshComputations`).
  */
 export class DocumentCache<T> {
   private readonly entries = new Map<string, Entry<T>>();
@@ -31,10 +30,7 @@ export class DocumentCache<T> {
     return entry?.version === version ? entry.dependencies : undefined;
   }
 
-  /**
-   * Keeps the value of the document at `version`, in place of that of another version. Until its files are known
-   * (`setDependencies`), the files that change are noted: it is dropped then if it was computed from one of them.
-   */
+  /** Keeps the value of the document at `version`, in place of that of another version. */
   set(key: string, version: number, value: T): void {
     this.entries.set(key, { version, value });
   }
@@ -42,14 +38,8 @@ export class DocumentCache<T> {
   /** Sets the files `value` was computed from, unless another value was kept for its document meanwhile. */
   setDependencies(key: string, value: T, dependencies: ReadonlySet<string>): void {
     const entry = this.entries.get(key);
-    if (entry?.value !== value) {
-      return;
-    }
-    if (entry.changed && [...entry.changed].some((file) => dependencies.has(file))) {
-      this.entries.delete(key);
-    } else {
+    if (entry?.value === value) {
       entry.dependencies = dependencies;
-      delete entry.changed;
     }
   }
 
@@ -65,13 +55,46 @@ export class DocumentCache<T> {
     this.entries.clear();
   }
 
-  /** Drops the values computed from `file` (or notes it for those whose files are not known yet). */
+  /** Drops the values computed from `file`. */
   invalidate(file: string): void {
     for (const [key, entry] of this.entries) {
-      if (!entry.dependencies) {
-        (entry.changed ??= new Set()).add(file);
-      } else if (entry.dependencies.has(file)) {
+      if (entry.dependencies?.has(file)) {
         this.entries.delete(key);
+      }
+    }
+  }
+}
+
+/**
+ * Computations from files that are done again when one of the files they used changed while they were under way, so
+ * that their result is not that of a file before its change (which may have been told before the result is known).
+ */
+export class FreshComputations {
+  /** The files changed during each computation under way. */
+  private readonly underWay = new Set<Set<string>>();
+
+  /** Notes a change of `file` for the computations under way. */
+  changed(file: string): void {
+    this.underWay.forEach((changed) => changed.add(file));
+  }
+
+  /**
+   * `compute()`, done again while one of the files it used (`dependencies` of its result) changed meanwhile: at most
+   * `attempts` times, after which the last result is returned.
+   */
+  async run<T>(compute: () => Promise<T>, dependencies: (value: T) => ReadonlySet<string>, attempts = 3): Promise<T> {
+    for (let attempt = 1; ; attempt++) {
+      const changed = new Set<string>();
+      this.underWay.add(changed);
+      let value: T;
+      try {
+        value = await compute();
+      } finally {
+        this.underWay.delete(changed);
+      }
+      const used = dependencies(value);
+      if (attempt >= attempts || ![...changed].some((file) => used.has(file))) {
+        return value;
       }
     }
   }

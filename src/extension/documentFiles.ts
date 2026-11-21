@@ -7,7 +7,7 @@ import { realpath } from 'node:fs/promises';
 import * as vscode from 'vscode';
 import { createMarkdown } from '../markdown/render';
 import { attachWireframes, loadWireframes, wireframeDependencies, wireframeSources, type WireframeFiles } from '../markdown/wireframe';
-import { DocumentCache, RetainedFiles } from './documentCache';
+import { DocumentCache, FreshComputations, RetainedFiles } from './documentCache';
 
 /** Resolves a link or image path of a Markdown document: relative to it, or to its workspace folder with a leading `/`. */
 export function resolveDocumentPath(document: vscode.Uri, path: string): vscode.Uri {
@@ -127,6 +127,8 @@ export interface DocumentAnalysis extends DocumentWireframes {
 export class DocumentAnalyzer implements vscode.Disposable {
   private readonly md = createMarkdown();
   private readonly analyses = new DocumentCache<Promise<DocumentAnalysis>>();
+  /** The analyses under way, done again when one of their files changes meanwhile. */
+  private readonly computations = new FreshComputations();
   /**
    * The text of the files of the wireframes read from the disk, by their URI, with the time they were modified and
    * their size then: read again when those differ, also when the change was not seen by the watchers.
@@ -169,7 +171,8 @@ export class DocumentAnalyzer implements vscode.Disposable {
     if (kept && (!dependencies || [...dependencies].every((file) => this.texts.isRetained(file)))) {
       return kept;
     }
-    const analysis = this.read(document.uri, document.getText());
+    const source = document.getText();
+    const analysis = this.computations.run(() => this.read(document.uri, source), (result) => result.dependencies);
     this.analyses.set(key, version, analysis);
     analysis.then(
       ({ dependencies }) => this.analyses.setDependencies(key, analysis, dependencies),
@@ -231,12 +234,20 @@ export class DocumentAnalyzer implements vscode.Disposable {
       return kept.text;
     }
     const text = readText(uri);
-    this.texts.set(key, { mtime: stat.mtime, size: stat.size, text });
+    const entry = { mtime: stat.mtime, size: stat.size, text };
+    this.texts.set(key, entry);
+    // Read again next time after a failure, which may not last (unless another reading replaced it).
+    void text.then((value) => {
+      if (value === undefined && this.texts.get(key) === entry) {
+        this.texts.delete(key);
+      }
+    });
     return text;
   }
 
   /** A file changed: the analyses made with it are dropped, and those that follow it told. */
   private changed(file: string): void {
+    this.computations.changed(file);
     this.analyses.invalidate(file);
     if (this.texts.isRetained(file)) {
       this.texts.delete(file);
