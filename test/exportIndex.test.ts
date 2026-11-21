@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { documentInfo, groupByFolder, indexBody, mayHaveFrontMatter, type IndexEntry } from '../src/export/exportIndex';
+import { documentInfo, groupByFolder, indexBody, isDesignDocSource, mayHaveFrontMatter, type IndexEntry } from '../src/export/exportIndex';
 import { formatMessage, type Translate } from '../src/shared/l10n';
 import { createMarkdown } from '../src/markdown/render';
 
@@ -140,5 +140,27 @@ describe('indexBody', () => {
     const html = indexBody('Docs', [], formatMessage, { empty: 'No <docs>.' });
     expect(html).toContain('<p class="seqnotes-index-empty">No &lt;docs&gt;.</p>');
     expect(html).not.toContain('<table>');
+  });
+});
+
+describe('isDesignDocSource', () => {
+  it('tells a design document by its front matter alone, as documentInfo does', () => {
+    const sources = [
+      '---\ntype: design_doc\ntitle: A\n---\n# B',
+      '---\r\ntype: design_doc\r\n...\r\n# B',
+      '---\ntype: other\n---\n# B',
+      '---\ntitle: A\n---',
+      '---  \ntype: design_doc\n---  ',
+      '---\ntype: design_doc\n',
+      '---\n\ntype: design_doc\n---',
+      '---\ntype: design_doc\n  ---\nb: c\n---',
+      '# A\n---\ntype: design_doc\n---',
+      '',
+    ];
+    for (const source of sources) {
+      expect(isDesignDocSource(md, source), source).toBe(documentInfo(md, source, 'x').designDoc);
+    }
+    expect(isDesignDocSource(md, sources[0])).toBe(true);
+    expect(isDesignDocSource(md, sources[1])).toBe(true);
   });
 });

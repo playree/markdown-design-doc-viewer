@@ -1,4 +1,4 @@
-import type { MarkdownIt } from 'markdown-it';
+import type { MarkdownIt, Token } from 'markdown-it';
 import { diagramWording, rowWording } from '../diagrams/diagramWording';
 import { formatMessage, type Translate } from '../shared/l10n';
 import { headingText, linkDiagrams, numberMismatches } from '../markdown/linker';
@@ -19,7 +19,11 @@ export interface Issue {
  * checked with their `wireframes` read by the host.
  */
 export function collectIssues(md: MarkdownIt, source: string, t: Translate = formatMessage, wireframes?: WireframeFiles): Issue[] {
-  const tokens = md.parse(source, { t, wireframes });
+  return issuesOf(md.parse(source, { t, wireframes }), t);
+}
+
+/** `collectIssues` of a document parsed with `{ t, wireframes }` (or with its wireframes attached), which it does not change. */
+export function issuesOf(tokens: Token[], t: Translate = formatMessage): Issue[] {
   const { diagrams, warnings } = linkDiagrams(tokens, t);
   const issues: Issue[] = [...warnings, ...tableWarnings(tokens)].map((w) => ({ line: w.line, message: w.message, severity: 'warning' }));
 

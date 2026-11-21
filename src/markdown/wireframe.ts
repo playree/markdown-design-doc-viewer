@@ -363,14 +363,8 @@ export function wireframes(md: MarkdownIt): void {
       token.block = true;
       token.level = paragraph.level;
       token.map = paragraph.map;
-      const file = env?.wireframes?.[src];
-      const wireframe: Wireframe = {
-        src,
-        alt: altOf(tokens[i + 1]),
-        options: { linkHeadings: false, stacked: false },
-        file,
-        ...(file ? { parts: wireframeParts(state.md, file.html) } : {}),
-      };
+      const wireframe: Wireframe = { src, alt: altOf(tokens[i + 1]), options: { linkHeadings: false, stacked: false } };
+      setFile(state.md, wireframe, env?.wireframes);
       token.meta = { wireframe };
       tokens.splice(i, 3, token);
     }
@@ -393,6 +387,30 @@ export function wireframes(md: MarkdownIt): void {
       }
     }
   });
+}
+
+/** Sets the file of a wireframe from `files` (`RenderEnv.wireframes`), and its parts. */
+function setFile(md: MarkdownIt, wireframe: Wireframe, files: WireframeFiles | undefined): void {
+  const file = files?.[wireframe.src];
+  wireframe.file = file;
+  if (file) {
+    wireframe.parts = wireframeParts(md, file.html);
+  } else {
+    delete wireframe.parts;
+  }
+}
+
+/**
+ * Gives the wireframes of a document parsed without their files their `files` (read by the host with the
+ * `wireframeSources` of the tokens), as if it had been parsed with them (`RenderEnv.wireframes`): without parsing it again.
+ */
+export function attachWireframes(md: MarkdownIt, tokens: Token[], files: WireframeFiles): void {
+  for (const token of tokens) {
+    const wireframe = wireframeOf(token);
+    if (wireframe) {
+      setFile(md, wireframe, files);
+    }
+  }
 }
 
 /** The wireframe of a token, if it is one. */

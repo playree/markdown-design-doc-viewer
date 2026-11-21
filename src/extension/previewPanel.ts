@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { readWireframes, resolveDocumentPath, WireframeWatcher } from './documentFiles';
+import { resolveDocumentPath, WireframeWatcher, type DocumentAnalyzer } from './documentFiles';
 import { WEBVIEW_TITLES, type DiagramLook, type DiffView, type FromWebview, type PreviewTheme, type ToWebview, type WebviewState } from '../shared/protocol';
 import { isExternalUrl, safeDecode, SCHEME_RE } from '../export/exportPage';
 import { renderDiff } from '../diff/diffRender';
@@ -107,7 +107,10 @@ export class PreviewManager implements vscode.Disposable {
   /** Cached because it is read on every editor scroll / selection event. */
   private settings = readSettings();
 
-  constructor(private readonly extensionUri: vscode.Uri) {
+  constructor(
+    private readonly extensionUri: vscode.Uri,
+    private readonly analyzer: DocumentAnalyzer,
+  ) {
     this.disposables.push(
       vscode.window.registerWebviewPanelSerializer(VIEW_TYPE, {
         deserializeWebviewPanel: async (panel, state: WebviewState | undefined) => {
@@ -127,7 +130,12 @@ export class PreviewManager implements vscode.Disposable {
         },
         { webviewOptions: { retainContextWhenHidden: true, enableFindWidget: true }, supportsMultipleEditorsPerDocument: true },
       ),
-      vscode.workspace.onDidChangeTextDocument((e) => this.forEach(e.document.uri, (p) => p.scheduleUpdate())),
+      vscode.workspace.onDidChangeTextDocument((e) => {
+        // Not when only its state changed (saved, or dirty).
+        if (e.contentChanges.length > 0) {
+          this.forEach(e.document.uri, (p) => p.scheduleUpdate());
+        }
+      }),
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration('mdDesignDoc')) {
           this.settings = readSettings();
@@ -200,7 +208,7 @@ export class PreviewManager implements vscode.Disposable {
 
   private attach(panel: vscode.WebviewPanel, uri: vscode.Uri, kind: PreviewKind): Preview {
     const key = uri.toString();
-    const preview = new Preview(panel, uri, kind, this.extensionUri, this.md, {
+    const preview = new Preview(panel, uri, kind, this.extensionUri, this.md, this.analyzer, {
       settings: () => this.settings,
       // A custom editor occupies the document's tab, so the source opens beside it.
       revealLine: (line) => this.revealLine(uri, line, kind === 'editor' ? vscode.ViewColumn.Beside : vscode.ViewColumn.One),
@@ -259,7 +267,11 @@ export class Preview {
   private timer: ReturnType<typeof setTimeout> | undefined;
   private ready = false;
   private disposed = false;
-  private readonly messageListener: vscode.Disposable;
+  /** An update was asked while the preview was hidden: done when it is shown. */
+  private outdated = false;
+  /** The last `update` message the webview received (its HTML, and the rest in JSON), so that the same one is not sent again. */
+  private lastUpdate: { html: string; rest: string } | undefined;
+  private readonly listeners: vscode.Disposable;
   private setReady!: () => void;
   private setClosed!: (error: Error) => void;
   /** Resolved once the webview has loaded and received the document, rejected when it is closed before. */
@@ -271,7 +283,7 @@ export class Preview {
   /** The revision whose differences are shown, if any. */
   private compared: Comparison | undefined;
   /** Follows the files of the wireframes shown. */
-  private readonly wireframeWatcher = new WireframeWatcher(() => this.scheduleUpdate());
+  private readonly wireframeWatcher: WireframeWatcher;
   /** The last update, so that an earlier one that ends later (reading the wireframes) does not replace it. */
   private updates = 0;
   private readonly exports = new Map<number, { resolve: (body: string) => void; reject: (error: Error) => void }>();
@@ -282,8 +294,10 @@ export class Preview {
     readonly kind: PreviewKind,
     private readonly extensionUri: vscode.Uri,
     private readonly md: ReturnType<typeof createMarkdown>,
+    private readonly analyzer: DocumentAnalyzer,
     private readonly host: PreviewHost,
   ) {
+    this.wireframeWatcher = new WireframeWatcher(analyzer, () => this.scheduleUpdate());
     const documentDir = vscode.Uri.joinPath(uri, '..');
     // A custom editor's tab is titled by VS Code after the document.
     if (kind === 'panel') {
@@ -299,9 +313,16 @@ export class Preview {
       ],
     };
     panel.webview.html = this.shell();
-    this.messageListener = panel.webview.onDidReceiveMessage((message: FromWebview) => {
-      this.onMessage(message).catch((error: unknown) => console.error('Could not handle a message of the preview', error));
-    });
+    this.listeners = vscode.Disposable.from(
+      panel.webview.onDidReceiveMessage((message: FromWebview) => {
+        this.onMessage(message).catch((error: unknown) => console.error('Could not handle a message of the preview', error));
+      }),
+      panel.onDidChangeViewState(() => {
+        if (panel.visible && this.outdated) {
+          this.refresh();
+        }
+      }),
+    );
     // Only awaited by an export.
     this.whenReady.catch(() => undefined);
   }
@@ -309,7 +330,7 @@ export class Preview {
   dispose(): void {
     this.disposed = true;
     clearTimeout(this.timer);
-    this.messageListener.dispose();
+    this.listeners.dispose();
     this.wireframeWatcher.dispose();
     const closed = new Error(vscode.l10n.t('The preview was closed.'));
     this.setClosed(closed);
@@ -366,31 +387,64 @@ export class Preview {
 
   scheduleUpdate(): void {
     clearTimeout(this.timer);
+    if (this.deferred()) {
+      return;
+    }
     this.timer = setTimeout(() => this.refresh(), UPDATE_DELAY_MS);
   }
 
-  /** `update`, for the updates nothing waits for: a failure (e.g. the document deleted) is logged instead of left unhandled. */
+  /**
+   * `update`, for the updates nothing waits for: a failure (e.g. the document deleted) is logged instead of left unhandled.
+   * Left for when the preview is shown while it is hidden.
+   */
   refresh(): void {
+    if (this.deferred()) {
+      return;
+    }
     this.update().catch((error: unknown) => console.error('Could not update the preview', error));
+  }
+
+  /** true when the preview is hidden: it is updated when shown instead (`onDidChangeViewState`). */
+  private deferred(): boolean {
+    if (this.panel.visible) {
+      return false;
+    }
+    this.outdated = true;
+    return true;
   }
 
   async update(): Promise<void> {
     clearTimeout(this.timer);
+    this.outdated = false;
     const update = ++this.updates;
     const document = await vscode.workspace.openTextDocument(this.uri);
     const source = document.getText();
-    const wireframes = await readWireframes(this.md, this.uri, source);
+    const analysis = await this.analyzer.analyze(document);
     if (this.disposed || update !== this.updates) {
       return;
     }
-    this.wireframeWatcher.watch(wireframes.dependencies);
+    this.wireframeWatcher.watch(analysis.dependencies);
     const { frontMatter, headingNumbers, messageWrapWidth, ...settings } = this.host.settings();
-    const env: RenderEnv = { resolveResource: (src) => this.resolveResource(src), t: vscode.l10n.t, frontMatter, headingNumbers, messageWrapWidth, wireframes: wireframes.files };
+    const env: RenderEnv = { resolveResource: (src) => this.resolveResource(src), t: vscode.l10n.t, frontMatter, headingNumbers, messageWrapWidth, wireframes: analysis.files };
+    // Rendered from its own tokens: rendering changes them, unlike those of the analysis, which are shared.
     if (this.compared) {
       const { html, old, stats } = renderDiff(this.md, this.compared.source, source, env);
-      this.post({ type: 'update', uri: this.uri.toString(), html, ...settings, diff: { label: this.compared.label, old, stats } });
+      this.postUpdate({ type: 'update', uri: this.uri.toString(), html, ...settings, diff: { label: this.compared.label, old, stats } });
     } else {
-      this.post({ type: 'update', uri: this.uri.toString(), html: renderDocument(this.md, source, env), ...settings });
+      this.postUpdate({ type: 'update', uri: this.uri.toString(), html: renderDocument(this.md, source, env), ...settings });
+    }
+  }
+
+  /** Posts an update, unless the webview has it already (e.g. after a change undone, or a setting of another extension). */
+  private postUpdate(message: Extract<ToWebview, { type: 'update' }>): void {
+    if (!this.ready || this.disposed) {
+      return;
+    }
+    const { html, ...others } = message;
+    const rest = JSON.stringify(others);
+    if (html !== this.lastUpdate?.html || rest !== this.lastUpdate.rest) {
+      this.lastUpdate = { html, rest };
+      this.post(message);
     }
   }
 
@@ -398,6 +452,8 @@ export class Preview {
     switch (message.type) {
       case 'ready': {
         this.ready = true;
+        // A new page (e.g. the webview reloaded), which has nothing yet.
+        this.lastUpdate = undefined;
         try {
           await this.update();
         } finally {

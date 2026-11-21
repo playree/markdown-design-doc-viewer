@@ -8,6 +8,7 @@ This changelog covers the extension, the command line and the embeddable viewer 
 - The links of image maps (`<area href>`) in a document open as its other links do, a link clicked with the middle button opens as with the left one, and the forms in a document are no longer submitted.
 - **Export Design Doc as HTML** no longer embeds an image that is a symbolic link to a file outside the folder of the document and the workspace (it is linked instead), as the command line does.
 - The preview (and the embeddable viewer) no longer goes on rendering the diagrams of a version of the document replaced by a newer one while typing, so that the newer one shows sooner.
+- While typing, the preview and the diagnostics share their work on the document: it is parsed twice instead of four times, and the files of its wireframes are read again only when they change. A hidden preview is updated when it is shown, and saving a document without a change no longer renders its preview again. The list of the design docs no longer parses the whole of the Markdown files that are not design docs.
 
 ## 1.5.6
 

@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
-import { readWireframes, WireframeWatcher } from './documentFiles';
-import { collectIssues } from '../authoring/issues';
-import { createMarkdown } from '../markdown/render';
+import { WireframeWatcher, type DocumentAnalyzer } from './documentFiles';
+import { issuesOf } from '../authoring/issues';
 
 const UPDATE_DELAY_MS = 300;
 
@@ -25,7 +24,6 @@ function isTarget(document: vscode.TextDocument): boolean {
  */
 export class DiagnosticsManager implements vscode.Disposable {
   private readonly collection = vscode.languages.createDiagnosticCollection('mdDesignDoc');
-  private readonly md = createMarkdown();
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
   /** The last update of each document, so that an earlier one that ends later does not replace it. */
   private readonly updates = new Map<string, number>();
@@ -33,7 +31,7 @@ export class DiagnosticsManager implements vscode.Disposable {
   private readonly wireframeWatchers = new Map<string, WireframeWatcher>();
   private readonly disposables: vscode.Disposable[] = [];
 
-  constructor() {
+  constructor(private readonly analyzer: DocumentAnalyzer) {
     this.disposables.push(
       vscode.workspace.onDidOpenTextDocument((document) => void this.update(document)),
       vscode.workspace.onDidChangeTextDocument((e) => {
@@ -86,19 +84,18 @@ export class DiagnosticsManager implements vscode.Disposable {
       return;
     }
     const { version } = document;
-    const source = document.getText();
-    const wireframes = await readWireframes(this.md, document.uri, source);
+    const analysis = await this.analyzer.analyze(document);
     // Changed meanwhile: updated again after it.
     if (this.updates.get(key) !== seq || document.isClosed || document.version !== version) {
       return;
     }
     let watcher = this.wireframeWatchers.get(key);
     if (!watcher) {
-      watcher = new WireframeWatcher(() => this.schedule(document));
+      watcher = new WireframeWatcher(this.analyzer, () => this.schedule(document));
       this.wireframeWatchers.set(key, watcher);
     }
-    watcher.watch(wireframes.dependencies);
-    const diagnostics = collectIssues(this.md, source, vscode.l10n.t, wireframes.files).map((issue) => {
+    watcher.watch(analysis.dependencies);
+    const diagnostics = issuesOf(analysis.tokens, vscode.l10n.t).map((issue) => {
       const line = Math.min(issue.line, document.lineCount - 1);
       const diagnostic = new vscode.Diagnostic(
         document.lineAt(line).range,
