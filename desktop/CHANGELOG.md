@@ -8,6 +8,7 @@ The desktop app has its own version, apart from the extension and the command li
 - The page of a window reads only Markdown files (and the file given to the app), and a window closed while it was opening a document or a folder no longer keeps following its changes, which kept a folder from being renamed on Windows.
 - The page no longer goes on rendering the diagrams of a version of the document replaced by a newer one.
 - The page is lighter: a wireframe that did not change is not parsed and styled again at each update, moving the pointer over the same arrow or step no longer highlights it again, dragging the boundary of the columns updates them once a frame, and a change of the settings of the view only (the table of contents, the width of the content…) no longer renders the diagrams again.
+- Changes of the folder of the sidebar in a short time (switching the branch, for instance) list it and render the document once or twice instead of once for each, saving a document with an editor that replaces the file no longer lists the folder again, and the list of the design docs is made from the folder as the sidebar listed it. A file added while the folder is being listed is no longer missed, and the sidebar and the document are read again when the changes of the folder could not all be followed. Switching documents keeps the list of the sidebar, whose folders are made when they are opened first. Listing a folder and choosing where to export no longer keep the other commands of the app waiting.
 
 ## 0.4.3
 

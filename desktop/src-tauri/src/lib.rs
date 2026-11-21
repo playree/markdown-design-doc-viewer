@@ -15,7 +15,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output, Stdio};
 use std::sync::mpsc::{self, Receiver};
-use std::sync::{Mutex, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use notify::event::ModifyKind;
@@ -65,6 +65,18 @@ struct Watches(Mutex<HashMap<String, Debouncer<RecommendedWatcher, RecommendedCa
 struct FolderWatches(Mutex<HashMap<String, FolderWatcher>>);
 
 type FolderWatcher = Debouncer<RecommendedWatcher, NoCache>;
+
+/// The folder the sidebar of a window listed last (`open_folder`), by window label, until it changes: the list of the
+/// design documents of the folder (`read_design_docs`) is made from it rather than from another scan.
+#[derive(Default)]
+struct Scans(Mutex<HashMap<String, ScannedFolder>>);
+
+#[derive(Clone)]
+struct ScannedFolder {
+    root: PathBuf,
+    tree: Folder,
+    truncated: bool,
+}
 
 /// The documents of the windows.
 #[derive(Default)]
@@ -131,7 +143,7 @@ struct Document {
 
 /// The Markdown files of a folder and of its subfolders, for the sidebar (`open_folder`). Only the subfolders that
 /// have Markdown files, in no particular order (the webview sorts them).
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct Folder {
     path: String,
     name: String,
@@ -140,7 +152,7 @@ struct Folder {
 }
 
 /// A Markdown file of a `Folder`.
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct FileEntry {
     path: String,
     name: String,
@@ -376,11 +388,12 @@ fn watch(window: &Window, path: &Path) -> Result<Debouncer<RecommendedWatcher, R
     let target = to_string(path);
     let name = path.file_name().map(ToOwned::to_owned);
     let mut debouncer = new_debouncer(DEBOUNCE, None, move |result: DebounceEventResult| {
-        let Ok(events) = result else {
-            return;
-        };
-        let changed = events.iter().any(|event| {
-            !matches!(event.kind, EventKind::Access(_)) && event.paths.iter().any(|p| p.file_name() == name.as_deref())
+        // After an error or events missed (`need_rescan`), the file is read again: it may have changed.
+        let changed = result.map_or(true, |events| {
+            events.iter().any(|event| {
+                event.need_rescan()
+                    || (!matches!(event.kind, EventKind::Access(_)) && event.paths.iter().any(|p| p.file_name() == name.as_deref()))
+            })
         });
         if changed {
             let _ = app.emit_to(label.as_str(), "document-changed", &target);
@@ -396,15 +409,30 @@ fn watch(window: &Window, path: &Path) -> Result<Debouncer<RecommendedWatcher, R
 /// Lists the Markdown files of a folder and of its subfolders for the sidebar of the window, and follows the
 /// changes of their list (`folder-changed`) in place of those of the folder it listed before.
 #[tauri::command]
-async fn open_folder(window: Window, watches: State<'_, FolderWatches>, path: String) -> Result<FolderTree, String> {
+async fn open_folder(
+    window: Window,
+    watches: State<'_, FolderWatches>,
+    scans: State<'_, Scans>,
+    path: String,
+) -> Result<FolderTree, String> {
     let root = dunce::canonicalize(&path).map_err(|e| e.to_string())?;
     if !root.is_dir() {
         return Err("Not a folder.".to_string());
     }
-    let mut scan = Scan::default();
-    let tree = scan_folder(&root, 0, &mut scan);
-    // Before taking the lock, which the other windows (and their closing, on the main thread) wait for.
-    let watcher = watch_folders(&window, &root, scan.folders);
+    // Watched before it is scanned, so that a file added meanwhile is not missed: the changes before the scan ends
+    // make the sidebar list the folder again. Before taking the lock, which the other windows (and their closing, on
+    // the main thread) wait for.
+    let listed = Arc::new(Mutex::new(None));
+    let watcher = watch_folder(&window, &root, Arc::clone(&listed));
+    let (tree, scan) = scan_blocking(root.clone()).await?;
+    let watcher = watcher.and_then(|mut watcher| {
+        watch_subfolders(&mut watcher, &root, &scan.folders)?;
+        Ok(watcher)
+    });
+    *listed.lock().unwrap_or_else(PoisonError::into_inner) = Some(Listed {
+        folders: scan.folders.iter().cloned().collect(),
+        files: scan.files.iter().cloned().collect(),
+    });
     let watching = match &watcher {
         Ok(_) => true,
         // Listed without following its changes, which the sidebar tells.
@@ -419,14 +447,33 @@ async fn open_folder(window: Window, watches: State<'_, FolderWatches>, path: St
         Ok(watcher) => insert_for(&window, &watches.0, watcher),
         Err(_) => watches.0.lock().unwrap_or_else(PoisonError::into_inner).remove(window.label()),
     };
+    // Only while its changes are followed: else the list of the design documents would not see them.
+    let scanned = ScannedFolder { root, tree: tree.clone(), truncated: scan.truncated };
+    if watching {
+        insert_for(&window, &scans.0, scanned);
+    } else {
+        scans.0.lock().unwrap_or_else(PoisonError::into_inner).remove(window.label());
+    }
     Ok(FolderTree { root: tree, truncated: scan.truncated, watching })
+}
+
+/// `scan_folder` of `root`, on a thread that may block rather than on one of the async commands.
+async fn scan_blocking(root: PathBuf) -> Result<(Folder, Scan), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut scan = Scan::default();
+        let tree = scan_folder(&root, 0, &mut scan);
+        (tree, scan)
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 /// Stops following the changes of the folder the sidebar of the window listed: the sidebar is hidden. On Windows, the
 /// watch would keep the folder (and those above it) from being renamed or deleted.
 #[tauri::command]
-fn close_folder(window: Window, watches: State<'_, FolderWatches>) {
+fn close_folder(window: Window, watches: State<'_, FolderWatches>, scans: State<'_, Scans>) {
     let _previous = watches.0.lock().unwrap_or_else(PoisonError::into_inner).remove(window.label());
+    scans.0.lock().unwrap_or_else(PoisonError::into_inner).remove(window.label());
 }
 
 /// The beginning of a Markdown file that starts with a front matter, for the list of the design documents
@@ -456,16 +503,27 @@ const HEAD_BYTES: u64 = 64 * 1024;
 /// their beginning: the webview tells the design documents (`type: design_doc`) and lists them with their title and
 /// main entries, as the extension does.
 #[tauri::command]
-async fn read_design_docs(path: String) -> Result<FileHeads, String> {
+async fn read_design_docs(window: Window, scans: State<'_, Scans>, path: String) -> Result<FileHeads, String> {
     let root = dunce::canonicalize(&path).map_err(|e| e.to_string())?;
     if !root.is_dir() {
         return Err("Not a folder.".to_string());
     }
-    let mut scan = Scan::default();
-    let tree = scan_folder(&root, 0, &mut scan);
-    let mut files = Vec::new();
-    collect_heads(&tree, &root, &mut files);
-    Ok(FileHeads { files, truncated: scan.truncated })
+    // The folder as the sidebar listed it, unless it changed since (or another one is listed).
+    let scanned = scans.0.lock().unwrap_or_else(PoisonError::into_inner).get(window.label()).filter(|scanned| scanned.root == root).cloned();
+    tauri::async_runtime::spawn_blocking(move || {
+        let (tree, truncated) = match scanned {
+            Some(scanned) => (scanned.tree, scanned.truncated),
+            None => {
+                let mut scan = Scan::default();
+                (scan_folder(&root, 0, &mut scan), scan.truncated)
+            }
+        };
+        let mut files = Vec::new();
+        collect_heads(&tree, &root, &mut files);
+        FileHeads { files, truncated }
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 /// The files of `folder` and of its subfolders that start with a front matter (`read_head`).
@@ -518,6 +576,8 @@ struct Scan {
     truncated: bool,
     /// The folders listed, from the top, to watch: also those without Markdown files, in which some may be added.
     folders: Vec<PathBuf>,
+    /// The Markdown files listed, by their path in the folder (that of a symbolic link, not of its target).
+    files: Vec<PathBuf>,
 }
 
 /// A file or folder the sidebar does not list: a hidden one (`.git`), or a folder of `SKIPPED_FOLDERS`.
@@ -564,6 +624,7 @@ fn scan_folder(dir: &Path, depth: usize, scan: &mut Scan) -> Folder {
                 folder.folders.push(sub);
             }
         } else if has_extension(&path, MARKDOWN_EXTENSIONS) && (file_type.is_file() || path.is_file()) {
+            scan.files.push(path.clone());
             folder.files.push(FileEntry {
                 // A symbolic link to a file as `open_document` gives it, so that the sidebar finds the document shown.
                 path: if file_type.is_symlink() { canonical(path.clone()) } else { to_string(&path) },
@@ -575,43 +636,52 @@ fn scan_folder(dir: &Path, depth: usize, scan: &mut Scan) -> Folder {
     folder
 }
 
-/// Whether a change of `path` may change the list of the sidebar, whose `folders` were listed: a Markdown file or a
-/// folder added, removed or renamed in them, or one of them removed or renamed. Not the files of other types, nor
-/// the folders it skips or did not look into (`MAX_DEPTH`, `MAX_ENTRIES`), whose changes may be many.
-fn changes_list(folders: &HashSet<PathBuf>, path: &Path) -> bool {
-    if folders.contains(path) {
-        return true;
-    }
-    path.file_name().is_some_and(|name| !is_skipped(name))
-        && path.parent().is_some_and(|parent| folders.contains(parent))
-        && (has_extension(path, MARKDOWN_EXTENSIONS) || path.is_dir())
+/// The folders and the Markdown files the sidebar listed (`Scan`), by their path.
+struct Listed {
+    folders: HashSet<PathBuf>,
+    files: HashSet<PathBuf>,
 }
 
-/// Watches the folders the sidebar lists, and tells the window when a Markdown file or a folder is added, removed or
-/// renamed in them. Without the cache of file ids of the debouncer, which would read all the folders below `root`
-/// (the renames are not followed: the folder is listed again).
-fn watch_folders(window: &Window, root: &Path, folders: Vec<PathBuf>) -> Result<FolderWatcher, String> {
+/// Whether a change of `path` changed the list of the sidebar, as it is now: a Markdown file or a folder listed that is
+/// no longer there, or one that is there but not listed, in the folders listed. Not a file saved by an editor that
+/// writes another file and renames it to it (still there), nor the files of other types, nor the folders it skips or
+/// did not look into (`MAX_DEPTH`, `MAX_ENTRIES`), whose changes may be many.
+fn changes_list(listed: &Listed, path: &Path) -> bool {
+    if listed.folders.contains(path) || listed.files.contains(path) {
+        return !path.exists();
+    }
+    path.file_name().is_some_and(|name| !is_skipped(name))
+        && path.parent().is_some_and(|parent| listed.folders.contains(parent))
+        && (path.is_dir() || (has_extension(path, MARKDOWN_EXTENSIONS) && path.is_file()))
+}
+
+/// Watches `root` for the sidebar of the window, and tells it when its list changed (`changes_list` of `listed`, once
+/// the folder is scanned; any change before), or may have (an error, or events missed). Without the cache of file ids
+/// of the debouncer, which would read all the folders below `root` (the renames are not followed: the folder is
+/// listed again). The scan is dropped then (`Scans`), so that the list of the design documents scans the folder again.
+fn watch_folder(window: &Window, root: &Path, listed: Arc<Mutex<Option<Listed>>>) -> Result<FolderWatcher, String> {
     let app = window.app_handle().clone();
     let label = window.label().to_string();
     let target = to_string(root);
-    let listed: HashSet<PathBuf> = folders.iter().cloned().collect();
     let handler = move |result: DebounceEventResult| {
-        let Ok(events) = result else {
-            return;
-        };
-        let changed = events.iter().any(|event| {
-            matches!(
-                event.kind,
-                EventKind::Any | EventKind::Create(_) | EventKind::Remove(_) | EventKind::Modify(ModifyKind::Name(_))
-            ) && event.paths.iter().any(|path| changes_list(&listed, path))
+        let changed = result.map_or(true, |events| {
+            let listed = listed.lock().unwrap_or_else(PoisonError::into_inner);
+            events.iter().any(|event| {
+                event.need_rescan()
+                    || (matches!(
+                        event.kind,
+                        EventKind::Any | EventKind::Create(_) | EventKind::Remove(_) | EventKind::Modify(ModifyKind::Name(_))
+                    ) && listed.as_ref().is_none_or(|listed| event.paths.iter().any(|path| changes_list(listed, path))))
+            })
         });
         if changed {
+            app.state::<Scans>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(&label);
             let _ = app.emit_to(label.as_str(), "folder-changed", &target);
         }
     };
     let mut debouncer = new_debouncer_opt(DEBOUNCE, None, handler, NoCache, notify::Config::default())
         .map_err(|e| e.to_string())?;
-    watch_listed(&mut debouncer, root, &folders)?;
+    debouncer.watch(root, ROOT_WATCH).map_err(|e| e.to_string())?;
     Ok(debouncer)
 }
 
@@ -621,26 +691,32 @@ fn watch_folders(window: &Window, root: &Path, folders: Vec<PathBuf>) -> Result<
 #[cfg(target_os = "linux")]
 const MAX_WATCHED_FOLDERS: usize = 1_000;
 
-/// Linux: each folder listed on its own, rather than all those below `root`, which inotify would watch one by one,
-/// also those the sidebar skips (`.git`, `node_modules`).
+/// Linux: the root alone (`watch_folder`), then each folder listed on its own (`watch_subfolders`), rather than all
+/// those below the root, which inotify would watch one by one, also those the sidebar skips (`.git`, `node_modules`).
 #[cfg(target_os = "linux")]
-fn watch_listed(debouncer: &mut FolderWatcher, root: &Path, folders: &[PathBuf]) -> Result<(), String> {
-    for folder in folders.iter().take(MAX_WATCHED_FOLDERS) {
-        match debouncer.watch(folder, RecursiveMode::NonRecursive) {
-            Ok(()) => {}
-            // The others are still watched (e.g. no more inotify watches for this one).
-            Err(error) if folder != root => eprintln!("Could not watch {}: {error}", folder.display()),
-            Err(error) => return Err(error.to_string()),
+const ROOT_WATCH: RecursiveMode = RecursiveMode::NonRecursive;
+
+/// Windows and macOS: the whole folder at once. On Windows, a watch of each subfolder would keep the folders above it
+/// from being renamed or deleted.
+#[cfg(not(target_os = "linux"))]
+const ROOT_WATCH: RecursiveMode = RecursiveMode::Recursive;
+
+/// Linux: watches the folders listed below the root (watched by `watch_folder`).
+#[cfg(target_os = "linux")]
+fn watch_subfolders(debouncer: &mut FolderWatcher, root: &Path, folders: &[PathBuf]) -> Result<(), String> {
+    for folder in folders.iter().filter(|folder| *folder != root).take(MAX_WATCHED_FOLDERS - 1) {
+        // The others are still watched (e.g. no more inotify watches for this one).
+        if let Err(error) = debouncer.watch(folder, RecursiveMode::NonRecursive) {
+            eprintln!("Could not watch {}: {error}", folder.display());
         }
     }
     Ok(())
 }
 
-/// Windows and macOS: the whole folder at once. On Windows, a watch of each subfolder would keep the folders above it
-/// from being renamed or deleted.
+/// Windows and macOS: watched with the root.
 #[cfg(not(target_os = "linux"))]
-fn watch_listed(debouncer: &mut FolderWatcher, root: &Path, _folders: &[PathBuf]) -> Result<(), String> {
-    debouncer.watch(root, RecursiveMode::Recursive).map_err(|e| e.to_string())
+fn watch_subfolders(_debouncer: &mut FolderWatcher, _root: &Path, _folders: &[PathBuf]) -> Result<(), String> {
+    Ok(())
 }
 
 /// Lets the webview load these images (local images of the document) with the asset protocol.
@@ -698,8 +774,9 @@ async fn choose_export_target(
     name: String,
     title: String,
 ) -> Result<Option<String>, String> {
-    // Blocking is fine here: an async command does not run on the main thread, where the dialog is shown.
-    let chosen = window
+    // Waited for without blocking a thread of the async commands while the dialog is open.
+    let (sender, mut receiver) = tauri::async_runtime::channel(1);
+    window
         .dialog()
         .file()
         .set_parent(&window)
@@ -707,7 +784,10 @@ async fn choose_export_target(
         .set_directory(dir)
         .set_file_name(name)
         .add_filter("HTML", &["html", "htm"])
-        .blocking_save_file();
+        .save_file(move |chosen| {
+            let _ = sender.try_send(chosen);
+        });
+    let chosen = receiver.recv().await.flatten();
     let Some(chosen) = chosen else {
         return Ok(None);
     };
@@ -1192,6 +1272,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(Watches::default())
         .manage(FolderWatches::default())
+        .manage(Scans::default())
         .manage(AllowedImages::default())
         .manage(Windows::default())
         .manage(ExportTargets::default())
@@ -1232,6 +1313,7 @@ pub fn run() {
                 window.state::<Windows>().0.lock().unwrap_or_else(PoisonError::into_inner).closed.insert(label.to_string());
                 window.state::<Watches>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
                 window.state::<FolderWatches>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
+                window.state::<Scans>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
                 window.state::<ExportTargets>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
                 window.state::<Histories>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
                 window.state::<BranchLists>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(label);
