@@ -14,7 +14,7 @@ import { setupToc } from './toc';
 import type { ViewerContext } from './viewerContext';
 import { annotateNotes, setupNoteJumps } from './noteJumps';
 import { sanitizeRestricted } from './restrictHtml';
-import { linkTarget, mountWireframe, unwatchWireframes, watchWireframe, watchWireframes } from './wireframe';
+import { linkTarget, mountWireframe, PreparedPages, unwatchWireframes, watchWireframe, watchWireframes } from './wireframe';
 
 const CURRENT = 'seqnotes-current';
 const HEADING_RE = /^H([1-6])$/;
@@ -96,11 +96,11 @@ export function createPreview(ctx: ViewerContext): Preview {
 
   const stopResize = scroll.onResize(applyLayout);
 
-  /** Sets the width of the diagram columns (dragged with the boundary), kept with the state. */
-  function setSplit(percent: number | undefined): void {
+  /** Sets the width of the diagram columns (dragged with the boundary), kept with the state once it is `done`. */
+  function setSplit(percent: number | undefined, done = true): void {
     const split = applySplit(el, percent);
     const state = ctx.getState();
-    if (state) {
+    if (state && done) {
       ctx.setState({ ...state, split });
     }
   }
@@ -122,11 +122,24 @@ export function createPreview(ctx: ViewerContext): Preview {
   }
 
   let renderedDark = isDarkTheme();
+  /**
+   * What the content on screen was rendered from, once it is shown: an update of the same content changes only the
+   * options of the view. Not set by a render that failed or was replaced, so that the same update renders it again.
+   */
+  let shownContent: { seq: number; html: string; diff: string; uri: string | undefined; look: DiagramLook; restricted: boolean; dark: boolean; font: string } | undefined;
 
   /** SVGs of the previous render keyed by theme + source, so unchanged diagrams are not re-rendered on every edit. */
   let svgCache = new Map<string, string>();
   /** SVGs of the last render replaced before it was shown (keyed like `svgCache`), which the render after it can reuse. */
   let spareSvgs = new Map<string, string>();
+
+  /**
+   * The HTML of the wireframes of the last render sanitized, by their HTML from the host: a wireframe that did not change
+   * is not sanitized again at each update of the document.
+   */
+  let sanitizedWireframes = new Map<string, string>();
+  /** The pages of the wireframes of the last render, parsed with their styles (also for the zoom overlay). */
+  const wireframePages = new PreparedPages();
 
   /** mermaid source of each rendered diagram (or HTML of a wireframe), so that the zoom overlay can follow its diagram across updates. */
   const diagramSources = new WeakMap<Element, string>();
@@ -148,12 +161,13 @@ export function createPreview(ctx: ViewerContext): Preview {
     if (!isCurrent()) {
       return cache;
     }
+    const fontFamily = getComputedStyle(el).fontFamily;
     // Resets the settings of the previous render, as mermaid.initialize starts from its defaults.
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: 'strict',
       theme: dark ? 'dark' : 'default',
-      fontFamily: getComputedStyle(el).fontFamily,
+      fontFamily,
       ...lookConfig(look),
     });
 
@@ -163,7 +177,8 @@ export function createPreview(ctx: ViewerContext): Preview {
     scratch.className = 'seqnotes-mermaid-scratch';
     el.append(scratch);
     try {
-      await renderBlocks(container, idPrefix, dark, look, scratch, cache, isCurrent);
+      // The SVGs are kept by what they are drawn with: the font of the page too, which a host may change.
+      await renderBlocks(container, idPrefix, `${dark}\n${look}\n${fontFamily}`, scratch, cache, isCurrent);
     } finally {
       scratch.remove();
     }
@@ -174,8 +189,7 @@ export function createPreview(ctx: ViewerContext): Preview {
   async function renderBlocks(
     container: HTMLElement,
     idPrefix: string,
-    dark: boolean,
-    look: DiagramLook,
+    settings: string,
     scratch: HTMLElement,
     cache: Map<string, string>,
     isCurrent: () => boolean,
@@ -189,7 +203,7 @@ export function createPreview(ctx: ViewerContext): Preview {
       const meta = metaOf(block);
       const id = `${idPrefix}-${i}`;
       const source = pre?.textContent ?? '';
-      const key = `${dark}\n${look}\n${source}`;
+      const key = `${settings}\n${source}`;
       try {
         // A cached SVG carries the element ids of its first render, so reuse it only once per document.
         const cached = cache.has(key) ? undefined : (svgCache.get(key) ?? spareSvgs.get(key));
@@ -236,17 +250,23 @@ export function createPreview(ctx: ViewerContext): Preview {
    * styles kept from the page around them when the raw HTML is `restricted`.
    */
   function renderWireframes(container: HTMLElement, restricted: boolean): void {
+    const sanitized = new Map<string, string>();
+    wireframePages.nextRender();
     for (const block of Array.from(container.querySelectorAll<HTMLElement>('.seqnotes-wireframe'))) {
       const pre = block.querySelector(':scope > .seqnotes-wireframe-src');
       if (!pre) {
         continue;
       }
+      const source = pre.textContent ?? '';
       // Kept sanitized for an exported page, which shows it from there (`remountWireframes`).
       // Without `autofocus`, which would take the focus (and scroll to it) at each update.
-      const html = DOMPurify.sanitize(pre.textContent ?? '', { WHOLE_DOCUMENT: true, FORBID_ATTR: ['autofocus'] });
+      const html = sanitized.get(source) ?? sanitizedWireframes.get(source) ?? DOMPurify.sanitize(source, { WHOLE_DOCUMENT: true, FORBID_ATTR: ['autofocus'] });
+      sanitized.set(source, html);
       pre.textContent = html;
-      diagramSources.set(mountWireframe(block, html, metaOf(block), { restricted }), html);
+      diagramSources.set(mountWireframe(block, html, metaOf(block), { restricted, pages: wireframePages }), html);
     }
+    // Those of this render only, which the next one likely has too.
+    sanitizedWireframes = sanitized;
   }
 
   /**
@@ -292,16 +312,17 @@ export function createPreview(ctx: ViewerContext): Preview {
     } else {
       // Parser and mermaid disagree on the message count: fall back to matching labels. Without their spaces when they
       // differ, as a label may be broken into lines anywhere (render.ts breaks the long ones).
-      const unused = [...meta.messages];
+      // Their labels normalized once, not for each group.
+      const unused = meta.messages.map((message) => ({ message, label: normalizeLabel(message.text), compact: compactLabel(message.text) }));
       assigned = groups.map((group) => {
         const lines = group.slice(0, -1).map((t) => t.textContent ?? '');
         const label = normalizeLabel(lines.join(' '));
         const compact = compactLabel(lines.join(''));
-        let i = unused.findIndex((m) => normalizeLabel(m.text) === label);
+        let i = unused.findIndex((m) => m.label === label);
         if (i < 0) {
-          i = unused.findIndex((m) => compactLabel(m.text) === compact);
+          i = unused.findIndex((m) => m.compact === compact);
         }
-        return i >= 0 ? unused.splice(i, 1)[0] : undefined;
+        return i >= 0 ? unused.splice(i, 1)[0].message : undefined;
       });
     }
 
@@ -467,6 +488,8 @@ export function createPreview(ctx: ViewerContext): Preview {
     const seq = ++renderSeq;
     // Set before rendering, so that other class changes of the body do not start another update meanwhile.
     const dark = (renderedDark = isDarkTheme());
+    // The font of the diagrams (`renderDiagrams`), which a host may change.
+    const content = { seq, html, diff: JSON.stringify(diff), uri: currentUri, look: diagramLook, restricted: isRestricted(), dark, font: getComputedStyle(el).fontFamily };
     const isCurrent = (): boolean => seq === renderSeq;
     const { content: next, cache } = await buildContent(html, `${ctx.idPrefix}-svg-${seq}`, dark, diagramLook, diff, isCurrent);
     if (!isCurrent()) {
@@ -506,6 +529,8 @@ export function createPreview(ctx: ViewerContext): Preview {
       }
     }
     unwatchWireframes(root);
+    // Unknown until the content is set up (`shownContent`).
+    shownContent = undefined;
     root.replaceChildren(...Array.from(next.childNodes));
     const metadata = root.querySelector<HTMLDetailsElement>('.seqnotes-doc-more');
     if (metadata) {
@@ -550,6 +575,7 @@ export function createPreview(ctx: ViewerContext): Preview {
     if (currentLine !== undefined) {
       markLine(currentLine, false);
     }
+    shownContent = content;
   }
 
   const toc = setupToc(root, { container: el, title: titles.seqnotesTocTitle ?? '', scroll });
@@ -905,7 +931,7 @@ export function createPreview(ctx: ViewerContext): Preview {
     zoomStage.replaceChildren(copy);
     zoomHovered = undefined;
     // Works as in the preview: its text can be selected, its form controls used. The overlay pans on drag around it.
-    mountWireframe(copy, html, meta, { restricted });
+    mountWireframe(copy, html, meta, { restricted, pages: wireframePages });
     watchWireframe(copy);
     if (zoom) {
       zoom.width = copy.offsetWidth;
@@ -1301,7 +1327,18 @@ export function createPreview(ctx: ViewerContext): Preview {
       return;
     }
     switch (message.type) {
-      case 'update':
+      case 'update': {
+        // The document as it is shown, with no render under way: only the options of the view may have changed.
+        const shown = shownContent;
+        const sameContent =
+          shown !== undefined &&
+          shown.seq === renderSeq &&
+          message.html === shown.html &&
+          JSON.stringify(message.diff) === shown.diff &&
+          message.uri === shown.uri &&
+          !message.fragment &&
+          message.diagramLook === shown.look &&
+          isRestricted() === shown.restricted;
         splitMinWidth = message.splitMinWidth;
         syncEditor = message.syncEditor;
         tocEnabled = message.toc;
@@ -1317,8 +1354,14 @@ export function createPreview(ctx: ViewerContext): Preview {
         }
         currentUri = message.uri;
         applyLayout();
+        if (sameContent && isDarkTheme() === shown.dark && getComputedStyle(el).fontFamily === shown.font) {
+          // The classes and the layout set above: the diagrams and wireframes are not rendered again.
+          toc.build(tocEnabled);
+          break;
+        }
         await update(message.html, message.diff);
         break;
+      }
       case 'scrollToLine':
         scrollToLine(message.line);
         break;

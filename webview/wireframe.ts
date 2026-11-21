@@ -56,6 +56,8 @@ export interface WireframeOptions {
    * and so are its rules of `:host`, which could take the screen out of its place (`position: fixed !important`).
    */
   restricted?: boolean;
+  /** Where the pages of the wireframes of the viewer are kept, if anywhere. */
+  pages?: PreparedPages;
 }
 
 /**
@@ -107,28 +109,74 @@ function pageSheet(style: HTMLStyleElement, restricted: boolean): CSSStyleSheet 
 /** The `@import`s of the text of a <style>, which a constructed style sheet leaves out. */
 const IMPORT_RE = /@import\b(?:[^;"']|"[^"]*"|'[^']*')*;/gi;
 
+/** A page of a wireframe made ready to be shown (`preparePage`): parsed, with its styles as sheets. */
+export interface PreparedPage {
+  /** Its <html>, without its <style> elements when they are adopted as `sheets`: to be imported in each shadow root. */
+  page: HTMLElement;
+  /** Its <style> elements as sheets that work in a shadow root as in the document; undefined when they cannot be made. */
+  sheets?: CSSStyleSheet[];
+  /** The `@import`s of its <style> elements, which the sheets leave out: kept in a <style> before them. */
+  imports: string;
+}
+
 /**
- * Has the shadow root adopt the styles of the page (its <style> elements, in their order), as sheets that work there as
- * in the document. Their `@import`s are kept in a <style> before them, unless `restricted`: the rules they import
- * cannot be seen before they are loaded (`:host`, `@font-face`).
+ * The pages of the wireframes prepared by a viewer (`WireframeOptions.pages`), by their (sanitized) HTML and whether
+ * they are restricted: a wireframe that did not change is not parsed again, nor its styles made into sheets, at each
+ * update of the document. The sheets are shared by the shadow roots that show it. Only the pages of the last render are
+ * kept (`nextRender`), as a page with its styles may be large.
  */
-function adoptStyles(shadow: ShadowRoot, page: HTMLElement, restricted: boolean): void {
+export class PreparedPages {
+  private previous = new Map<string, PreparedPage>();
+  private current = new Map<string, PreparedPage>();
+
+  /** Starts a render: the pages that it does not use are dropped at the next one. */
+  nextRender(): void {
+    this.previous = this.current;
+    this.current = new Map();
+  }
+
+  /** The page kept for `key`, kept for this render too. */
+  get(key: string): PreparedPage | undefined {
+    const page = this.current.get(key) ?? this.previous.get(key);
+    if (page) {
+      this.current.set(key, page);
+    }
+    return page;
+  }
+
+  /** Keeps the page of `key` for this render. */
+  set(key: string, page: PreparedPage): void {
+    this.current.set(key, page);
+  }
+}
+
+/**
+ * The page of a wireframe, parsed as a document, so that it keeps its <html> and <body>, which its styles may select.
+ * Its styles are made into sheets that work in a shadow root as in the document (`pageSheet`): its `@import`s are kept
+ * apart, unless `restricted`, as the rules they import cannot be seen before they are loaded (`:host`, `@font-face`).
+ */
+function preparePage(html: string, restricted: boolean, pages: PreparedPages | undefined): PreparedPage {
+  const key = `${restricted ? 1 : 0}${html}`;
+  const kept = pages?.get(key);
+  if (kept) {
+    return kept;
+  }
+  const page = new DOMParser().parseFromString(html, 'text/html').documentElement;
+  const styles = Array.from(page.querySelectorAll('style'));
+  let prepared: PreparedPage;
   if (!constructable) {
     // Kept as they are, without a way to leave out their rules: none, when `restricted`.
     if (restricted) {
-      page.querySelectorAll('style').forEach((style) => style.remove());
+      styles.forEach((style) => style.remove());
     }
-    return;
+    prepared = { page, imports: '' };
+  } else {
+    const imports = restricted ? [] : styles.flatMap((style) => (style.textContent ?? '').match(IMPORT_RE) ?? []);
+    prepared = { page, sheets: styles.map((style) => pageSheet(style, restricted)), imports: imports.join('\n') };
+    styles.forEach((style) => style.remove());
   }
-  const styles = Array.from(page.querySelectorAll('style'));
-  const imports = restricted ? [] : styles.flatMap((style) => (style.textContent ?? '').match(IMPORT_RE) ?? []);
-  if (imports.length > 0) {
-    const style = document.createElement('style');
-    style.textContent = imports.join('\n');
-    shadow.append(style);
-  }
-  shadow.adoptedStyleSheets = styles.map((style) => pageSheet(style, restricted));
-  styles.forEach((style) => style.remove());
+  pages?.set(key, prepared);
+  return prepared;
 }
 
 /**
@@ -173,7 +221,7 @@ function itemsOf(block: HTMLElement): [number, string][] {
  * Shows the (sanitized) HTML of a wireframe of `block` in a shadow root of `screen`, with the parts of its options
  * numbered. Returns the shadow root, and the problems with the selectors of the parts.
  */
-function showPage(block: HTMLElement, screen: HTMLElement, html: string, { restricted = false }: WireframeOptions = {}): { shadow: ShadowRoot; notes: string[] } {
+function showPage(block: HTMLElement, screen: HTMLElement, html: string, { restricted = false, pages }: WireframeOptions = {}): { shadow: ShadowRoot; notes: string[] } {
   const shadow = screen.attachShadow({ mode: 'open' });
   // A mock-up: its links and forms do not leave the document.
   for (const type of ['click', 'auxclick']) {
@@ -194,10 +242,16 @@ function showPage(block: HTMLElement, screen: HTMLElement, html: string, { restr
   });
   const style = document.createElement('style');
   style.textContent = BASE_STYLE;
-  // Parsed as a document, so that it keeps its <html> and <body>, which its styles may select.
-  const page = new DOMParser().parseFromString(html, 'text/html').documentElement;
   shadow.append(style);
-  adoptStyles(shadow, page, restricted);
+  const { page, sheets, imports } = preparePage(html, restricted, pages);
+  if (imports) {
+    const importing = document.createElement('style');
+    importing.textContent = imports;
+    shadow.append(importing);
+  }
+  if (sheets) {
+    shadow.adoptedStyleSheets = sheets;
+  }
   shadow.append(document.importNode(page, true));
   return { shadow, notes: numberParts(shadow, itemsOf(block), block) };
 }
@@ -274,7 +328,7 @@ const onResize = (entries: ResizeObserverEntry[]): void => {
       blocks.add(block);
     }
   }
-  blocks.forEach(layoutWireframe);
+  layoutBlocks(blocks);
 };
 
 /** The block of each page observed. */
@@ -291,55 +345,82 @@ function observe(block: HTMLElement, shadow: ShadowRoot): void {
 }
 
 /**
- * Sizes the wireframe of `block`: as wide as the block, or laid out at the width of its options and scaled down to the
- * block. Then puts the boxes of its parts over them.
+ * Sizes the wireframes of `blocks`: each as wide as its block, or laid out at the width of its options and scaled down to
+ * the block. Then puts the boxes of their parts over them. All the blocks are measured before they are written, and
+ * again after, so that the browser lays the page out a few times for all of them, not for each element.
  */
-export function layoutWireframe(block: HTMLElement): void {
-  const frame = block.querySelector<HTMLElement>(':scope > .seqnotes-wireframe-frame');
-  const screen = frame?.querySelector<HTMLElement>(':scope > .seqnotes-wireframe-screen');
-  const shadow = screen?.shadowRoot;
-  // Not shown (e.g. in a closed <details>): laid out once it is.
-  if (!frame || !screen || !shadow || block.clientWidth === 0) {
-    return;
-  }
-  const width = Number(block.dataset.seqnotesWidth) || undefined;
-  if (width) {
-    const style = getComputedStyle(block);
-    const available = block.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-    const scale = Math.min(1, available / width);
-    screen.style.width = `${width}px`;
-    screen.style.transform = scale < 1 ? `scale(${scale})` : '';
-    frame.style.width = `${width * scale}px`;
-    frame.style.height = `${screen.offsetHeight * scale}px`;
-  }
-
-  const elements = new Map<number, Element[]>();
-  for (const element of Array.from(shadow.querySelectorAll('[data-item]'))) {
-    const number = partNumber(element.getAttribute('data-item')!);
-    if (number !== undefined) {
-      elements.set(number, [...(elements.get(number) ?? []), element]);
+function layoutBlocks(blocks: Iterable<HTMLElement>): void {
+  const shown: { block: HTMLElement; frame: HTMLElement; screen: HTMLElement; shadow: ShadowRoot; width?: number }[] = [];
+  for (const block of blocks) {
+    const frame = block.querySelector<HTMLElement>(':scope > .seqnotes-wireframe-frame');
+    const screen = frame?.querySelector<HTMLElement>(':scope > .seqnotes-wireframe-screen');
+    const shadow = screen?.shadowRoot;
+    // Not shown (e.g. in a closed <details>): laid out once it is.
+    if (frame && screen && shadow && block.clientWidth > 0) {
+      shown.push({ block, frame, screen, shadow, width: Number(block.dataset.seqnotesWidth) || undefined });
     }
   }
-  const origin = frame.getBoundingClientRect();
-  // The frame may be scaled (in the zoom overlay): the boxes are placed in its own pixels.
-  const factor = frame.offsetWidth > 0 ? origin.width / frame.offsetWidth : 1;
-  for (const box of Array.from(frame.querySelectorAll<HTMLElement>('.seqnotes-part'))) {
-    const element = elements.get(Number(box.dataset.seqnotesPart))?.[Number(box.dataset.seqnotesPartIndex)];
-    const r = element?.getBoundingClientRect();
-    // An element not shown has no box.
-    box.hidden = !r || (r.width === 0 && r.height === 0);
-    if (r && !box.hidden) {
-      box.style.left = `${(r.left - origin.left) / factor - frame.clientLeft}px`;
-      box.style.top = `${(r.top - origin.top) / factor - frame.clientTop}px`;
-      box.style.width = `${r.width / factor}px`;
-      box.style.height = `${r.height / factor}px`;
+
+  // The width of the options: the scales read, then the screens written, then their heights read for the frames.
+  const scaled = shown.flatMap(({ block, frame, screen, width }) => {
+    if (width === undefined) {
+      return [];
+    }
+    const style = getComputedStyle(block);
+    const available = block.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    return [{ frame, screen, width, scale: Math.min(1, available / width) }];
+  });
+  for (const { screen, width, scale } of scaled) {
+    screen.style.width = `${width}px`;
+    screen.style.transform = scale < 1 ? `scale(${scale})` : '';
+  }
+  const heights = scaled.map(({ screen }) => screen.offsetHeight);
+  scaled.forEach(({ frame, width, scale }, i) => {
+    frame.style.width = `${width * scale}px`;
+    frame.style.height = `${heights[i] * scale}px`;
+  });
+
+  // The boxes of the parts: all the elements measured, then the boxes written.
+  const placements = shown.flatMap(({ frame, shadow }) => {
+    const elements = new Map<number, Element[]>();
+    for (const element of Array.from(shadow.querySelectorAll('[data-item]'))) {
+      const number = partNumber(element.getAttribute('data-item')!);
+      if (number !== undefined) {
+        elements.set(number, [...(elements.get(number) ?? []), element]);
+      }
+    }
+    const origin = frame.getBoundingClientRect();
+    // The frame may be scaled (in the zoom overlay): the boxes are placed in its own pixels.
+    const factor = frame.offsetWidth > 0 ? origin.width / frame.offsetWidth : 1;
+    const { clientLeft, clientTop } = frame;
+    return Array.from(frame.querySelectorAll<HTMLElement>('.seqnotes-part'), (box) => {
+      const r = elements.get(Number(box.dataset.seqnotesPart))?.[Number(box.dataset.seqnotesPartIndex)]?.getBoundingClientRect();
+      // An element not shown has no box.
+      const place = r && (r.width > 0 || r.height > 0)
+        ? { left: (r.left - origin.left) / factor - clientLeft, top: (r.top - origin.top) / factor - clientTop, width: r.width / factor, height: r.height / factor }
+        : undefined;
+      return { box, place };
+    });
+  });
+  for (const { box, place } of placements) {
+    box.hidden = !place;
+    if (place) {
+      box.style.left = `${place.left}px`;
+      box.style.top = `${place.top}px`;
+      box.style.width = `${place.width}px`;
+      box.style.height = `${place.height}px`;
     }
   }
 }
 
+/** Lays out the wireframe of `block` (`layoutBlocks`). */
+export function layoutWireframe(block: HTMLElement): void {
+  layoutBlocks([block]);
+}
+
 /** Lays out the wireframes of `root`, once it is in the page. */
 export function layoutWireframes(root: Element): void {
-  root.querySelectorAll<HTMLElement>('.seqnotes-wireframe').forEach(layoutWireframe);
+  layoutBlocks(root.querySelectorAll<HTMLElement>('.seqnotes-wireframe'));
 }
 
 /** The shadow root of the page of the wireframe of `block`, once mounted. */
@@ -360,9 +441,16 @@ export function watchWireframe(block: HTMLElement): void {
   layoutWireframe(block);
 }
 
-/** `watchWireframe` for the wireframes of `root`. */
+/** `watchWireframe` for the wireframes of `root`, laid out together. */
 export function watchWireframes(root: Element): void {
-  root.querySelectorAll<HTMLElement>('.seqnotes-wireframe').forEach(watchWireframe);
+  const blocks = Array.from(root.querySelectorAll<HTMLElement>('.seqnotes-wireframe'));
+  for (const block of blocks) {
+    const shadow = shadowOf(block);
+    if (shadow) {
+      observe(block, shadow);
+    }
+  }
+  layoutBlocks(blocks);
 }
 
 /**

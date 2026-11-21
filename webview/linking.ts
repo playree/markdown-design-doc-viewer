@@ -54,14 +54,28 @@ export const endsDrag = (e: MouseEvent): boolean => pressed !== undefined && Mat
  */
 export const isSideBySide = (el: Element): boolean => el.closest('.seqnotes-viewer.seqnotes-wide') !== null && !el.closest('.seqnotes-pair-stacked');
 
-/** Highlights the arrows and the section (and rows) of `active`, and clears the previous highlight in `root`. */
+/** What `showActive` highlighted last in each root, and the elements it highlighted. */
+const highlighted = new WeakMap<Element, { active: Active | undefined; elements: Element[] }>();
+
+/**
+ * Highlights the arrows and the section (and rows) of `active`, and clears the previous highlight in `root`. Does nothing
+ * when they are highlighted already (the pointer moving over the same arrow or step), unless the content was replaced.
+ */
 export function showActive(root: Element, active: Active | undefined): void {
-  root.querySelectorAll(`.${ACTIVE}`).forEach((el) => el.classList.remove(ACTIVE));
-  if (!active) {
+  const last = highlighted.get(root);
+  const same = last && last.active?.pair === active?.pair && last.active?.target === active?.target;
+  // Its elements still there (and some, as the content may have been replaced with one that has them).
+  if (same && (!active || (last.elements.length > 0 && last.elements.every((el) => root.contains(el))))) {
     return;
   }
-  const target = CSS.escape(active.target);
-  active.pair.querySelectorAll(`[data-seqnotes-target="${target}"], [data-seqnotes-section="${target}"]`).forEach((el) => el.classList.add(ACTIVE));
+  root.querySelectorAll(`.${ACTIVE}`).forEach((el) => el.classList.remove(ACTIVE));
+  let elements: Element[] = [];
+  if (active) {
+    const target = CSS.escape(active.target);
+    elements = Array.from(active.pair.querySelectorAll(`[data-seqnotes-target="${target}"], [data-seqnotes-section="${target}"]`));
+    elements.forEach((el) => el.classList.add(ACTIVE));
+  }
+  highlighted.set(root, { active, elements });
 }
 
 /** The message or linked heading (or row of an item table) under an event target. */

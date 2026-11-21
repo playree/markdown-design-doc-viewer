@@ -20,8 +20,8 @@ import { formatMessage, translatorFor, type Translate } from '../src/shared/l10n
 import { WEBVIEW_TITLES, type DiagramLook, type DiffView, type FromWebview, type WebviewState } from '../src/shared/protocol';
 import { renderDiff } from '../src/diff/diffRender';
 import { documentTitle, exportDiff, exportPage, renderDiffForExport, renderForExport } from '../src/export/exportPage';
-import { createMarkdown, renderDocument, type RenderEnv } from '../src/markdown/render';
-import { loadWireframes, wireframeSources, type WireframeFiles } from '../src/markdown/wireframe';
+import { createMarkdown, renderDocument, renderTokens, type RenderEnv } from '../src/markdown/render';
+import { attachWireframes, loadWireframes, wireframeSources, type WireframeFiles } from '../src/markdown/wireframe';
 import { createPreview } from '../webview/preview';
 import { elementScrollHost, writeTitles } from '../webview/viewerContext';
 import { designDocListHtml, type DesignDocListContent } from './designDocList';
@@ -167,16 +167,43 @@ function fetchFrom(baseUrl: string): (path: string) => Promise<string | undefine
   };
 }
 
+/** The text of the files of the wireframes read by a viewer, by their path (`readWireframes`). */
+type FileCache = Map<string, Promise<string | undefined>>;
+
 /**
- * Reads the files of the wireframes of `markdown` with `readFile`, or with `fetch` from `baseUrl`; undefined without
- * either. A file that cannot be read is shown as such, without the document failing.
+ * Reads the files of the wireframes `srcs` (`wireframeSources`) with `readFile`, or with `fetch` from `baseUrl`;
+ * undefined without either. A file that cannot be read is shown as such, without the document failing. With `cache`,
+ * a file read before is not read again (nor one being read), unless it could not be read; the cache keeps the files of
+ * these wireframes only.
  */
-async function readWireframes(markdown: string, { readFile, baseUrl }: Pick<ViewerOptions, 'readFile' | 'baseUrl'>): Promise<WireframeFiles | undefined> {
+async function readWireframes(srcs: string[], { readFile, baseUrl }: Pick<ViewerOptions, 'readFile' | 'baseUrl'>, cache?: FileCache): Promise<WireframeFiles | undefined> {
   const read = readFile ?? (baseUrl === undefined ? undefined : fetchFrom(baseUrl));
   if (!read) {
     return undefined;
   }
-  return loadWireframes(md, wireframeSources(md.parse(markdown, {})), (path) => Promise.resolve().then(() => read(path)).catch(() => undefined));
+  const readNow = (path: string): Promise<string | undefined> => Promise.resolve().then(() => read(path)).catch(() => undefined);
+  if (!cache) {
+    return loadWireframes(md, srcs, readNow);
+  }
+  const used = new Set<string>();
+  const files = await loadWireframes(md, srcs, (path) => {
+    used.add(path);
+    let text = cache.get(path);
+    if (!text) {
+      const reading = readNow(path);
+      cache.set(path, reading);
+      // Read again next time.
+      void reading.then((value) => value === undefined && cache.get(path) === reading && cache.delete(path));
+      text = reading;
+    }
+    return text;
+  });
+  for (const path of cache.keys()) {
+    if (!used.has(path)) {
+      cache.delete(path);
+    }
+  }
+  return files;
 }
 
 /**
@@ -198,7 +225,8 @@ function diffView({ old, stats }: Pick<DiffView, 'old' | 'stats'>, compareLabel:
 }
 
 /** The options that change the HTML of the document: it is rendered again when one of them changes. */
-const CONTENT_OPTIONS = ['markdown', 'baseUrl', 'readFile', 'resolveResource', 'frontMatter', 'headingNumbers', 'messageWrapWidth', 'compareWith', 'restrictHtml'] as const;
+/** `documentId` too: the files of the wireframes of another document are read again (`files`), even if their paths are the same. */
+const CONTENT_OPTIONS = ['markdown', 'documentId', 'baseUrl', 'readFile', 'resolveResource', 'frontMatter', 'headingNumbers', 'messageWrapWidth', 'compareWith', 'restrictHtml'] as const;
 /** The options of the preview, sent with the HTML rendered last when only they change. */
 const VIEW_OPTIONS = ['documentId', 'splitMinWidth', 'toc', 'diagramLook', 'limitContentWidth', 'stickyTableHeader', 'tableTreeHighlight'] as const;
 
@@ -298,6 +326,11 @@ export function createViewer(container: HTMLElement, options: ViewerOptions): Vi
   let diff: DiffView | undefined;
   /** The files of the wireframes read by the last render, for one without the differences only. */
   let wireframesRead: { files: WireframeFiles | undefined } | undefined;
+  /**
+   * The files of the wireframes, kept until `readFile`, `baseUrl` or `documentId` changes: not read again when the
+   * Markdown changes. Replaced then, so that a render under way with the files before does not add them to it.
+   */
+  let files: FileCache = new Map();
   /** The last render started, whether it is under way, and its number: an older one that ends later is not shown. */
   let rendering: Promise<void> = Promise.resolve();
   let pending = false;
@@ -353,19 +386,25 @@ export function createViewer(container: HTMLElement, options: ViewerOptions): Vi
     pending = true;
     const { markdown, baseUrl } = current;
     const resolveResource = current.resolveResource ?? (baseUrl === undefined ? undefined : (src: string) => resolveUrl(src, baseUrl) ?? src);
-    const wireframes = sameWireframes && wireframesRead ? wireframesRead.files : await readWireframes(markdown, current);
+    const env = (): RenderEnv => ({ t, frontMatter: current.frontMatter, headingNumbers: current.headingNumbers, messageWrapWidth: current.messageWrapWidth, resolveResource });
+    // Parsed once: for its wireframes, and rendered with their files when it is shown alone.
+    const parsedEnv = env();
+    const tokens = md.parse(markdown, parsedEnv);
+    const wireframes = sameWireframes && wireframesRead ? wireframesRead.files : await readWireframes(wireframeSources(tokens), current, files);
     if (destroyed || seq !== renders) {
       return;
     }
     pending = false;
     wireframesRead = { files: wireframes };
     const compareWith = current.compareWith === dismissed ? undefined : current.compareWith;
-    ({ html, diff } = viewerContent(
-      markdown,
-      { t, frontMatter: current.frontMatter, headingNumbers: current.headingNumbers, messageWrapWidth: current.messageWrapWidth, wireframes, resolveResource },
-      compareWith,
-      current.compareLabel,
-    ));
+    if (compareWith === undefined) {
+      attachWireframes(md, tokens, wireframes ?? {});
+      html = renderTokens(md, tokens, { ...parsedEnv, wireframes });
+      diff = undefined;
+    } else {
+      // Parsed again with the revision (`renderDiff`), with an env of its own (the footnotes of a parse are kept in it).
+      ({ html, diff } = viewerContent(markdown, { ...env(), wireframes }, compareWith, current.compareLabel));
+    }
     await show(html, diff);
   }
 
@@ -382,6 +421,10 @@ export function createViewer(container: HTMLElement, options: ViewerOptions): Vi
       applyTheme();
       if (current.compareWith !== previous.compareWith) {
         dismissed = undefined;
+      }
+      // Another document's files may have the same paths.
+      if (current.readFile !== previous.readFile || current.baseUrl !== previous.baseUrl || current.documentId !== previous.documentId) {
+        files = new Map();
       }
       if (html === undefined || CONTENT_OPTIONS.some((name) => current[name] !== previous[name])) {
         rendering = render();
@@ -640,7 +683,7 @@ export async function exportDocument(options: ExportOptions, assets: ExportAsset
   const lang = langOf(options.lang);
   const t = translator(lang);
   const { markdown, baseUrl } = options;
-  const wireframes = await readWireframes(markdown, options);
+  const wireframes = await readWireframes(wireframeSources(md.parse(markdown, {})), options);
   const resolveImage = options.resolveImage ?? ((path: string) => (baseUrl === undefined ? path : (resolveUrl(path, baseUrl) ?? path)));
   // Without its query and fragment, which renderForExport adds back to a URL.
   const image = (src: string): Promise<string> => {

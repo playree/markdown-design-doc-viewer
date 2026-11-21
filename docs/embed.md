@@ -66,7 +66,7 @@ viewer.destroy();
 | `markdown` | (required) | The Markdown of the design document. |
 | `documentId` | | Tells the documents apart: when it changes, the viewer shows another document, from its top. While it stays the same, an update keeps the scrolling, as when the document is edited. |
 | `baseUrl` | | The URL of the folder of the document, from which the paths of its images and wireframes are resolved (and the wireframes read with `fetch`, without `readFile`). |
-| `readFile` | `fetch` from `baseUrl` | `(path) => Promise<string \| undefined>`: reads a file of a wireframe (its HTML, or a style sheet of it), given its path as written in the document (relative to it, or to the root with a leading `/`), decoded. Returns undefined when it cannot be read. |
+| `readFile` | `fetch` from `baseUrl` | `(path) => Promise<string \| undefined>`: reads a file of a wireframe (its HTML, or a style sheet of it), given its path as written in the document (relative to it, or to the root with a leading `/`), decoded. Returns undefined when it cannot be read. The viewer reads each file once and keeps it while `readFile`, `baseUrl` and `documentId` stay the same (a file that could not be read is read again at the next render): give another `readFile` (or `baseUrl`) to read the files again, e.g. after they changed. |
 | `resolveResource` | resolved from `baseUrl` | `(src) => string`: the URL of an image `src` of the document. |
 | `lang` | that of the browser | `'en'` or `'ja'`: the language of the texts of the viewer. Only read when the viewer is created. |
 | `theme` | `'auto'` | `'light'`, `'dark'`, or those of the system (`'auto'`). |

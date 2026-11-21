@@ -27,8 +27,10 @@ const KEY_STEP = 5;
  * Adds the boundary after the diagram column of a pair: dragging it gives `onSplit` the width of the diagram column
  * (in % of the pair), and double-clicking it gives `undefined` (the default width). Focused, the arrow keys move it,
  * Home and End to the narrowest and the widest, and Enter resets it. Its listeners are removed with `signal`.
+ * While it is dragged, `onSplit` is called once a frame with `done` false, then with true when it is released: a width
+ * to keep (e.g. with the state) is kept then.
  */
-export function addSplitter(pair: Element, title: string, onSplit: (percent: number | undefined) => void, signal?: AbortSignal): void {
+export function addSplitter(pair: Element, title: string, onSplit: (percent: number | undefined, done: boolean) => void, signal?: AbortSignal): void {
   const splitter = document.createElement('div');
   splitter.className = 'seqnotes-splitter';
   splitter.title = title;
@@ -48,7 +50,7 @@ export function addSplitter(pair: Element, title: string, onSplit: (percent: num
   /** Tells the width laid out to assistive technologies. */
   const showValue = (): void => splitter.setAttribute('aria-valuenow', String(Math.round(current())));
   const split = (percent: number | undefined): void => {
-    onSplit(percent);
+    onSplit(percent, true);
     showValue();
   };
 
@@ -57,17 +59,47 @@ export function addSplitter(pair: Element, title: string, onSplit: (percent: num
     (e) => {
       e.preventDefault();
       splitter.setPointerCapture(e.pointerId);
+      // Measured once: the pair keeps its place and width while its columns are resized.
+      const r = pair.getBoundingClientRect();
+      let percent: number | undefined;
+      let frame: number | undefined;
+      // The moves of a frame written once, without reading the layout.
       const move = (ev: PointerEvent) => {
-        const r = pair.getBoundingClientRect();
-        split(((ev.clientX - r.left) / r.width) * 100);
+        percent = r.width > 0 ? ((ev.clientX - r.left) / r.width) * 100 : undefined;
+        frame ??= requestAnimationFrame(() => {
+          frame = undefined;
+          if (percent !== undefined) {
+            onSplit(percent, false);
+            // As it is written (`applySplit`), without measuring the columns.
+            splitter.setAttribute('aria-valuenow', String(Math.round(Math.min(MAX_SPLIT, Math.max(MIN_SPLIT, percent)))));
+          }
+        });
       };
-      // After the pointer is released, or the drag is cancelled (by a gesture of a touch screen, for instance).
-      const end = () => {
+      // After the pointer is released, or the drag is cancelled (by a gesture of a touch screen, for instance), or the
+      // boundary removed meanwhile (by an update of the document): the width is kept then.
+      const types = ['lostpointercapture', 'pointerup', 'pointercancel'] as const;
+      const stop = (): void => {
         splitter.removeEventListener('pointermove', move);
-        splitter.removeEventListener('lostpointercapture', end);
+        types.forEach((type) => document.removeEventListener(type, end, true));
+        signal?.removeEventListener('abort', stop);
+        if (frame !== undefined) {
+          cancelAnimationFrame(frame);
+          frame = undefined;
+        }
       };
-      splitter.addEventListener('pointermove', move, { signal });
-      splitter.addEventListener('lostpointercapture', end, { signal });
+      const end = (ev: PointerEvent): void => {
+        if (ev.pointerId !== e.pointerId) {
+          return;
+        }
+        stop();
+        if (percent !== undefined) {
+          split(percent);
+        }
+      };
+      splitter.addEventListener('pointermove', move);
+      // On the document: that of a boundary removed is fired there.
+      types.forEach((type) => document.addEventListener(type, end, true));
+      signal?.addEventListener('abort', stop);
     },
     { signal },
   );
