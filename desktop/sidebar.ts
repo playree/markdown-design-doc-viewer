@@ -233,7 +233,7 @@ export function createSidebar({
   /** Opens the folders of the current file once it is listed. */
   let revealCurrent = false;
   /** The items of the list shown: the button of each file, and what opens each folder, by path. */
-  let fileButtons = new Map<string, HTMLButtonElement>();
+  let fileButtons = new Map<string, HTMLButtonElement[]>();
   let folderOpeners = new Map<string, (open: boolean) => void>();
   /** The document whose history is shown, and its history (see `setHistory`). */
   let historyName: string | undefined;
@@ -332,7 +332,8 @@ export function createSidebar({
     if (file.path === current) {
       button.setAttribute('aria-current', 'page');
     }
-    fileButtons.set(file.path, button);
+    // A file may be listed twice: also by a symbolic link to it.
+    fileButtons.set(file.path, [...(fileButtons.get(file.path) ?? []), button]);
     button.addEventListener('click', () => onOpenFile(file.link ?? file.path));
     item.append(button);
     return item;
@@ -602,9 +603,9 @@ export function createSidebar({
         return;
       }
       // In the list shown, not made again: the file marked, and its folders opened.
-      content.querySelector('[aria-current]')?.removeAttribute('aria-current');
+      content.querySelectorAll('[aria-current]').forEach((button) => button.removeAttribute('aria-current'));
       if (path !== undefined && openCurrentFolders()) {
-        fileButtons.get(path)?.setAttribute('aria-current', 'page');
+        fileButtons.get(path)?.forEach((button) => button.setAttribute('aria-current', 'page'));
         scrollToCurrent();
       }
     },

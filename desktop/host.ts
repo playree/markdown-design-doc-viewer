@@ -364,8 +364,9 @@ async function reload(report: boolean): Promise<void> {
     // Unless another document was opened, or the file read again, meanwhile.
     if (current?.path === path && seq > shownSeq) {
       shownSeq = seq;
-      // Not rendered again when it did not change (e.g. touched, or read again after git and its watch both).
-      const changed = doc.text !== current.text;
+      // Not rendered again when it did not change (e.g. touched, or read again after git and its watch both),
+      // unless asked (File > Reload): its wireframes and images may have.
+      const changed = report || doc.text !== current.text;
       current = doc;
       if (changed) {
         render();
@@ -1319,9 +1320,12 @@ async function setUpMenu(): Promise<void> {
         action: () => {
           void reload(true);
           void loadHistory(true);
-          if (listShown) {
-            render();
-          }
+          // The folder too, whose changes may not all have been followed; the list of the design documents from it.
+          void listFolder(true).then(() => {
+            if (listShown) {
+              render();
+            }
+          });
         },
       }),
       await separator(),
@@ -1395,6 +1399,13 @@ async function setUpMenu(): Promise<void> {
 void appWindow.listen<string>('document-changed', (event) => {
   if (event.payload === current?.path) {
     void reload(false);
+  }
+});
+
+// A document of the folder changed: its entry of the list of the design documents may have.
+void appWindow.listen<string>('folder-file-changed', () => {
+  if (listShown) {
+    render();
   }
 });
 

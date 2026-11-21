@@ -425,9 +425,11 @@ async fn open_folder(
     let listed = Arc::new(Mutex::new(None));
     let watcher = watch_folder(&window, &root, Arc::clone(&listed));
     let (tree, scan) = scan_blocking(root.clone()).await?;
-    let watcher = watcher.and_then(|mut watcher| {
-        watch_subfolders(&mut watcher, &root, &scan.folders)?;
-        Ok(watcher)
+    // Whether the changes of all the folders listed are followed.
+    let mut complete = false;
+    let watcher = watcher.map(|mut watcher| {
+        complete = watch_subfolders(&mut watcher, &root, &scan.folders);
+        watcher
     });
     *listed.lock().unwrap_or_else(PoisonError::into_inner) = Some(Listed {
         folders: scan.folders.iter().cloned().collect(),
@@ -447,9 +449,9 @@ async fn open_folder(
         Ok(watcher) => insert_for(&window, &watches.0, watcher),
         Err(_) => watches.0.lock().unwrap_or_else(PoisonError::into_inner).remove(window.label()),
     };
-    // Only while its changes are followed: else the list of the design documents would not see them.
+    // Only while all its changes are followed: else the list of the design documents would not see them.
     let scanned = ScannedFolder { root, tree: tree.clone(), truncated: scan.truncated };
-    if watching {
+    if watching && complete {
         insert_for(&window, &scans.0, scanned);
     } else {
         scans.0.lock().unwrap_or_else(PoisonError::into_inner).remove(window.label());
@@ -643,11 +645,15 @@ struct Listed {
 }
 
 /// Whether a change of `path` changed the list of the sidebar, as it is now: a Markdown file or a folder listed that is
-/// no longer there, or one that is there but not listed, in the folders listed. Not a file saved by an editor that
-/// writes another file and renames it to it (still there), nor the files of other types, nor the folders it skips or
-/// did not look into (`MAX_DEPTH`, `MAX_ENTRIES`), whose changes may be many.
-fn changes_list(listed: &Listed, path: &Path) -> bool {
-    if listed.folders.contains(path) || listed.files.contains(path) {
+/// no longer there, or one that is there but not listed, in the folders listed. Also a folder listed created again
+/// (removed and created meanwhile), whose watch on Linux was that of the folder removed. Not a file saved by an editor
+/// that writes another file and renames it to it (still there), nor the files of other types, nor the folders it skips
+/// or did not look into (`MAX_DEPTH`, `MAX_ENTRIES`), whose changes may be many.
+fn changes_list(listed: &Listed, kind: &EventKind, path: &Path) -> bool {
+    if listed.folders.contains(path) {
+        return matches!(kind, EventKind::Create(_)) || !path.exists();
+    }
+    if listed.files.contains(path) {
         return !path.exists();
     }
     path.file_name().is_some_and(|name| !is_skipped(name))
@@ -655,28 +661,58 @@ fn changes_list(listed: &Listed, path: &Path) -> bool {
         && (path.is_dir() || (has_extension(path, MARKDOWN_EXTENSIONS) && path.is_file()))
 }
 
-/// Watches `root` for the sidebar of the window, and tells it when its list changed (`changes_list` of `listed`, once
-/// the folder is scanned; any change before), or may have (an error, or events missed). Without the cache of file ids
-/// of the debouncer, which would read all the folders below `root` (the renames are not followed: the folder is
-/// listed again). The scan is dropped then (`Scans`), so that the list of the design documents scans the folder again.
+/// Whether a change of `path`, before the folder `root` is listed, may change the list: a Markdown file or a folder
+/// (or something removed, which may have been one), not in a folder the sidebar skips (`.git`, `node_modules`).
+fn may_change_list(root: &Path, path: &Path) -> bool {
+    path.strip_prefix(root).is_ok_and(|relative| relative.components().all(|c| !is_skipped(c.as_os_str())))
+        && (has_extension(path, MARKDOWN_EXTENSIONS) || path.is_dir() || !path.exists())
+}
+
+/// Whether a change of `path` may have changed a Markdown file listed, written in place or replaced: for the list of
+/// the design documents, which shows their front matter.
+fn changes_listed_file(listed: &Listed, path: &Path) -> bool {
+    listed.files.contains(path) && path.is_file()
+}
+
+/// Watches `root` for the sidebar of the window, and tells it when its list changed (`folder-changed`: `changes_list`
+/// of `listed`, once the folder is scanned, or `may_change_list` before), or may have (an error, or events missed), or
+/// else when a file listed changed (`folder-file-changed`). Without the cache of file ids of the debouncer, which would
+/// read all the folders below `root` (the renames are not followed: the folder is listed again). The scan is dropped
+/// when the list changes (`Scans`), so that the list of the design documents scans the folder again.
 fn watch_folder(window: &Window, root: &Path, listed: Arc<Mutex<Option<Listed>>>) -> Result<FolderWatcher, String> {
     let app = window.app_handle().clone();
     let label = window.label().to_string();
+    let root_path = root.to_path_buf();
     let target = to_string(root);
     let handler = move |result: DebounceEventResult| {
-        let changed = result.map_or(true, |events| {
-            let listed = listed.lock().unwrap_or_else(PoisonError::into_inner);
-            events.iter().any(|event| {
-                event.need_rescan()
-                    || (matches!(
-                        event.kind,
-                        EventKind::Any | EventKind::Create(_) | EventKind::Remove(_) | EventKind::Modify(ModifyKind::Name(_))
-                    ) && listed.as_ref().is_none_or(|listed| event.paths.iter().any(|path| changes_list(listed, path))))
-            })
-        });
-        if changed {
+        let (list_changed, file_changed) = match result {
+            Err(_) => (true, false),
+            Ok(events) => {
+                let listed = listed.lock().unwrap_or_else(PoisonError::into_inner);
+                let list_changed = events.iter().any(|event| {
+                    event.need_rescan()
+                        || (matches!(
+                            event.kind,
+                            EventKind::Any | EventKind::Create(_) | EventKind::Remove(_) | EventKind::Modify(ModifyKind::Name(_))
+                        ) && event.paths.iter().any(|path| match listed.as_ref() {
+                            Some(listed) => changes_list(listed, &event.kind, path),
+                            None => may_change_list(&root_path, path),
+                        }))
+                });
+                let file_changed = listed.as_ref().is_some_and(|listed| {
+                    events.iter().any(|event| {
+                        matches!(event.kind, EventKind::Any | EventKind::Create(_) | EventKind::Modify(ModifyKind::Name(_) | ModifyKind::Data(_) | ModifyKind::Any))
+                            && event.paths.iter().any(|path| changes_listed_file(listed, path))
+                    })
+                });
+                (list_changed, file_changed)
+            }
+        };
+        if list_changed {
             app.state::<Scans>().0.lock().unwrap_or_else(PoisonError::into_inner).remove(&label);
             let _ = app.emit_to(label.as_str(), "folder-changed", &target);
+        } else if file_changed {
+            let _ = app.emit_to(label.as_str(), "folder-file-changed", &target);
         }
     };
     let mut debouncer = new_debouncer_opt(DEBOUNCE, None, handler, NoCache, notify::Config::default())
@@ -702,21 +738,27 @@ const ROOT_WATCH: RecursiveMode = RecursiveMode::NonRecursive;
 const ROOT_WATCH: RecursiveMode = RecursiveMode::Recursive;
 
 /// Linux: watches the folders listed below the root (watched by `watch_folder`).
+/// Returns whether all of them are watched.
 #[cfg(target_os = "linux")]
-fn watch_subfolders(debouncer: &mut FolderWatcher, root: &Path, folders: &[PathBuf]) -> Result<(), String> {
-    for folder in folders.iter().filter(|folder| *folder != root).take(MAX_WATCHED_FOLDERS - 1) {
+fn watch_subfolders(debouncer: &mut FolderWatcher, root: &Path, folders: &[PathBuf]) -> bool {
+    let mut all = true;
+    for (i, folder) in folders.iter().filter(|folder| *folder != root).enumerate() {
+        if i + 1 >= MAX_WATCHED_FOLDERS {
+            return false;
+        }
         // The others are still watched (e.g. no more inotify watches for this one).
         if let Err(error) = debouncer.watch(folder, RecursiveMode::NonRecursive) {
             eprintln!("Could not watch {}: {error}", folder.display());
+            all = false;
         }
     }
-    Ok(())
+    all
 }
 
 /// Windows and macOS: watched with the root.
 #[cfg(not(target_os = "linux"))]
-fn watch_subfolders(_debouncer: &mut FolderWatcher, _root: &Path, _folders: &[PathBuf]) -> Result<(), String> {
-    Ok(())
+fn watch_subfolders(_debouncer: &mut FolderWatcher, _root: &Path, _folders: &[PathBuf]) -> bool {
+    true
 }
 
 /// Lets the webview load these images (local images of the document) with the asset protocol.
