@@ -419,18 +419,12 @@ async fn open_folder(
     if !root.is_dir() {
         return Err("Not a folder.".to_string());
     }
-    // Watched before it is scanned, so that a file added meanwhile is not missed: the changes before the scan ends
-    // make the sidebar list the folder again. Before taking the lock, which the other windows (and their closing, on
-    // the main thread) wait for.
+    // Watched before it is scanned (on Linux, each folder before it is read), so that a file added meanwhile is not
+    // missed: the changes before the scan ends make the sidebar list the folder again. Before taking the lock, which
+    // the other windows (and their closing, on the main thread) wait for.
     let listed = Arc::new(Mutex::new(None));
     let watcher = watch_folder(&window, &root, Arc::clone(&listed));
-    let (tree, scan) = scan_blocking(root.clone()).await?;
-    // Whether the changes of all the folders listed are followed.
-    let mut complete = false;
-    let watcher = watcher.map(|mut watcher| {
-        complete = watch_subfolders(&mut watcher, &root, &scan.folders);
-        watcher
-    });
+    let (watcher, tree, scan, complete) = scan_watching(root.clone(), watcher).await?;
     *listed.lock().unwrap_or_else(PoisonError::into_inner) = Some(Listed {
         folders: scan.folders.iter().cloned().collect(),
         files: scan.files.iter().cloned().collect(),
@@ -459,12 +453,23 @@ async fn open_folder(
     Ok(FolderTree { root: tree, truncated: scan.truncated, watching })
 }
 
-/// `scan_folder` of `root`, on a thread that may block rather than on one of the async commands.
-async fn scan_blocking(root: PathBuf) -> Result<(Folder, Scan), String> {
+/// `scan_folder` of `root`, on a thread that may block rather than on one of the async commands, with the folders
+/// listed below it watched by `watcher` (on Linux, `SubfolderWatch`) before they are read. Returns the watcher, and
+/// whether the changes of all the folders listed are followed.
+async fn scan_watching(
+    root: PathBuf,
+    watcher: Result<FolderWatcher, String>,
+) -> Result<(Result<FolderWatcher, String>, Folder, Scan, bool), String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let mut watcher = watcher;
+        let mut subfolders = SubfolderWatch::new(&root);
         let mut scan = Scan::default();
-        let tree = scan_folder(&root, 0, &mut scan);
-        (tree, scan)
+        let tree = scan_folder(&root, 0, &mut scan, &mut |folder| {
+            if let Ok(watcher) = &mut watcher {
+                subfolders.watch(watcher, folder);
+            }
+        });
+        (watcher, tree, scan, subfolders.complete)
     })
     .await
     .map_err(|e| e.to_string())
@@ -517,7 +522,7 @@ async fn read_design_docs(window: Window, scans: State<'_, Scans>, path: String)
             Some(scanned) => (scanned.tree, scanned.truncated),
             None => {
                 let mut scan = Scan::default();
-                (scan_folder(&root, 0, &mut scan), scan.truncated)
+                (scan_folder(&root, 0, &mut scan, &mut |_| {}), scan.truncated)
             }
         };
         let mut files = Vec::new();
@@ -588,9 +593,11 @@ fn is_skipped(name: &OsStr) -> bool {
 }
 
 /// The Markdown files of `dir` and of its subfolders, `depth` folders below the one of the sidebar. The symbolic links
-/// to folders are not followed, so that a link to a folder above does not list it again and again.
-fn scan_folder(dir: &Path, depth: usize, scan: &mut Scan) -> Folder {
+/// to folders are not followed, so that a link to a folder above does not list it again and again. `visit` is called
+/// with each folder listed before it is read (to watch it).
+fn scan_folder(dir: &Path, depth: usize, scan: &mut Scan, visit: &mut dyn FnMut(&Path)) -> Folder {
     scan.folders.push(dir.to_path_buf());
+    visit(dir);
     let mut folder = Folder {
         path: to_string(dir),
         // A root (`C:\`, `/`) has no name.
@@ -621,7 +628,7 @@ fn scan_folder(dir: &Path, depth: usize, scan: &mut Scan) -> Folder {
                 scan.truncated = true;
                 continue;
             }
-            let sub = scan_folder(&path, depth + 1, scan);
+            let sub = scan_folder(&path, depth + 1, scan, visit);
             if !sub.folders.is_empty() || !sub.files.is_empty() {
                 folder.folders.push(sub);
             }
@@ -646,15 +653,16 @@ struct Listed {
 
 /// Whether a change of `path` changed the list of the sidebar, as it is now: a Markdown file or a folder listed that is
 /// no longer there, or one that is there but not listed, in the folders listed. Also a folder listed created again
-/// (removed and created meanwhile), whose watch on Linux was that of the folder removed. Not a file saved by an editor
-/// that writes another file and renames it to it (still there), nor the files of other types, nor the folders it skips
-/// or did not look into (`MAX_DEPTH`, `MAX_ENTRIES`), whose changes may be many.
+/// (removed and created meanwhile), whose watch on Linux was that of the folder removed, a Markdown file listed
+/// replaced by a folder, and a symbolic link listed (replaced: the sidebar shows the path of its target). Not a file
+/// saved by an editor that writes another file and renames it to it (still a file), nor the files of other types, nor
+/// the folders it skips or did not look into (`MAX_DEPTH`, `MAX_ENTRIES`), whose changes may be many.
 fn changes_list(listed: &Listed, kind: &EventKind, path: &Path) -> bool {
     if listed.folders.contains(path) {
         return matches!(kind, EventKind::Create(_)) || !path.exists();
     }
     if listed.files.contains(path) {
-        return !path.exists();
+        return !path.is_file() || path.is_symlink();
     }
     path.file_name().is_some_and(|name| !is_skipped(name))
         && path.parent().is_some_and(|parent| listed.folders.contains(parent))
@@ -727,7 +735,7 @@ fn watch_folder(window: &Window, root: &Path, listed: Arc<Mutex<Option<Listed>>>
 #[cfg(target_os = "linux")]
 const MAX_WATCHED_FOLDERS: usize = 1_000;
 
-/// Linux: the root alone (`watch_folder`), then each folder listed on its own (`watch_subfolders`), rather than all
+/// Linux: the root alone (`watch_folder`), then each folder listed on its own (`SubfolderWatch`), rather than all
 /// those below the root, which inotify would watch one by one, also those the sidebar skips (`.git`, `node_modules`).
 #[cfg(target_os = "linux")]
 const ROOT_WATCH: RecursiveMode = RecursiveMode::NonRecursive;
@@ -737,28 +745,53 @@ const ROOT_WATCH: RecursiveMode = RecursiveMode::NonRecursive;
 #[cfg(not(target_os = "linux"))]
 const ROOT_WATCH: RecursiveMode = RecursiveMode::Recursive;
 
-/// Linux: watches the folders listed below the root (watched by `watch_folder`).
-/// Returns whether all of them are watched.
+/// Linux: watches the folders listed below the root (watched by `watch_folder`), each one before it is read
+/// (`scan_watching`), so that the changes between its reading and its watch are not missed.
 #[cfg(target_os = "linux")]
-fn watch_subfolders(debouncer: &mut FolderWatcher, root: &Path, folders: &[PathBuf]) -> bool {
-    let mut all = true;
-    for (i, folder) in folders.iter().filter(|folder| *folder != root).enumerate() {
-        if i + 1 >= MAX_WATCHED_FOLDERS {
-            return false;
+struct SubfolderWatch {
+    root: PathBuf,
+    /// The number of folders below the root watched (or that could not be).
+    watched: usize,
+    /// Whether all the folders listed are watched.
+    complete: bool,
+}
+
+#[cfg(target_os = "linux")]
+impl SubfolderWatch {
+    fn new(root: &Path) -> Self {
+        Self { root: root.to_path_buf(), watched: 0, complete: true }
+    }
+
+    fn watch(&mut self, debouncer: &mut FolderWatcher, folder: &Path) {
+        if folder == self.root.as_path() {
+            return;
         }
+        if self.watched + 1 >= MAX_WATCHED_FOLDERS {
+            self.complete = false;
+            return;
+        }
+        self.watched += 1;
         // The others are still watched (e.g. no more inotify watches for this one).
         if let Err(error) = debouncer.watch(folder, RecursiveMode::NonRecursive) {
             eprintln!("Could not watch {}: {error}", folder.display());
-            all = false;
+            self.complete = false;
         }
     }
-    all
 }
 
 /// Windows and macOS: watched with the root.
 #[cfg(not(target_os = "linux"))]
-fn watch_subfolders(_debouncer: &mut FolderWatcher, _root: &Path, _folders: &[PathBuf]) -> bool {
-    true
+struct SubfolderWatch {
+    complete: bool,
+}
+
+#[cfg(not(target_os = "linux"))]
+impl SubfolderWatch {
+    fn new(_root: &Path) -> Self {
+        Self { complete: true }
+    }
+
+    fn watch(&mut self, _debouncer: &mut FolderWatcher, _folder: &Path) {}
 }
 
 /// Lets the webview load these images (local images of the document) with the asset protocol.
