@@ -13,10 +13,10 @@
    - 続けて Agent Skill の zip（`markdown-design-doc-skill.zip`）を Release に添付する。README は `releases/latest/download/` の固定 URL でリンクしているので、ファイル名を変えない。
    - 同じ Release で [.github/workflows/pages.yml](../.github/workflows/pages.yml) が `pnpm pages` でサイトを作り、GitHub Pages（https://playree.github.io/markdown-design-doc-viewer/）に公開する。`/`（英語）と `/ja/`（日本語）は紹介用のランディングページ、`/sample/` と `/ja/sample/` は examples/screenshot.md と screenshot.ja.md を CLI でエクスポートしたサンプル。プレリリースでは更新しない。main からの手動実行（workflow_dispatch）でも更新できる。Pages の Source は「GitHub Actions」で、環境 `github-pages` に main とタグ `v*` からのデプロイを許可してある。
 3. Marketplace には、Marketplace の管理画面（https://marketplace.visualstudio.com/manage/publishers/playree ）から .vsix をアップロードして公開する（`vsce publish` と PAT は使わない）。
-   - .vsix は、タグを checkout した変更のない作業ツリーで `pnpm package` を実行して作る（npm と同じコミットにするため。例: `git worktree add --detach .work/release vX.Y.Z` → `pnpm install --frozen-lockfile` → `pnpm package`）。
+   - .vsix は、タグを checkout した変更のない作業ツリーで `pnpm package` を実行して作る（npm と同じコミットにするため。例: `git worktree add --detach .work/release vX.Y.Z` → `cd .work/release` → `pnpm install --frozen-lockfile` → `pnpm package`）。
    - Marketplace が Trusted Publishing（`vsce publish --oidc`）に対応したら、release.yml に公開のジョブを足して CI から公開するように切り替える。
 
-npm の Trusted Publisher は npmjs.com のパッケージ設定に登録する（GitHub Actions、`playree/markdown-design-doc-viewer`、ワークフロー `release.yml`）。パッケージが npm にないと登録できないので、初回だけは手元から公開してから登録した（手元から公開するときは `pnpm npm:package` → `npm publish .work/npm`）。埋め込みのビューアも同じで、初めて出すリリースでは、version を上げたコミット（main）で `pnpm npm:embed-package` → `npm publish .work/npm-embed` を手元から行い、Trusted Publisher を登録してから Release を作る（`npm-embed` ジョブは既にあるバージョンを飛ばす）。ワークフローのファイル名を変えると公開できなくなるので、変えるなら登録も直す。
+npm の Trusted Publisher は npmjs.com のパッケージ設定に登録する（GitHub Actions、`playree/markdown-design-doc-viewer`、ワークフロー `release.yml`）。パッケージが npm にないと登録できないので、初回だけは手元から公開してから登録した（手元から公開するときは `pnpm npm:package` → `npm publish .work/npm`）。埋め込みのビューアも同じで、初めて出すリリースでは、version を上げたコミット（main）で `pnpm npm:embed-package` → `npm publish .work/npm-embed`（プレリリースなら `--tag next` を付ける）を手元から行い、Trusted Publisher を登録してから Release を作る（`npm-embed` ジョブは既にあるバージョンを飛ばす）。ワークフローのファイル名を変えると公開できなくなるので、変えるなら登録も直す。
 
 `publish` は npm のライフサイクルスクリプト名（`npm publish` の後に実行される）なので、スクリプトに `publish` という名前を付けないこと。
 
