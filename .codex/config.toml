@@ -1,0 +1,3 @@
+# Codex のプロジェクトの設定（信頼したリポジトリで読まれる）。
+# AGENTS.md は Codex の既定の上限 (32 KiB) を超えるので、切り詰めずに読ませる。
+project_doc_max_bytes = 98304
